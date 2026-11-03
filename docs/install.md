@@ -1,0 +1,88 @@
+# Guided installation
+
+The guided installer supports **Arch Linux and compatible Omarchy 4 shells**.
+You need an interactive terminal, a security key and working sudo access.
+Desktop integration requires the existing password lock to work first.
+
+## Start with one command
+
+While this repository is private, use an authenticated GitHub CLI account with
+access to it (`gh auth login` if you have not signed in yet):
+
+```sh
+gh repo clone marselnenaj/omarchy-yubikey && ./omarchy-yubikey/install.sh
+```
+
+Already cloned? Run `./install.sh` from that checkout. To inspect prerequisites
+without changing anything, run `./install.sh --check`. You can review the
+[installer source](../install.sh) before running it.
+
+## What setup asks
+
+1. **Choose features.** sudo and desktop integration are offered separately.
+   The optional GNOME Keyring helper is off by default.
+2. **Prepare recovery.** Keep a separate `sudo -s` shell open while setting up
+   authentication. The wizard explains this before making changes.
+3. **Enroll a key.** Plug in one key and touch it when it blinks. You can add a
+   backup key too. Existing users and keys in the central mapping are preserved.
+4. **Review the plan.** The installer lists the files it will change and asks
+   before applying them. Original PAM files and mappings are backed up first.
+5. **Test authentication.** If sudo was selected, the wizard walks you through
+   password authentication with the key unplugged, then key authentication.
+6. **Enable the desktop.** The selected lock and Polkit plugins replace existing
+   authentication clones after a shell-config backup. Test an actual lock and a
+   benign privileged action before closing the recovery shell.
+
+Touch-only authentication does not request a FIDO2 PIN. Your existing password
+fallback stays in the PAM stack. The installer supports standard Arch
+`auth include system-auth` stacks; it stops on custom stacks for manual review
+instead of rewriting their policy. See the [security model](security-model.md).
+
+If you select Keyring, setup also builds the Rust helper, asks for your existing
+keyring password, enrolls the key and checks decryption. It offers startup
+integration separately. Existing helper binaries and encrypted stores are
+backed up; an enrollment failure restores those copies. Your ordinary keyring
+password remains usable. See [the Keyring guide](keyring.md).
+
+## Backups and rollback
+
+The installer prints the system backup ID. From the checkout, restore it with:
+
+```sh
+./install.sh --rollback BACKUP_ID
+```
+
+If sudo no longer works, use the recovery root shell you kept open:
+
+```sh
+python3 scripts/configure-pam.py --rollback /var/lib/omarchy-yubikey/backups/BACKUP_ID
+```
+
+PAM rollback restores the selected files and removes overrides created during
+that setup. Later enrollments/changes to those files are replaced by the backup.
+It does not change the currently selected desktop plugins or Keyring helper.
+
+While the desktop is unlocked, disable the replacements to return to the stock
+services:
+
+```sh
+omarchy plugin disable yubikey.lock
+omarchy plugin disable yubikey.polkit
+```
+
+User backups live under `$XDG_STATE_HOME/omarchy-yubikey/backups` (normally
+`~/.local/state/omarchy-yubikey/backups`). Setup prints the exact directory.
+A `shell.json` backup preserves the previous plugin selection; restore it while
+unlocked if you previously used other authentication clones. Plugin updates also
+keep copies of the previous plugin directories there. Keyring backups can
+contain an encrypted password store: keep the directory private and outside Git.
+
+For manual installation or a custom PAM stack, use [PAM setup](pam-setup.md),
+[shell plugins](plugins.md) and [Keyring](keyring.md).
+
+## Current validation
+
+PAM planning, preservation of other enrollments, rollback, file permissions and
+interrupted writes are covered by isolated tests. The installer has not yet been
+qualified end to end with a fresh hardware enrollment. This remains a source
+preview; keep a recovery path available during testing.

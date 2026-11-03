@@ -1,0 +1,11 @@
+[Unit]
+Description=Unlock GNOME Keyring with a security-key touch
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/keyring-unlock unlock
+
+[Install]
+WantedBy=graphical-session.target

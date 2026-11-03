@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "yubikey.lock",
+  "name": "YubiKey Lock Screen",
+  "version": "0.1.0",
+  "author": "marselnenaj",
+  "description": "Touch-to-authenticate session lock with parallel password, fingerprint and FIDO2 PAM flows.",
+  "omarchy": {
+    "capabilities": [
+      "authentication"
+    ],
+    "clonedFrom": "omarchy.lock"
+  },
+  "kinds": [
+    "service"
+  ],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml"
+  }
+}

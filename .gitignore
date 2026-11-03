@@ -1,0 +1,26 @@
+/target/
+/dist/
+/build/
+/.local/
+/.config/
+/.cache/
+.env
+.env.*
+*.bak
+*.bak.*
+*.backup
+*.bundle
+*.log
+*.tmp
+*.swp
+*~
+__pycache__/
+.DS_Store
+# Never commit local enrollment data, even when encrypted.
+password.json
+u2f_keys
+fido2
+*.key
+*.pem
+*.p12
+*.pfx

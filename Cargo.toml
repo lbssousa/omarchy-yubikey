@@ -1,0 +1,14 @@
+[workspace]
+resolver = "2"
+members = ["keyring-unlock"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+authors = ["marselnenaj"]
+repository = "https://github.com/marselnenaj/omarchy-yubikey"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
