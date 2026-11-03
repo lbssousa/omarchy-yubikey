@@ -24,3 +24,11 @@ fido2
 *.pem
 *.p12
 *.pfx
+# Disk/boot recovery artifacts never belong in source releases.
+*.img
+*.efi
+*.cpio
+*.initramfs
+crypttab
+crypttab.initramfs
+machine-id

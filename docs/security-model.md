@@ -53,11 +53,34 @@ hint, not authoritative discovery of the full PAM stack. The lock handles actual
 PAM success/failure separately. Host updates can break QML imports, IPC contracts
 or the lock lifecycle; test password unlock and recovery after updates.
 
+## LUKS disk unlock
+
+Optional LUKS2 enrollment delegates cryptography and credential storage to
+systemd and cryptsetup. It requests client PIN and user presence; these depend
+on the key supporting/enforcing them. The existing disk passphrase remains an
+alternative, so this does not require two factors on every unlock path.
+Unlike the PAM touch-only route, the intended disk-token policy is PIN plus
+touch. Verify that behavior on your own key and boot environment.
+
+The LUKS2 header stores token metadata and protected key material. Before/after
+header backups are private, sensitive recovery artifacts. Old backups may
+retain access through credentials later removed from the live header. Never
+commit them or share raw header dumps. The wizard does not save PINs or disk
+passphrases, but systemd displays a newly generated recovery key in the terminal;
+do not record or upload that output.
+
+Boot integration is a separate manual step. Enrollment tests do not establish
+that the correct keyboard, crypttab, FIDO2 libraries or snapshot/resume support
+made it into the boot image. Preserve a bootable fallback and test both key and
+absent-key/passphrase boots. This feature does not enable Secure Boot or protect
+an unsigned, writable boot environment from physical tampering. See [LUKS](luks.md).
+
 ## Local data and reporting
 
 Never publish PAM mapping files, encrypted helper stores, credential handles,
 key serial numbers, personal labels, journals or accessibility dumps without
-review. See [publication](publication.md) for the repository checks. Do not put
+review. LUKS headers, UUIDs, recovery keys, boot images and extracted crypttab
+files also belong outside the repository. See [publication](publication.md) for the repository checks. Do not put
 real credentials in tests: existing crypto tests use synthetic bytes only.
 
 Report suspected vulnerabilities privately through the process in

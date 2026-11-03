@@ -9,7 +9,7 @@ Desktop integration requires the existing password lock to work first.
 Clone the release and start setup:
 
 ```sh
-git clone --depth 1 --branch v0.1.0 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
+git clone --depth 1 --branch v0.1.1 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
 ```
 
 Already cloned? Run `./install.sh` from that checkout. To inspect prerequisites
@@ -17,6 +17,12 @@ without changing anything, run `./install.sh --check`. You can review the
 [installer source](../install.sh) before running it.
 
 ## What setup asks
+
+Disk encryption is separate: `./install.sh --luks --device /dev/your-luks-partition`
+starts opt-in LUKS2 enrollment. It requests **PIN plus touch**, makes private
+header backups, offers backup/recovery keys and leaves existing slots intact.
+It does not edit boot files. Read [LUKS boot integration and rollback](luks.md)
+before using it; PAM rollback below does not undo LUKS enrollment or boot changes.
 
 1. **Choose features.** sudo and desktop integration are offered separately.
    The optional GNOME Keyring helper is off by default.

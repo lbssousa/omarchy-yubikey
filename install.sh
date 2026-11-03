@@ -24,18 +24,22 @@ if [[ -z $source_root || ! -f $source_root/scripts/configure-pam.py ]]; then
   command -v git >/dev/null || fail 'Install git first, then run this installer again.'
   bootstrap_dir=$(mktemp -d "${TMPDIR:-/tmp}/omarchy-yubikey-install.XXXXXX")
   trap 'rm -rf -- "$bootstrap_dir"' EXIT
-  git clone --depth 1 --branch v0.1.0 https://github.com/marselnenaj/omarchy-yubikey.git "$bootstrap_dir/source"
+  git clone --depth 1 --branch v0.1.1 https://github.com/marselnenaj/omarchy-yubikey.git "$bootstrap_dir/source"
   bash "$bootstrap_dir/source/install.sh" "$@" </dev/tty
   exit $?
 fi
 
 case ${1:-} in
   --help|-h)
-    printf '%s\n' 'Usage: ./install.sh [--check | --rollback BACKUP_ID]' \
+    printf '%s\n' 'Usage: ./install.sh [--check | --rollback BACKUP_ID | --luks --device DEVICE [--check]]' \
       'Guided setup for sudo, desktop authentication and optional GNOME Keyring.' \
+      '--luks starts separate opt-in LUKS2 enrollment (PIN + touch); boot setup is manual, see docs/luks.md.' \
       '--check reports prerequisites without changing anything.' \
       '--rollback restores a previous system PAM/enrollment backup; see docs/install.md.'
     exit 0 ;;
+  --luks)
+    shift
+    exec sudo python3 "$source_root/scripts/enroll-luks.py" "$@" ;;
   --check)
     printf '%s\n' 'Omarchy YubiKey — prerequisite check (no changes)'
     for program in bash git python3 sudo pacman pamu2fcfg omarchy omarchy-shell cargo; do

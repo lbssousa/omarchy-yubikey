@@ -13,7 +13,9 @@ cargo test --workspace --locked
 node --test tests/*.test.cjs
 python3 scripts/check-publication.py
 python3 -m unittest discover -s tests -p 'test_*.py'
-bash -n install.sh scripts/install-plugins.sh
+for script in install.sh scripts/install-plugins.sh luks/zzzz-omarchy-yubikey-luks.conf; do
+  bash -n "$script"
+done
 ```
 
 On a compatible Omarchy installation, also run:
@@ -29,6 +31,10 @@ Polkit prompt model. Python tests cover PAM planning, mapping merges, backups,
 rollback, interrupted writes and plugin-copy behavior. CI cannot establish real hardware authentication or safe
 session-lock recovery. Describe manual checks separately and do not claim a
 hardware route was tested when only a mock or static check ran.
+
+LUKS tests use synthetic metadata and mocked commands. Never point a test at a
+real disk or hardware key. Enrollment and boot-image/reboot qualification are
+separate manual checks; preserve the passphrase and a bootable fallback image.
 
 Test lock changes on a disposable profile or recoverable machine, while keeping
 password access available. Do not replace the active lock implementation during

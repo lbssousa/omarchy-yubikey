@@ -3,12 +3,12 @@
 </p>
 
 <p align="center">
-  Security-key authentication for sudo, privileged dialogs and your Omarchy session.
+  Security-key authentication for sudo, your Omarchy session and optional LUKS2 boot unlock.
 </p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-93c5fd" alt="License: MIT"></a>
-  <a href="https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/version-0.1.0-c5f46b" alt="Version 0.1.0"></a>
+  <a href="https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.1.1"><img src="https://img.shields.io/badge/version-0.1.1-c5f46b" alt="Version 0.1.1"></a>
   <img src="https://img.shields.io/badge/made_for-Omarchy_4-a3e635" alt="Made for Omarchy 4">
   <a href="https://github.com/marselnenaj/omarchy-yubikey/actions/workflows/checks.yml"><img src="https://github.com/marselnenaj/omarchy-yubikey/actions/workflows/checks.yml/badge.svg" alt="Checks"></a>
 </p>
@@ -18,6 +18,7 @@
   <a href="#getting-started">Getting started</a> ·
   <a href="docs/pam-setup.md">PAM setup</a> ·
   <a href="docs/keyring.md">Keyring helper</a> ·
+  <a href="docs/luks.md">LUKS boot unlock</a> ·
   <a href="docs/security-model.md">Security model</a> ·
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
@@ -40,6 +41,7 @@ Choose the parts you need. The PAM route also works without the plugins.
 | **Polkit dialog** | Show a touch prompt while PAM waits; keep fingerprint and password prompts | [Shell plugins](docs/plugins.md) |
 | **Screen unlock** | Run FIDO2, password and optional fingerprint flows in parallel | [Shell plugins](docs/plugins.md) |
 | **GNOME Keyring** | Decrypt a saved keyring password with the key's `hmac-secret`, then unlock over D-Bus | [Keyring helper](docs/keyring.md#gnome-keyring) |
+| **LUKS2 boot unlock** | Enroll disk-unlock keys with PIN plus touch; integrate boot separately with a manual guide | [LUKS setup](docs/luks.md) |
 
 **Passwordless PAM and the optional helper work differently.** PAM verifies a
 security-key assertion. The helper recovers an existing password from an
@@ -50,7 +52,7 @@ encrypted local store. It does not add native passkey login to GNOME Keyring.
 Run the guided installer from an interactive terminal:
 
 ```sh
-git clone --depth 1 --branch v0.1.0 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
+git clone --depth 1 --branch v0.1.1 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
 ```
 
 Already cloned? Run `./install.sh` from the checkout. The wizard lets you choose
@@ -59,8 +61,12 @@ needed packages, enrolls your key, backs up changed files and walks you through
 the password/key checks. **Keep a separate recovery root shell open until the
 checks pass.** [Installation and rollback](docs/install.md) explains each step.
 
-**v0.1.0 is released**, with [source archives and checksums](https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.1.0).
-The [release notes](docs/releases/0.1.0.md) describe validation and compatibility.
+LUKS enrollment is a separate opt-in command: `./install.sh --luks --device /dev/your-luks-partition`.
+It requests PIN plus touch and preserves the disk passphrase. Boot configuration
+is a manual step; read the [LUKS guide](docs/luks.md) first.
+
+**v0.1.1 is released**, with [source archives and checksums](https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.1.1).
+The [release notes](docs/releases/0.1.1.md) describe validation and compatibility.
 For manual setup or a custom PAM stack, see [PAM setup](docs/pam-setup.md).
 Touch-only authentication does not request a FIDO2 PIN; see the
 [security model](docs/security-model.md).
@@ -73,6 +79,7 @@ Touch-only authentication does not request a FIDO2 PIN; see the
 | Shell plugins | Omarchy 4 with the Quickshell plugin host, `qs.Commons`, `qs.Ui`, authentication-clone support and the shell's PAM/Polkit modules |
 | Rust helper | Linux, Rust/Cargo, libfido2, OpenSSL, libudev, pkg-config and Clang build tools; a FIDO2 key with `hmac-secret` |
 | Keyring | GNOME Keyring on the user's session bus and an existing default collection |
+| LUKS | Existing LUKS2 volume, known passphrase, FIDO2 `hmac-secret` key with PIN, cryptsetup/systemd/libfido2; boot guide targets reviewed mkinitcpio/Limine setups |
 
 The source environment used Omarchy **4.0.6**, libfido2 **1.17.0** and pam-u2f
 **1.4.0**. Other shell versions and security-key models are unqualified. A key
@@ -113,6 +120,7 @@ prompts use English. See [development](CONTRIBUTING.md) for validation details.
 - [PAM enrollment, configuration and rollback](docs/pam-setup.md)
 - [Install, activate and remove the shell plugins](docs/plugins.md)
 - [Build, enroll and run the optional helper](docs/keyring.md)
+- [Optional LUKS2 enrollment, boot integration and recovery](docs/luks.md)
 - [Security properties, data locations and limitations](docs/security-model.md)
 - [Publication checklist](docs/publication.md)
 - [Contributing](CONTRIBUTING.md) · [Security reporting](SECURITY.md) · [Changelog](CHANGELOG.md)

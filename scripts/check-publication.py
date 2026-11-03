@@ -11,10 +11,10 @@ ALLOWED_ROOTS = {
     "rustfmt.toml", "install.sh", "LICENSE", "README.md", "THIRD_PARTY_NOTICES.md",
     "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md",
 }
-ALLOWED_DIRS = {".github", "assets", "docs", "keyring-unlock", "plugins", "pam", "scripts", "systemd", "tests"}
+ALLOWED_DIRS = {".github", "assets", "docs", "keyring-unlock", "plugins", "pam", "scripts", "systemd", "tests", "luks"}
 DENIED_PARTS = {".env", ".ssh", ".aws", ".config", ".local", "target", "node_modules", "__pycache__"}
-DENIED_NAMES = {"password.json", "u2f_keys", "fido2", "omarchy-enrollment"}
-DENIED_SUFFIXES = {".pem", ".key", ".p12", ".pfx", ".bundle", ".log", ".bak", ".tmp", ".sqlite", ".db", ".eml"}
+DENIED_NAMES = {"password.json", "u2f_keys", "fido2", "omarchy-enrollment", "crypttab", "crypttab.initramfs", "machine-id"}
+DENIED_SUFFIXES = {".pem", ".key", ".p12", ".pfx", ".bundle", ".log", ".bak", ".tmp", ".sqlite", ".db", ".eml", ".img", ".efi", ".cpio", ".initramfs", ".jsonl"}
 PATTERNS = {
     "absolute user home path": re.compile(rb"/(?:home|Users)/[A-Za-z0-9_.-]+/"),
     "private network address": re.compile(rb"\b(?:192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})\b"),
@@ -22,6 +22,20 @@ PATTERNS = {
     "GitHub token": re.compile(rb"\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})\b"),
 }
 EMAIL = re.compile(rb"[A-Za-z0-9_.+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+UUID = re.compile(rb"\b[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\b")
+# The sole permitted UUID is an explicitly synthetic test fixture.
+SYNTHETIC_UUID = b"00000000-0000-4000-8000-000000000000"
+
+
+def content_failures(data):
+    reasons = [label for label, pattern in PATTERNS.items() if pattern.search(data)]
+    if b"\0" in data:
+        reasons.append("binary file needs explicit manual review")
+    if any(value.lower() != SYNTHETIC_UUID for value in UUID.findall(data)):
+        reasons.append("non-synthetic UUID")
+    if any(not address.endswith(b"@users.noreply.github.com") for address in EMAIL.findall(data)):
+        reasons.append("non-noreply email address")
+    return reasons
 
 def main():
     raw = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT)
@@ -43,14 +57,7 @@ def main():
             failures.append((name, "missing file"))
             continue
         data = file.read_bytes()
-        if b"\0" in data:
-            failures.append((name, "binary file needs explicit manual review"))
-        for label, pattern in PATTERNS.items():
-            if pattern.search(data):
-                failures.append((name, label))
-        for address in EMAIL.findall(data):
-            if not address.endswith(b"@users.noreply.github.com"):
-                failures.append((name, "non-noreply email address"))
+        failures.extend((name, reason) for reason in content_failures(data))
     for name, reason in failures:
         print(f"FAIL {name}: {reason}", file=sys.stderr)
     if failures:
