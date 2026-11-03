@@ -36,11 +36,22 @@ function authorizationLabel(message) {
   return match ? "Authorize running '" + match[1] + "'" : text
 }
 
+function isFallbackPrompt(prompt) {
+  return String(prompt || "").trim() === "Use password fallback? Type password to continue:"
+}
+
+function responseLabel(prompt) {
+  var text = String(prompt || "").trim()
+  return text || "Enter response"
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     promptLooksFingerprint: promptLooksFingerprint,
     fingerprintConfiguredFromPamConfig: fingerprintConfiguredFromPamConfig,
     fido2ConfiguredFromPamConfig: fido2ConfiguredFromPamConfig,
-    authorizationLabel: authorizationLabel
+    authorizationLabel: authorizationLabel,
+    isFallbackPrompt: isFallbackPrompt,
+    responseLabel: responseLabel
   }
 }

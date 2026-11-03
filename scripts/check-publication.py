@@ -13,7 +13,7 @@ ALLOWED_ROOTS = {
 }
 ALLOWED_DIRS = {".github", "assets", "docs", "keyring-unlock", "plugins", "pam", "scripts", "systemd", "tests", "luks"}
 DENIED_PARTS = {".env", ".ssh", ".aws", ".config", ".local", "target", "node_modules", "__pycache__"}
-DENIED_NAMES = {"password.json", "u2f_keys", "fido2", "omarchy-enrollment", "crypttab", "crypttab.initramfs", "machine-id"}
+DENIED_NAMES = {"password.json", "u2f_keys", "fido2", "omarchy-enrollment", "crypttab", "crypttab.initramfs", "machine-id", "omarchy-yubikey-enrollment.json", "omarchy-yubikey-enrollment.json.sig", "sync_allowed_signers", "sync-state.json", "sync.lock"}
 DENIED_SUFFIXES = {".pem", ".key", ".p12", ".pfx", ".bundle", ".log", ".bak", ".tmp", ".sqlite", ".db", ".eml", ".img", ".efi", ".cpio", ".initramfs", ".jsonl"}
 PATTERNS = {
     "absolute user home path": re.compile(rb"/(?:home|Users)/[A-Za-z0-9_.-]+/"),

@@ -1,4 +1,4 @@
 #%PAM-1.0
 # Dedicated key-only service. The lock plugin runs password auth separately.
-auth required pam_u2f.so origin=pam://omarchy appid=pam://omarchy authfile=/etc/fido2/fido2
+auth required pam_u2f.so origin=pam://omarchy appid=pam://omarchy authfile=/etc/fido2/fido2 pinverification=1 userpresence=1
 account include system-local-login

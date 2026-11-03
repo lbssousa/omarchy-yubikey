@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0 — 2026-11-04
+
+- Default new PAM setup to PIN plus touch and explicit password fallback.
+- Add a locally built, fail-closed PAM confirmation gate before the existing
+  password stack; preserve deliberately selected touch-only/automatic modes.
+- Route lock PINs only to the selected key conversation, add method buttons and
+  stop automatic method switching/PIN retries after failure.
+- Show actual Polkit PIN/password prompts and an explicit fallback button.
+- Qualify shell color singletons to avoid collisions with newer Qt color types.
+- Add opt-in signed per-account enrollment export/import with private Git as
+  user-managed transport, pinned trust, review, revision checks and rollback.
+- Test actual Linux-PAM conversations and real OpenSSH signatures in isolation.
+- Publish updated standalone plugins at 0.2.0; leave Keyring helper at 0.1.0.
+
 ## 0.1.1 — 2026-11-03
 
 - Add separate opt-in LUKS2 enrollment with explicit device selection, PIN plus

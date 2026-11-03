@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-93c5fd" alt="License: MIT"></a>
-  <a href="https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.1.1"><img src="https://img.shields.io/badge/version-0.1.1-c5f46b" alt="Version 0.1.1"></a>
+  <a href="https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/version-0.2.0-c5f46b" alt="Version 0.2.0"></a>
   <img src="https://img.shields.io/badge/made_for-Omarchy_4-a3e635" alt="Made for Omarchy 4">
   <a href="https://github.com/marselnenaj/omarchy-yubikey/actions/workflows/checks.yml"><img src="https://github.com/marselnenaj/omarchy-yubikey/actions/workflows/checks.yml/badge.svg" alt="Checks"></a>
 </p>
@@ -37,9 +37,10 @@ Choose the parts you need. The PAM route also works without the plugins.
 
 | Component | What it does | Start here |
 | --- | --- | --- |
-| **Passwordless sudo** | Authenticate through `pam_u2f`, then fall back to the existing password stack | [PAM setup](docs/pam-setup.md) |
-| **Polkit dialog** | Show a touch prompt while PAM waits; keep fingerprint and password prompts | [Shell plugins](docs/plugins.md) |
-| **Screen unlock** | Run FIDO2, password and optional fingerprint flows in parallel | [Shell plugins](docs/plugins.md) |
+| **Passwordless sudo** | PIN plus touch by default; confirm before using the existing password stack | [PAM setup](docs/pam-setup.md) |
+| **Polkit dialog** | Show the actual PAM PIN/password prompt and an explicit fallback choice | [Shell plugins](docs/plugins.md) |
+| **Screen unlock** | Select key/PIN, password or optional fingerprint without automatic method switching | [Shell plugins](docs/plugins.md) |
+| **Optional Git transfer** | Sign enrollment snapshots; verify pinned trust, review changes and reject old imports | [Enrollment sync](docs/enrollment-sync.md) |
 | **GNOME Keyring** | Decrypt a saved keyring password with the key's `hmac-secret`, then unlock over D-Bus | [Keyring helper](docs/keyring.md#gnome-keyring) |
 | **LUKS2 boot unlock** | Enroll disk-unlock keys with PIN plus touch; integrate boot separately with a manual guide | [LUKS setup](docs/luks.md) |
 
@@ -52,7 +53,7 @@ encrypted local store. It does not add native passkey login to GNOME Keyring.
 Run the guided installer from an interactive terminal:
 
 ```sh
-git clone --depth 1 --branch v0.1.1 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
+git clone --depth 1 --branch v0.2.0 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
 ```
 
 Already cloned? Run `./install.sh` from the checkout. The wizard lets you choose
@@ -65,17 +66,20 @@ LUKS enrollment is a separate opt-in command: `./install.sh --luks --device /dev
 It requests PIN plus touch and preserves the disk passphrase. Boot configuration
 is a manual step; read the [LUKS guide](docs/luks.md) first.
 
-**v0.1.1 is released**, with [source archives and checksums](https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.1.1).
-The [release notes](docs/releases/0.1.1.md) describe validation and compatibility.
+**v0.2.0 is available as a prerelease**, with [source archives and checksums](https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.2.0).
+The [release notes](docs/releases/0.2.0.md) describe validation and compatibility.
 For manual setup or a custom PAM stack, see [PAM setup](docs/pam-setup.md).
-Touch-only authentication does not request a FIDO2 PIN; see the
+New PAM setup defaults to PIN plus touch and explicit password fallback.
+Touch-only and automatic fallback remain deliberate installer choices. Existing
+installations need a reviewed installer rerun; updating source alone does not
+change PAM. The optional Keyring helper remains touch-only. See the
 [security model](docs/security-model.md).
 
 ### Requirements and compatibility
 
 | Part | Requirements |
 | --- | --- |
-| PAM | Arch Linux, `pam-u2f`, a compatible U2F/FIDO2 key and a working password fallback |
+| PAM | Arch Linux, `pam-u2f`, Linux-PAM headers/C compiler for explicit fallback; FIDO2 key with a configured PIN for default PIN mode |
 | Shell plugins | Omarchy 4 with the Quickshell plugin host, `qs.Commons`, `qs.Ui`, authentication-clone support and the shell's PAM/Polkit modules |
 | Rust helper | Linux, Rust/Cargo, libfido2, OpenSSL, libudev, pkg-config and Clang build tools; a FIDO2 key with `hmac-secret` |
 | Keyring | GNOME Keyring on the user's session bus and an existing default collection |
@@ -102,7 +106,7 @@ GitHub release and is not a security certification.
 On Arch, install build dependencies:
 
 ```sh
-sudo pacman -S --needed base-devel rust clang pkgconf libfido2 openssl systemd-libs
+sudo pacman -S --needed base-devel pam openssh rust clang pkgconf libfido2 openssl systemd-libs
 cargo build --release --locked
 cargo test --workspace --locked
 cargo fmt --all -- --check
@@ -121,6 +125,7 @@ prompts use English. See [development](CONTRIBUTING.md) for validation details.
 - [Install, activate and remove the shell plugins](docs/plugins.md)
 - [Build, enroll and run the optional helper](docs/keyring.md)
 - [Optional LUKS2 enrollment, boot integration and recovery](docs/luks.md)
+- [Optional signed enrollment transfer through Git](docs/enrollment-sync.md)
 - [Security properties, data locations and limitations](docs/security-model.md)
 - [Publication checklist](docs/publication.md)
 - [Contributing](CONTRIBUTING.md) · [Security reporting](SECURITY.md) · [Changelog](CHANGELOG.md)

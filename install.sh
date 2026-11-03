@@ -24,15 +24,16 @@ if [[ -z $source_root || ! -f $source_root/scripts/configure-pam.py ]]; then
   command -v git >/dev/null || fail 'Install git first, then run this installer again.'
   bootstrap_dir=$(mktemp -d "${TMPDIR:-/tmp}/omarchy-yubikey-install.XXXXXX")
   trap 'rm -rf -- "$bootstrap_dir"' EXIT
-  git clone --depth 1 --branch v0.1.1 https://github.com/marselnenaj/omarchy-yubikey.git "$bootstrap_dir/source"
+  git clone --depth 1 --branch v0.2.0 https://github.com/marselnenaj/omarchy-yubikey.git "$bootstrap_dir/source"
   bash "$bootstrap_dir/source/install.sh" "$@" </dev/tty
   exit $?
 fi
 
 case ${1:-} in
   --help|-h)
-    printf '%s\n' 'Usage: ./install.sh [--check | --rollback BACKUP_ID | --luks --device DEVICE [--check]]' \
+    printf '%s\n' 'Usage: ./install.sh [--check | --rollback BACKUP_ID | --luks --device DEVICE [--check] | --sync export/import ...]' \
       'Guided setup for sudo, desktop authentication and optional GNOME Keyring.' \
+      '--sync provides opt-in signed enrollment transfer through a separate private Git checkout; see docs/enrollment-sync.md.' \
       '--luks starts separate opt-in LUKS2 enrollment (PIN + touch); boot setup is manual, see docs/luks.md.' \
       '--check reports prerequisites without changing anything.' \
       '--rollback restores a previous system PAM/enrollment backup; see docs/install.md.'
@@ -40,9 +41,15 @@ case ${1:-} in
   --luks)
     shift
     exec sudo python3 "$source_root/scripts/enroll-luks.py" "$@" ;;
+  --sync)
+    shift
+    if [[ ${1:-} == import ]]; then
+      exec sudo python3 "$source_root/scripts/sync-enrollment.py" "$@"
+    fi
+    exec python3 "$source_root/scripts/sync-enrollment.py" "$@" ;;
   --check)
     printf '%s\n' 'Omarchy YubiKey — prerequisite check (no changes)'
-    for program in bash git python3 sudo pacman pamu2fcfg omarchy omarchy-shell cargo; do
+    for program in bash git python3 sudo pacman pamu2fcfg omarchy omarchy-shell cargo cc ssh-keygen; do
       if command -v "$program" >/dev/null; then printf '  OK       %s\n' "$program"; else printf '  MISSING  %s\n' "$program"; fi
     done
     exit 0 ;;
@@ -89,7 +96,17 @@ if [[ $use_desktop == yes ]]; then
 fi
 
 if [[ ${#services[@]} != 0 ]]; then
-  printf '\n%s\n' 'A touch will authenticate without a FIDO2 PIN. Normal password fallback remains.' \
+  auth_mode=pin
+  enrollment_options=(-N)
+  if ! confirm 'Require your security key FIDO2 PIN as well as touch?'; then
+    auth_mode=touch
+    enrollment_options=()
+    printf '%s\n' 'Touch-only mode: anyone holding your key may be able to authenticate.'
+  fi
+  fallback=explicit
+  if ! confirm 'Require an explicit confirmation before password fallback?'; then fallback=automatic; fi
+  printf '\nKey policy: %s; password fallback: %s\n' "$auth_mode" "$fallback"
+  printf '%s\n' \
     'PAM changes are backed up under /var/lib/omarchy-yubikey/backups.' \
     'Open a second terminal, run sudo -s, and keep that recovery shell open until testing is complete.'
   confirm 'Continue with key enrollment and the selected PAM changes?' || exit 0
@@ -98,19 +115,25 @@ if [[ ${#services[@]} != 0 ]]; then
   trap 'rm -rf -- "$enroll_dir"' EXIT
   chmod 700 "$enroll_dir"
   enrollment="$enroll_dir/enrollment"
+  pam_options=(--auth-mode "$auth_mode" --fallback "$fallback")
+  if [[ $fallback == explicit && ( " ${services[*]} " == *' sudo '* || " ${services[*]} " == *' polkit-1 '* ) ]]; then
+    sudo pacman -S --needed base-devel pam
+    bash "$source_root/scripts/build-pam-gate.sh" "$enroll_dir/pam_omarchy_fallback.so"
+    pam_options+=(--fallback-module "$enroll_dir/pam_omarchy_fallback.so")
+  fi
   umask 077
-  pause 'Plug in only the key to enroll; touch it when it blinks.'
-  pamu2fcfg -u "$(id -un)" -o pam://omarchy -i pam://omarchy > "$enrollment"
+  pause 'Plug in only the key to enroll; enter its PIN if requested and touch when it blinks. PIN mode needs a PIN already set on the key.'
+  pamu2fcfg "${enrollment_options[@]}" -u "$(id -un)" -o pam://omarchy -i pam://omarchy > "$enrollment"
   while confirm 'Enroll a backup key too?' no; do
     pause 'Unplug the previous key and plug in only the backup key.'
-    pamu2fcfg -n -o pam://omarchy -i pam://omarchy >> "$enrollment"
+    pamu2fcfg "${enrollment_options[@]}" -n -o pam://omarchy -i pam://omarchy >> "$enrollment"
   done
-  sudo python3 "$source_root/scripts/configure-pam.py" --user "$(id -un)" --enrollment "$enrollment" --services "${services[@]}"
+  sudo python3 "$source_root/scripts/configure-pam.py" "${pam_options[@]}" --user "$(id -un)" --enrollment "$enrollment" --services "${services[@]}"
   confirm 'Apply the listed changes? Existing user/key mappings will be preserved.' || exit 0
-  sudo python3 "$source_root/scripts/configure-pam.py" --apply --user "$(id -un)" --enrollment "$enrollment" --services "${services[@]}"
+  sudo python3 "$source_root/scripts/configure-pam.py" "${pam_options[@]}" --apply --user "$(id -un)" --enrollment "$enrollment" --services "${services[@]}"
 
   if [[ " ${services[*]} " == *' sudo '* ]]; then
-    pause 'Test password fallback: unplug all security keys now.'
+    pause 'Test password fallback: unplug all security keys now. In explicit mode, type the literal word password at the fallback choice, then enter your account password at its separate prompt.'
     sudo -k
     sudo true || fail 'Password verification failed. Use the recovery shell to roll back; desktop plugins have not been enabled.'
     pause 'Test the key: plug in an enrolled key and touch it when sudo asks.'
@@ -166,6 +189,8 @@ PY
 fi
 
 if [[ $use_keyring == yes ]]; then
+  printf '%s\n' 'The optional Keyring helper is independent of PAM: it still decrypts with touch only, even when PAM requires a PIN.'
+  confirm 'Continue with touch-only Keyring enrollment?' no || { printf '%s\n' 'Keyring skipped. Selected PAM/desktop setup is complete.'; exit 0; }
   sudo pacman -S --needed base-devel rust clang pkgconf libfido2 openssl systemd-libs gnome-keyring
   cargo build --manifest-path "$source_root/Cargo.toml" --target-dir "$source_root/target" --release --locked -p keyring-unlock
   mkdir -p -- "$HOME/.local/bin"

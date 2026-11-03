@@ -13,7 +13,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Install native build dependencies
-        run: sudo apt-get update && sudo apt-get install -y libfido2-dev libudev-dev libssl-dev pkg-config clang
+        run: sudo apt-get update && sudo apt-get install -y libfido2-dev libudev-dev libssl-dev libpam0g-dev openssh-client pkg-config clang
       - name: Check formatting and unit tests
         run: |
           rustup update stable --no-self-update
@@ -22,7 +22,7 @@ jobs:
           cargo +stable test --workspace --locked
           node --test tests/*.test.cjs
           python3 -m unittest discover -s tests -p 'test_*.py'
-          for script in install.sh scripts/install-plugins.sh luks/zzzz-omarchy-yubikey-luks.conf; do
+          for script in install.sh scripts/install-plugins.sh scripts/build-pam-gate.sh luks/zzzz-omarchy-yubikey-luks.conf; do
             bash -n "$script"
           done
       - name: Check publication content

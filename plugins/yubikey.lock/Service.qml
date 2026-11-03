@@ -5,6 +5,7 @@ import Quickshell.Services.Mpris
 import Quickshell.Services.Pam
 import Quickshell.Wayland
 import qs.Commons
+import qs.Commons as Commons
 
 Item {
   id: root
@@ -23,10 +24,14 @@ Item {
   property bool fingerprintAuthenticating: false
   property bool passwordPamConfigured: false
   property bool fingerprintConfigured: false
-  // FIDO2 (YubiKey) unlock: a separate PAM service runs for the whole lock,
-  // like fingerprint, so a touch unlocks any time and the password stays instant.
+  // Only the selected PAM conversation owns the input. PINs never reach the
+  // password service; timeout/error never selects another method.
+  property string authMethod: "password"
+  readonly property bool keyResponseRequired: authMethod === "key" && fido2Pam.active && fido2Pam.responseRequired
+  readonly property string inputPrompt: authMethod === "key" ? (keyResponseRequired ? fido2Pam.message : "Touch your key") : (authMethod === "fingerprint" ? "Touch fingerprint reader" : "Enter password")
   property bool fido2Authenticating: false
   property bool fido2Configured: false
+  property bool fido2StatusKnown: false
   property bool previewVisible: false
   property string enteredPassword: ""
   property string pendingPassword: ""
@@ -142,7 +147,6 @@ Item {
     fingerprintAuthenticating = false
     fingerprintRetryTimer.stop()
     fido2Authenticating = false
-    fido2RetryTimer.stop()
     if (passwordPam.active) passwordPam.abort()
     if (fingerprintPam.active) fingerprintPam.abort()
     if (fido2Pam.active) fido2Pam.abort()
@@ -204,6 +208,7 @@ Item {
     }
 
     resetAuthenticationState()
+    authMethod = fido2Configured || !fido2StatusKnown ? "key" : "password"
     lockRequested = true
     pauseMediaForLock()
     armBlankTimer()
@@ -252,6 +257,16 @@ Item {
     var password = String(value || "")
     if (!lockRequested || authenticatingPassword || password.length === 0) return
 
+    if (authMethod === "key") {
+      if (keyResponseRequired) {
+        enteredPassword = ""
+        failureMessage = ""
+        fido2Pam.respond(password)
+      }
+      return
+    }
+    if (authMethod !== "password") return
+
     runWake()
     pendingPassword = password
     failureMessage = ""
@@ -266,12 +281,26 @@ Item {
   }
 
   function respondToPasswordPrompt() {
-    if (!authenticatingPassword || !passwordPam.active || !passwordPam.responseRequired) return
+    if (authMethod !== "password" || !authenticatingPassword || !passwordPam.active || !passwordPam.responseRequired || !pendingPassword) return
     passwordPam.respond(pendingPassword)
+    pendingPassword = ""
+  }
+
+  function chooseMethod(method) {
+    if (!lockRequested || ["key", "password", "fingerprint"].indexOf(method) === -1) return
+    if (method === "key" && !fido2Configured) return
+    if (method === "fingerprint" && !fingerprintConfigured) return
+    // Change the selection before aborting: a queued success from the old
+    // conversation must not unlock after the user has switched methods.
+    authMethod = method
+    resetAuthenticationState()
+    runWake()
+    if (method === "key") Qt.callLater(startFido2)
+    if (method === "fingerprint") Qt.callLater(startFingerprint)
   }
 
   function handlePasswordFailure() {
-    if (!lockRequested) return
+    if (!lockRequested || authMethod !== "password") return
 
     authenticatingPassword = false
     enteredPassword = ""
@@ -282,7 +311,7 @@ Item {
   }
 
   function startFingerprint() {
-    if (!lockRequested || !sessionLock.secure || !fingerprintConfigured) return
+    if (!lockRequested || authMethod !== "fingerprint" || !sessionLock.secure || !fingerprintConfigured) return
     if (fingerprintPam.active || fingerprintAuthenticating) return
 
     fingerprintAuthenticating = true
@@ -294,7 +323,7 @@ Item {
   function handleFingerprintFinished(result) {
     fingerprintAuthenticating = false
 
-    if (!lockRequested) return
+    if (!lockRequested || authMethod !== "fingerprint") return
     if (result === PamResult.Success) {
       finishUnlock()
     } else if (fingerprintConfigured) {
@@ -303,24 +332,26 @@ Item {
   }
 
   function startFido2() {
-    if (!lockRequested || !sessionLock.secure || !fido2Configured) return
+    if (!lockRequested || authMethod !== "key" || !sessionLock.secure || !fido2Configured) return
     if (fido2Pam.active || fido2Authenticating) return
 
     fido2Authenticating = true
     if (!fido2Pam.start()) {
       fido2Authenticating = false
+      failureMessage = "Key unavailable — retry or use password"
     }
   }
 
   function handleFido2Finished(result) {
     fido2Authenticating = false
 
-    if (!lockRequested) return
+    enteredPassword = ""
+    if (!lockRequested || authMethod !== "key") return
     if (result === PamResult.Success) {
       logEvent("unlock: fido2")
       finishUnlock()
-    } else if (fido2Configured) {
-      fido2RetryTimer.restart()
+    } else {
+      failureMessage = "Key authentication failed — retry or use password"
     }
   }
 
@@ -361,7 +392,7 @@ Item {
 
     WlSessionLockSurface {
       id: lockSurface
-      color: Color.background
+      color: Commons.Color.background
 
       LockView {
         id: lockView
@@ -376,6 +407,10 @@ Item {
         inputEnabled: root.lockRequested
         loadBackground: root.locked
         passwordText: root.enteredPassword
+        authMethod: root.authMethod
+        inputPrompt: root.inputPrompt
+        keyResponseRequired: root.keyResponseRequired
+        onChooseMethod: function(method) { root.chooseMethod(method) }
         onPasswordTextEdited: function(password) { root.enteredPassword = password }
         onSubmitPassword: function(password) { root.submitPassword(password) }
         onClearFailureRequested: root.failureMessage = ""
@@ -428,7 +463,7 @@ Item {
       root.authenticatingPassword = false
       root.pendingPassword = ""
 
-      if (!root.lockRequested) return
+      if (!root.lockRequested || root.authMethod !== "password") return
       if (result === PamResult.Success) root.finishUnlock()
       else root.handlePasswordFailure()
     }
@@ -449,7 +484,7 @@ Item {
 
     onError: function(error) {
       root.fingerprintAuthenticating = false
-      if (root.lockRequested && root.fingerprintConfigured) fingerprintRetryTimer.restart()
+      if (root.lockRequested && root.authMethod === "fingerprint" && root.fingerprintConfigured) fingerprintRetryTimer.restart()
     }
   }
 
@@ -465,23 +500,16 @@ Item {
     config: "omarchy-lock-fido2"
     user: root.userName
 
+    onResponseRequiredChanged: root.enteredPassword = ""
+    onPamMessage: root.enteredPassword = ""
+
     onCompleted: function(result) {
       root.handleFido2Finished(result)
     }
 
     onError: function(error) {
-      root.fido2Authenticating = false
-      if (root.lockRequested && root.fido2Configured) fido2RetryTimer.restart()
+      root.handleFido2Finished(PamResult.Error)
     }
-  }
-
-  // Without a key plugged in pam_u2f fails at once; a slower retry keeps the
-  // loop from spinning while still catching a key that is plugged in later.
-  Timer {
-    id: fido2RetryTimer
-    interval: 1500
-    repeat: false
-    onTriggered: root.startFido2()
   }
 
   Process {
@@ -515,9 +543,16 @@ Item {
     command: ["bash", "-c", "if [[ -f /etc/pam.d/omarchy-lock-fido2 && -s /etc/fido2/fido2 ]] && grep -q \"^$USER:\" /etc/fido2/fido2; then echo yes; else echo no; fi"]
     stdout: StdioCollector { id: fido2CheckStdout; waitForEnd: true }
     onExited: {
+      root.fido2StatusKnown = true
       root.fido2Configured = String(fido2CheckStdout.text || "").trim() === "yes"
       if (root.lockRequested && root.fido2Configured) root.startFido2()
-      else if (!root.fido2Configured && fido2Pam.active) fido2Pam.abort()
+      else if (!root.fido2Configured) {
+        if (fido2Pam.active) fido2Pam.abort()
+        // Only choose an initial password route once discovery proves there
+        // is no configured key route; key failures never change the method.
+        if (root.lockRequested && root.authMethod === "key" && !root.fido2Authenticating)
+          root.chooseMethod("password")
+      }
     }
   }
 

@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Services.Polkit
 import Quickshell.Wayland
 import qs.Commons
+import qs.Commons as Commons
 import qs.Ui
 import "PolkitModel.js" as PolkitModel
 
@@ -11,14 +12,14 @@ Item {
   id: root
 
   property string fontFamily: Style.font.menuFamily
-  // Bound to the central [polkit] section in shell.toml via Color.qml.
-  property color accent: Color.polkit.accent
-  property color background: Color.polkit.background
-  property color foreground: Color.polkit.text
-  property color border: Color.polkit.border
-  property color borderError: Color.polkit.borderError
+  // Bound to the central [polkit] section in shell.toml via Commons.Color.qml.
+  property color accent: Commons.Color.polkit.accent
+  property color background: Commons.Color.polkit.background
+  property color foreground: Commons.Color.polkit.text
+  property color border: Commons.Color.polkit.border
+  property color borderError: Commons.Color.polkit.borderError
   property var borderSpec: Border.surfaceSpec("polkit", errorFlash ? "border-error" : "border", errorFlash ? borderError : border, Math.max(1, Style.space(2)), "border-alpha")
-  property color scrim: Color.polkit.scrim
+  property color scrim: Commons.Color.polkit.scrim
   readonly property int cornerRadius: Style.cornerRadius
   property int contentMargin: Style.spacing.panelPadding
   property int fieldHeight: Math.max(Style.space(42), Style.spacing.controlHeight)
@@ -42,19 +43,15 @@ Item {
   property int shakeOffset: 0
 
   readonly property bool dialogVisible: polkitAgent.isActive || closing
+  readonly property bool fallbackChoice: responseRequired && PolkitModel.isFallbackPrompt(currentPrompt)
   // We show one method at a time. Fingerprint owns the dialog while PAM is
   // waiting on the reader (lid open, sensor enrolled); the moment PAM asks for
   // a password — including immediately when the lid is shut and the clamshell
   // gate skips pam_fprintd — we switch to the password field instead.
-  readonly property bool fingerprintMode: fingerprintConfigured && !laptopClosed && dialogVisible && !responseRequired && !submitted && !errorFlash
-  // Key mode: PAM is waiting on the FIDO2 key. The field stays usable so a
-  // password typed meanwhile is ready the moment PAM falls back to asking.
-  // Typed ahead while the key was still being waited for: show the field.
-  property bool typingAhead: false
+  readonly property bool fingerprintMode: fingerprintConfigured && !fido2Configured && !laptopClosed && dialogVisible && !responseRequired && !submitted && !errorFlash
+  // Never collect a secret before PAM identifies the actual response prompt.
   readonly property bool keyWaiting: fido2Configured && !fingerprintMode && dialogVisible && !responseRequired && !submitted && !errorFlash
-  // Wide card with key glyph + field (typing ahead), or the square key pane.
-  readonly property bool fido2Mode: keyWaiting && typingAhead
-  readonly property bool fido2Square: keyWaiting && !typingAhead
+  readonly property bool fido2Square: keyWaiting
   readonly property int squareSize: Style.space(168)
   readonly property int baseCardHeight: panel.height > 0 ? Math.min(fieldHeight + contentMargin * 2, panel.height - Style.gapsOut * 2) : fieldHeight + contentMargin * 2
   readonly property int cardHeight: fido2Square ? squareSize : baseCardHeight
@@ -84,7 +81,6 @@ Item {
     failed = false
     errorFlash = false
     submitted = false
-    typingAhead = false
     passwordInput.text = ""
   }
 
@@ -106,7 +102,6 @@ Item {
     closeTimer.stop()
     closing = false
     submitted = false
-    typingAhead = false
     passwordInput.text = ""
     refreshLidState()
     syncFromFlow()
@@ -115,6 +110,7 @@ Item {
 
   function refocus() {
     if (!dialogVisible) return
+    if (fallbackChoice) { fallbackButton.forceActiveFocus(); return }
     // In fingerprint mode there is no field to type into — park focus on the
     // key catcher so Escape still cancels; otherwise focus the password field.
     if (fingerprintMode || fido2Square) keyCatcher.forceActiveFocus()
@@ -123,11 +119,20 @@ Item {
 
   function submitResponse() {
     var flow = polkitAgent.flow
-    if (!flow || !flow.isResponseRequired) return
+    if (!flow || !flow.isResponseRequired || fallbackChoice) return
     submitted = true
     errorFlash = false
     flow.submit(passwordInput.text)
     passwordInput.text = ""
+    keyCatcher.forceActiveFocus()
+  }
+
+  function usePasswordFallback() {
+    var flow = polkitAgent.flow
+    if (!flow || !flow.isResponseRequired || !fallbackChoice || submitted) return
+    passwordInput.text = ""
+    submitted = true
+    flow.submit("password")
     keyCatcher.forceActiveFocus()
   }
 
@@ -212,7 +217,7 @@ Item {
       Qt.callLater(root.refocus)
     }
 
-    function onInputPromptChanged() { root.syncFromFlow() }
+    function onInputPromptChanged() { passwordInput.text = ""; root.syncFromFlow(); Qt.callLater(root.refocus) }
     function onResponseVisibleChanged() { root.syncFromFlow() }
     function onSupplementaryMessageChanged() { root.syncFromFlow() }
     function onFailedChanged() { root.syncFromFlow() }
@@ -297,11 +302,6 @@ Item {
           } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
             if (root.responseRequired) root.submitResponse()
             event.accepted = true
-          } else if (root.fido2Square && event.text.length > 0 && !(event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier))) {
-            root.typingAhead = true
-            passwordInput.text = event.text
-            Qt.callLater(function() { passwordInput.forceActiveFocus(); passwordInput.cursorPosition = passwordInput.text.length })
-            event.accepted = true
           }
         }
       }
@@ -381,7 +381,10 @@ Item {
           Text {
             textFormat: Text.PlainText
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "or just start typing"
+            text: "Fallback after key failure"
+            width: root.squareSize - root.contentMargin * 2
+            wrapMode: Text.WordWrap
+            horizontalAlignment: Text.AlignHCenter
             color: root.foreground
             opacity: 0.42
             font.family: root.fontFamily
@@ -400,12 +403,12 @@ Item {
         text: "\udb80\ude37"
         fontFamily: root.fontFamily
         fontSize: Math.round(root.fieldHeight * 0.7)
-        color: root.errorFlash ? Color.polkit.textError : root.accent
+        color: root.errorFlash ? Commons.Color.polkit.textError : root.accent
       }
 
       Row {
         id: cardRow
-        visible: !root.fingerprintMode && !root.fido2Square
+        visible: !root.fingerprintMode && !root.fido2Square && !root.fallbackChoice
         anchors.fill: parent
         anchors.topMargin: card.contentTopInset
         anchors.rightMargin: card.contentRightInset
@@ -415,39 +418,20 @@ Item {
 
         Item {
           id: glyphSlot
-          width: root.fido2Mode ? Style.space(36) : Style.space(26)
+          width: Style.space(26)
           height: root.fieldHeight
           Behavior on width { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
-
-          // Filled pulse behind the glyph, so the key reads as "live".
-          Rectangle {
-            id: keyHalo
-            anchors.centerIn: parent
-            width: Style.space(28)
-            height: width
-            radius: width / 2
-            color: root.accent
-            visible: root.fido2Mode
-            opacity: 0.12
-
-            SequentialAnimation on opacity {
-              running: root.fido2Mode
-              loops: Animation.Infinite
-              NumberAnimation { to: 0.18; duration: 1600; easing.type: Easing.InOutSine }
-              NumberAnimation { to: 0.09; duration: 1600; easing.type: Easing.InOutSine }
-            }
-          }
 
           OpticalGlyph {
             id: modeGlyph
             anchors.centerIn: parent
             width: Style.space(24)
             height: width
-            text: root.fido2Mode ? "\udb80\udf06" : "\uf023"
-            color: root.errorFlash ? Color.polkit.textError : root.accent
+            text: "\uf023"
+            color: root.errorFlash ? Commons.Color.polkit.textError : root.accent
             fontFamily: root.fontFamily
-            fontSize: root.fido2Mode ? Math.round(Style.font.iconLarge * 1.1) : Style.font.iconLarge
+            fontSize: Style.font.iconLarge
           }
         }
 
@@ -467,10 +451,10 @@ Item {
             font.pixelSize: Style.font.iconLarge
             echoMode: root.responseVisible ? TextInput.Normal : TextInput.Password
             passwordCharacter: "\u2022"
-            color: root.errorFlash ? Color.polkit.textError : root.foreground
+            color: root.errorFlash ? Commons.Color.polkit.textError : root.foreground
             cursorVisible: activeFocus && !root.submitted && !root.errorFlash
             readOnly: root.submitted || root.errorFlash
-            enabled: root.dialogVisible
+            enabled: root.dialogVisible && root.responseRequired && !root.fallbackChoice
             onAccepted: root.submitResponse()
             Keys.onPressed: function(event) {
               if (event.key === Qt.Key_Escape) {
@@ -490,26 +474,14 @@ Item {
             Text {
               textFormat: Text.PlainText
               width: parent.width
-              text: root.errorFlash ? "Wrong" : (root.submitted ? "Checking..." : (root.fido2Mode ? "Touch your key" : "Enter password"))
-              color: root.errorFlash ? Color.polkit.textError : root.foreground
-              opacity: root.errorFlash ? 1 : (root.fido2Mode && !root.submitted ? 0.92 : 0.36)
+              text: root.errorFlash ? "Authentication failed" : (root.submitted ? "Checking..." : PolkitModel.responseLabel(root.currentPrompt))
+              color: root.errorFlash ? Commons.Color.polkit.textError : root.foreground
+              opacity: root.errorFlash ? 1 : 0.55
               font.family: root.fontFamily
-              font.pixelSize: root.fido2Mode && !root.errorFlash && !root.submitted ? Style.font.heading : Style.font.iconLarge
-              font.weight: root.fido2Mode && !root.errorFlash && !root.submitted ? Font.DemiBold : Font.Normal
+              font.pixelSize: Style.font.iconLarge
               elide: Text.ElideRight
             }
 
-            Text {
-              textFormat: Text.PlainText
-              width: parent.width
-              visible: root.fido2Mode && !root.errorFlash && !root.submitted
-              text: "or type your password"
-              color: root.foreground
-              opacity: 0.42
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.bodySmall
-              elide: Text.ElideRight
-            }
           }
 
           Rectangle {
@@ -517,8 +489,8 @@ Item {
             height: Style.space(24)
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
-            color: root.errorFlash ? Color.polkit.textError : root.foreground
-            visible: passwordInput.visible && passwordInput.activeFocus && passwordInput.text.length === 0 && !root.submitted && !root.errorFlash && !root.fido2Mode
+            color: root.errorFlash ? Commons.Color.polkit.textError : root.foreground
+            visible: passwordInput.visible && passwordInput.activeFocus && passwordInput.text.length === 0 && !root.submitted && !root.errorFlash
           }
 
           MouseArea {
@@ -528,6 +500,18 @@ Item {
             onClicked: passwordInput.forceActiveFocus()
           }
         }
+      }
+
+      Button {
+        id: fallbackButton
+        anchors.centerIn: parent
+        visible: root.fallbackChoice
+        text: "Use password"
+        focusable: true
+        enabled: !root.submitted
+        foreground: root.foreground
+        onClicked: root.usePasswordFallback()
+        Keys.onEscapePressed: root.cancelRequest()
       }
     }
 

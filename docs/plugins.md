@@ -62,13 +62,19 @@ activate or remove a lock plugin while the session is locked.
 
 Complete [PAM setup](pam-setup.md) first. The Polkit prompt infers key availability
 from a direct `pam_u2f.so` line in `/etc/pam.d/polkit-1`; it does not resolve
-nested includes or prove a key is connected. It switches to password input when
-PAM requests a response. Typing ahead does not cancel a pending key operation.
+nested includes or prove a key is connected. It shows the actual PAM prompt for
+PIN or password responses. It does not collect secrets while PAM waits for touch.
+With explicit fallback configured, key failure is followed by a **Use password**
+button, not an automatically enabled account-password field. Escape cancels.
 
 The lock checks `/etc/pam.d/omarchy-lock-fido2` and your user entry in
-`/etc/fido2/fido2`, then runs that key flow alongside the password flow. An absent
-key does not block password entry. Background retries allow a key to be inserted
-while the screen is locked.
+`/etc/fido2/fido2`. When configured, key authentication is selected initially.
+**Use password**, **Use key / Retry key** and optional **Fingerprint** select one
+conversation at a time and clear pending input. An absent key, PIN error or timeout
+does not select password or automatically retry PINs. Insert a key and choose
+**Retry key**; alternatively choose **Use password** immediately. PIN responses
+go only to the key PAM context. Method buttons support Tab/Enter; when waiting
+without an input prompt, P/K/F select password/key/fingerprint respectively.
 
 ## Verify before relying on it
 

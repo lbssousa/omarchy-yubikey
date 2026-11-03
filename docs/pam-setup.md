@@ -13,7 +13,7 @@ commands your account is allowed to run. It does not install a `NOPASSWD` rule.
 Install `pam-u2f` and keep a separate root shell open during setup:
 
 ```sh
-sudo pacman -S --needed pam-u2f
+sudo pacman -S --needed pam-u2f base-devel pam
 sudo -s
 ```
 
@@ -40,19 +40,20 @@ mapping file with a new single-user enrollment.
 
 In your **normal user terminal**, generate a mapping using a fixed origin.
 It must match every PAM line below; the fixed value avoids binding to a hostname.
-Unplug other keys for this first enrollment, then touch the intended key.
+Set a FIDO2 PIN on the key first using your authenticator manager. Unplug other
+keys for this first enrollment, enter the PIN when asked and touch the intended key.
 
 ```sh
 umask 077
 mkdir -p "$HOME/.config/Yubico"
-pamu2fcfg -o pam://omarchy -i pam://omarchy > "$HOME/.config/Yubico/omarchy-enrollment"
+pamu2fcfg -N -o pam://omarchy -i pam://omarchy > "$HOME/.config/Yubico/omarchy-enrollment"
 ```
 
 To add a backup key for the same user, unplug the first key, plug in the backup
 and append with `-n` before installing the mapping:
 
 ```sh
-pamu2fcfg -n -o pam://omarchy -i pam://omarchy >> "$HOME/.config/Yubico/omarchy-enrollment"
+pamu2fcfg -N -n -o pam://omarchy -i pam://omarchy >> "$HOME/.config/Yubico/omarchy-enrollment"
 ```
 
 Keep the mapping for each user on **one logical line**, with the username only
@@ -75,17 +76,32 @@ After successful setup, remove that temporary copy locally.
 
 ## 3. Enable sudo and Polkit
 
-Use `sudoedit /etc/pam.d/sudo`. Insert the active line from
+Build the fallback conversation gate from the reviewed checkout, without sudo,
+then install the compiled module as root. Back up any existing copy first:
+
+```sh
+mkdir -p build
+bash scripts/build-pam-gate.sh build/pam_omarchy_fallback.so
+sudo install -d -o root -g root -m 0755 /usr/local/lib/security
+sudo install -o root -g root -m 0644 build/pam_omarchy_fallback.so /usr/local/lib/security/
+```
+
+Keep a recovery root shell open. Use `sudoedit /etc/pam.d/sudo`. Insert both active lines from
 [`pam/passwordless-auth.conf`](../pam/passwordless-auth.conf) **before** the
 existing `auth` rules:
 
 ```pam
-auth sufficient pam_u2f.so cue origin=pam://omarchy appid=pam://omarchy authfile=/etc/fido2/fido2
+auth sufficient pam_u2f.so cue origin=pam://omarchy appid=pam://omarchy authfile=/etc/fido2/fido2 pinverification=1 userpresence=1
+auth requisite /usr/local/lib/security/pam_omarchy_fallback.so
 ```
 
 Keep all existing authentication, account and session rules. `sufficient`
 allows successful key authentication to skip the later password rules. Failure
-continues through your existing stack. The provided line does not request a PIN.
+reaches the conversation gate. Only the literal response `password` permits
+continuing through your existing password stack. The gate is not authentication:
+never make it sufficient or use it alone. Cancellation, a missing module and
+silent operation fail closed. `authpending_file` is a touch-notification file,
+not an option that controls fallback.
 
 Apply the same line to `/etc/pam.d/polkit-1`. If only a default under
 `/usr/lib/pam.d` exists, copy that default to `/etc/pam.d` first, then edit the
@@ -99,19 +115,26 @@ sudo -k
 sudo true
 ```
 
-Touch the key and verify success. Then unplug it, invalidate the timestamp
-again and verify the normal password still works. Trigger a known benign
+Enter the key PIN, touch and verify success. Then unplug it, invalidate the timestamp
+again, choose fallback with the word `password` and verify the normal account
+password still works. Declining/cancelling the choice must fail. Trigger a known benign
 Polkit action and test both paths there too. Password entry can wait for a key
 timeout when a registered key is present but untouched.
 
-For PIN or biometric verification, consult Yubico's upstream options and enroll
-accordingly. The shell's simple touch prompt is not qualified for those modes.
+For deliberately selected touch-only mode, omit `-N` during enrollment and
+`pinverification=1` from PAM, retaining `userpresence=1`. Existing `+pin` credential
+flags still require a PIN; choose matching new enrollment rather than removing
+flags blindly. For automatic password fallback, deliberately omit the gate line.
+These alternatives weaken the respective route; see the [security model](security-model.md).
+Biometric verification through the key is not qualified by this release; an
+independent system fingerprint PAM service remains supported by the lock.
 
 ## 4. Enable screen unlock
 
 The key-only lock service must use **required**, not `sufficient`, because it
-has no password stack of its own. Password and fingerprint run as separate PAM
-contexts in the QML plugin.
+has no password stack of its own. Password and fingerprint have separate PAM
+contexts in the QML plugin, selected explicitly. The key template requires PIN
+plus touch; adjust it only if you deliberately selected another policy.
 
 After backing up any existing service, review and install the supplied template
 from the repository root:

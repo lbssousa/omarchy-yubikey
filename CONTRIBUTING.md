@@ -13,7 +13,7 @@ cargo test --workspace --locked
 node --test tests/*.test.cjs
 python3 scripts/check-publication.py
 python3 -m unittest discover -s tests -p 'test_*.py'
-for script in install.sh scripts/install-plugins.sh luks/zzzz-omarchy-yubikey-luks.conf; do
+for script in install.sh scripts/install-plugins.sh scripts/build-pam-gate.sh luks/zzzz-omarchy-yubikey-luks.conf; do
   bash -n "$script"
 done
 ```
@@ -31,6 +31,12 @@ Polkit prompt model. Python tests cover PAM planning, mapping merges, backups,
 rollback, interrupted writes and plugin-copy behavior. CI cannot establish real hardware authentication or safe
 session-lock recovery. Describe manual checks separately and do not claim a
 hardware route was tested when only a mock or static check ran.
+
+Native PAM tests need Linux-PAM headers and a C compiler (Arch: `base-devel pam`;
+Debian/Ubuntu: `build-essential libpam0g-dev`). They load the actual fallback gate
+in an isolated `pam_start_confdir` stack with synthetic key/password modules,
+never the system authentication configuration. Signed-transfer tests use disposable
+OpenSSH keys and real `ssh-keygen -Y` signatures. No real mappings belong in fixtures.
 
 LUKS tests use synthetic metadata and mocked commands. Never point a test at a
 real disk or hardware key. Enrollment and boot-image/reboot qualification are

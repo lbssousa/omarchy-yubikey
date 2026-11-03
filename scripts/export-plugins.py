@@ -38,7 +38,7 @@ def export(role, output):
     (destination / 'SOURCE.json').write_text(json.dumps(provenance, indent=2) + '\n')
     details = (
         'A theme-aware session lock with separate FIDO2, password and optional fingerprint PAM flows.\n'
-        'The password field remains available while the key flow waits for a touch.'
+        'Select one method at a time; PIN responses belong only to the key flow.'
         if role == 'lock' else
         'A theme-aware Polkit agent that shows a touch prompt while PAM waits for a security key,\n'
         'with fingerprint and password prompts when those methods are requested.'
@@ -82,8 +82,9 @@ with a directory already copied by the suite installer under the same ID.
 Test key and password authentication before relying on it. Plugin commands
 follow the repository's default branch; use the suite release for a fixed source
 snapshot. [PAM instructions]({SUITE}/blob/{tag}/docs/pam-setup.md) and
-[security model]({SUITE}/blob/{tag}/docs/security-model.md) describe touch-only
-behavior, password fallback and limitations.
+[security model]({SUITE}/blob/{tag}/docs/security-model.md) describe PIN mode,
+explicit password fallback and limitations. Updating plugin files alone does not
+update PAM policy. Re-run reviewed suite setup to enable PIN/explicit fallback.
 
 ## Update and remove
 

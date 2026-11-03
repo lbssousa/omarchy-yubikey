@@ -29,12 +29,28 @@ class PamSetupTests(unittest.TestCase):
         return path
 
     def plan(self, services=None):
-        return pam.plan(self.root, services or ['sudo', 'polkit-1', 'omarchy-lock-fido2'], ENROLLMENT, 'example_user')
+        return pam.plan(self.root, services or ['sudo', 'polkit-1', 'omarchy-lock-fido2'], ENROLLMENT, 'example_user', gate=b'\x7fELF-test-module')
 
     def test_preserves_fallback_and_non_auth_rules(self):
         result = pam.pam_with_key(STANDARD)
-        self.assertEqual(result, STANDARD.replace('auth\tinclude', pam.AUTH + '\nauth\tinclude'))
+        self.assertEqual(result, STANDARD.replace('auth\tinclude', pam.key_auth() + '\n' + pam.GATE_AUTH + '\nauth\tinclude'))
         self.assertEqual(pam.pam_with_key(result), result)
+
+    def test_upgrade_legacy_and_switch_policy_without_duplicate_rules(self):
+        old = STANDARD.replace('auth\tinclude', pam.AUTH + '\nauth\tinclude')
+        hardened = pam.pam_with_key(old)
+        self.assertIn('pinverification=1 userpresence=1', hardened)
+        self.assertEqual(hardened.count('pam_u2f.so'), 1)
+        self.assertIn(pam.GATE_AUTH, hardened)
+        touch = pam.pam_with_key(hardened, 'touch', 'automatic')
+        self.assertNotIn('pinverification=', touch)
+        self.assertNotIn(pam.GATE_AUTH, touch)
+        self.assertIn('userpresence=1', touch)
+
+    def test_explicit_policy_requires_gate_before_writing(self):
+        with self.assertRaises(ValueError):
+            pam.plan(self.root, ['sudo'], ENROLLMENT, 'example_user')
+        self.assertEqual((self.root / 'etc/pam.d/sudo').read_text(), STANDARD)
 
     def test_refuses_custom_stack_before_writing(self):
         path = self.write('etc/pam.d/sudo', 'auth sufficient pam_permit.so\naccount include system-auth\n')
@@ -74,6 +90,7 @@ class PamSetupTests(unittest.TestCase):
         self.assertEqual(path.stat().st_mode & 0o777, 0o640)
         self.assertFalse((self.root / 'etc/pam.d/polkit-1').exists())
         self.assertFalse((self.root / 'etc/fido2/fido2').exists())
+        self.assertFalse((self.root / pam.GATE).exists())
 
     def test_write_failure_rolls_back(self):
         write = pam.write_atomic

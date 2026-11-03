@@ -6,21 +6,45 @@ independent security certification or hardware compatibility qualification.
 
 ## PAM authentication
 
-The provided sudo/Polkit line uses `pam_u2f` as a sufficient authentication
-method before the existing password stack. It authenticates a registered key
-with a touch; it does not request a FIDO2 PIN or biometric verification. Anyone
-with the key and access to an eligible session may be able to authorize a
-request. A key touch is not proof that you reviewed the command being authorized.
+The default sudo/Polkit configuration uses `pam_u2f` as a sufficient method with
+`pinverification=1 userpresence=1`. A FIDO2 PIN must already be set. Touch-only is
+an explicit installer alternative; in that mode, anyone holding the registered
+key and accessing an eligible session may be able to authorize requests. A touch
+is never proof that you reviewed the command being authorized.
+
+With the default explicit fallback policy, unsuccessful key authentication reaches
+a `requisite` conversation gate. Only the literal response `password` permits
+continuing to the existing password stack. The gate never authenticates a user;
+never configure it as sufficient or as a standalone authentication stack.
+Conversation failures, cancellation, a missing gate and silent operation fail
+closed. An absent or ignored key can still be followed by password authentication,
+but only after confirmation. Automatic fallback remains an explicit installer choice.
+`authpending_file` is pam-u2f's touch-notification mechanism, not a fallback policy.
 
 Password fallback is deliberate. This configuration is not mandatory two-factor
 authentication and does not prevent password-based login. sudo timestamp caching
 still applies. Existing PAM policy and account checks may impose extra rules.
-The dedicated screen-lock FIDO2 service uses `required`; password auth remains
-in its own parallel service.
+The dedicated screen-lock FIDO2 service uses `required`. The lock starts only the
+selected method; it routes each PIN response to that key conversation and never
+reuses it as an account password. A failed key attempt stays in key mode until a
+user selects a retry or another method. Fingerprint is also an explicit selection.
 
 The central mapping is root-owned, readable by local users and contains public
 credential information. Changing it requires root. The shell plugins themselves
 run inside the authentication-capable Omarchy host and must be trusted.
+
+Optional [enrollment transfer](enrollment-sync.md) signs per-account snapshots with
+OpenSSH. Imports verify a locally pinned signer for that account and namespace,
+validate the schema and credential options, and require an interactive review.
+Git runs separately as the normal user; PAM reads a root-owned installed copy.
+Accepted revisions form a local high-water mark. This prevents replay of accepted
+or older revisions, not withholding a newer release. A new machine needs a minimum
+revision obtained through a trusted channel. Backups/rollback preserve the sync
+high-water mark after a completed import. A crash between state and mapping writes
+can require restoring the mapping backup and issuing a newer signed revision.
+Signatures provide integrity, not confidentiality: use a separate private repo.
+The signing key holder can authorize account credentials; protect that key and
+bootstrap/rotate trust outside the synced repository.
 
 ## Helper encryption and secret use
 
@@ -31,7 +55,7 @@ using a fresh 12-byte nonce. The credential ID is authenticated as associated
 data. The disk store contains the credential ID, salt, nonce, ciphertext, a label
 and timestamp; the derived encryption key is not saved.
 
-The helper requests user presence without user verification during normal
+PAM PIN mode does not change the independent helper. The helper requests user presence without user verification during normal
 unlock. Possession of the key and a copied store can be enough to recover the
 saved secret. File encryption is not protection from malicious code already
 running as the same user while the secret is in use, or from root.

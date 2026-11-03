@@ -9,7 +9,7 @@ Desktop integration requires the existing password lock to work first.
 Clone the release and start setup:
 
 ```sh
-git clone --depth 1 --branch v0.1.1 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
+git clone --depth 1 --branch v0.2.0 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
 ```
 
 Already cloned? Run `./install.sh` from that checkout. To inspect prerequisites
@@ -28,7 +28,10 @@ before using it; PAM rollback below does not undo LUKS enrollment or boot change
    The optional GNOME Keyring helper is off by default.
 2. **Prepare recovery.** Keep a separate `sudo -s` shell open while setting up
    authentication. The wizard explains this before making changes.
-3. **Enroll a key.** Plug in one key and touch it when it blinks. You can add a
+3. **Choose key policy and enroll.** PIN plus touch and explicit password fallback
+   default to yes. Set a FIDO2 PIN on the key beforehand. Touch-only and automatic
+   fallback require choosing no at their respective questions. Plug in one key;
+   enter its PIN when asked and touch it when it blinks. You can add a
    backup key too. Existing users and keys in the central mapping are preserved.
 4. **Review the plan.** The installer lists the files it will change and asks
    before applying them. Original PAM files and mappings are backed up first.
@@ -38,8 +41,14 @@ before using it; PAM rollback below does not undo LUKS enrollment or boot change
    authentication clones after a shell-config backup. Test an actual lock and a
    benign privileged action before closing the recovery shell.
 
-Touch-only authentication does not request a FIDO2 PIN. Your existing password
-fallback stays in the PAM stack. The installer supports standard Arch
+Explicit fallback builds a small Linux-PAM conversation gate from source, then
+backs it up and installs it alongside the reviewed PAM changes. After key failure
+or timeout, sudo asks you to type the literal word `password` before showing the
+account-password prompt. Polkit shows a **Use password** button. The lock has
+separate method buttons; its PIN field belongs only to the key conversation.
+Neither choosing fallback nor confirming it authenticates you by itself.
+
+The installer supports standard Arch
 `auth include system-auth` stacks; it stops on custom stacks for manual review
 instead of rewriting their policy. See the [security model](security-model.md).
 
@@ -48,6 +57,10 @@ keyring password, enrolls the key and checks decryption. It offers startup
 integration separately. Existing helper binaries and encrypted stores are
 backed up; an enrollment failure restores those copies. Your ordinary keyring
 password remains usable. See [the Keyring guide](keyring.md).
+
+Git enrollment transfer is separately opt-in through `./install.sh --sync`.
+It does not run during normal setup, create a repository, upload mappings or
+automatically change PAM. See [signed enrollment transfer](enrollment-sync.md).
 
 ## Backups and rollback
 

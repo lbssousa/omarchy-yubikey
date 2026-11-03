@@ -36,6 +36,11 @@ The lightweight publication script is an additional guard, not a complete
 secret detector or anonymization guarantee. `.gitignore` does not protect a
 file already tracked. Never force-add ignored runtime data.
 
+Personal signed enrollment exports and signatures, pinned signer files and local
+sync revision state belong only in the separate private sync workflow. Never
+publish them in this source tree or source-release archives. Tests must generate
+disposable signing keys in temporary directories and delete them afterwards.
+
 Before claiming a new hardware combination is qualified, test the plugins on a fresh
 Omarchy profile, enroll new test credentials, test real sudo/Polkit/key unlock,
 test absent-key/password fallbacks, cancel/timeout, suspend/resume, multiple

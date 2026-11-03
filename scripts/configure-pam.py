@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Conservative Arch PAM configuration with versioned backups and rollback."""
 import argparse
+from contextlib import contextmanager
 from datetime import datetime, timezone
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -13,8 +15,21 @@ import uuid
 
 AUTH = 'auth sufficient pam_u2f.so cue origin=pam://omarchy appid=pam://omarchy authfile=/etc/fido2/fido2'
 LOCK = '#%PAM-1.0\nauth required pam_u2f.so origin=pam://omarchy appid=pam://omarchy authfile=/etc/fido2/fido2\naccount include system-local-login\n'
-TARGETS = {'etc/pam.d/sudo', 'etc/pam.d/polkit-1', 'etc/pam.d/omarchy-lock-fido2', 'etc/fido2/fido2'}
+GATE = 'usr/local/lib/security/pam_omarchy_fallback.so'
+GATE_AUTH = 'auth requisite /' + GATE
+TARGETS = {'etc/pam.d/sudo', 'etc/pam.d/polkit-1', 'etc/pam.d/omarchy-lock-fido2', 'etc/fido2/fido2', GATE, 'var/lib/omarchy-yubikey/sync-state.json'}
 BACKUPS = Path('var/lib/omarchy-yubikey/backups')
+
+
+def key_auth(mode='pin'):
+    if mode not in ('pin', 'touch'):
+        raise ValueError('Unsupported authentication mode')
+    return AUTH + (' pinverification=1 userpresence=1' if mode == 'pin' else ' userpresence=1')
+
+
+def lock_config(mode='pin'):
+    return LOCK.replace('authfile=/etc/fido2/fido2', 'authfile=/etc/fido2/fido2' +
+                        (' pinverification=1 userpresence=1' if mode == 'pin' else ' userpresence=1'))
 
 
 def safe_path(root, relative):
@@ -30,20 +45,46 @@ def safe_path(root, relative):
     return path
 
 
+@contextmanager
+def configuration_lock(root):
+    directory = safe_path(root, 'var/lib/omarchy-yubikey')
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    for item in [directory, *directory.parents]:
+        if item == root:
+            break
+        info = item.stat()
+        if info.st_mode & 0o022 or (root == Path('/') and info.st_uid != 0):
+            raise ValueError('Configuration directories must be root-controlled')
+    path = safe_path(root, 'var/lib/omarchy-yubikey/config.lock')
+    fd = os.open(path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+    with os.fdopen(fd, 'r+') as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o022 or (root == Path('/') and info.st_uid != 0):
+            raise ValueError('Configuration lock must be a root-controlled regular file')
+        fcntl.flock(stream, fcntl.LOCK_EX)
+        yield
+
+
 def active_lines(text):
     return [' '.join(line.split()) for line in text.splitlines() if line.strip() and not line.lstrip().startswith('#')]
 
 
-def pam_with_key(text):
+def pam_with_key(text, mode='pin', fallback='explicit'):
     lines = active_lines(text)
     auth = [line for line in lines if line.startswith(('auth ', '-auth '))]
-    if auth == [AUTH, 'auth include system-auth']:
-        return text
-    if auth != ['auth include system-auth'] or 'account include system-auth' not in lines:
+    known = [[AUTH, 'auth include system-auth'], ['auth include system-auth']]
+    for old_mode in ('pin', 'touch'):
+        for old_fallback in ('explicit', 'automatic'):
+            known.append([key_auth(old_mode)] + ([GATE_AUTH] if old_fallback == 'explicit' else []) + ['auth include system-auth'])
+    if auth not in known or 'account include system-auth' not in lines:
         raise ValueError('Custom PAM authentication stack: left untouched. Use docs/pam-setup.md for manual review.')
-    original = text.splitlines(keepends=True)
+    if fallback not in ('explicit', 'automatic'):
+        raise ValueError('Unsupported fallback policy')
+    desired = [key_auth(mode)] + ([GATE_AUTH] if fallback == 'explicit' else [])
+    original = [line for line in text.splitlines(keepends=True)
+                if not re.match(r'^\s*auth\s+', line) or ' '.join(line.split()) == 'auth include system-auth']
     index = next(i for i, line in enumerate(original) if re.match(r'^\s*auth\s+', line))
-    original.insert(index, AUTH + '\n')
+    original[index:index] = [line + '\n' for line in desired]
     return ''.join(original)
 
 
@@ -72,22 +113,37 @@ def merge_mapping(existing, enrollment, username):
     return '\n'.join(lines) + '\n'
 
 
-def plan(root, services, enrollment, username):
+def plan(root, services, enrollment, username, mode='pin', fallback='explicit', gate=None):
     changes = {}
+    key_auth(mode)  # Validate even when only the lock is selected.
+    if fallback not in ('explicit', 'automatic'):
+        raise ValueError('Unsupported fallback policy')
+    if fallback == 'explicit' and any(s in ('sudo', 'polkit-1') for s in services):
+        target = safe_path(root, GATE)
+        if gate is not None:
+            if not gate.startswith(b'\x7fELF'):
+                raise ValueError('Build the fallback PAM module first')
+            if not target.exists() or target.read_bytes() != gate:
+                changes[GATE] = (gate, 0o644)
+        elif not target.is_file():
+            raise ValueError('Explicit fallback needs --fallback-module built by scripts/build-pam-gate.sh')
+        if target.exists() and (target.stat().st_mode & 0o022 or (root == Path('/') and target.stat().st_uid != 0)):
+            raise ValueError('Fallback module must be root-controlled')
     for service in services:
         relative = f'etc/pam.d/{service}'
         target = safe_path(root, relative)
         if service == 'omarchy-lock-fido2':
             if not safe_path(root, 'etc/pam.d/omarchy-lock-password').is_file():
                 raise ValueError('The shell password-lock PAM service is missing; desktop setup was not changed')
-            if target.exists() and active_lines(target.read_text()) != active_lines(LOCK):
+            known_locks = [active_lines(item) for item in (LOCK, lock_config('pin'), lock_config('touch'))]
+            if target.exists() and active_lines(target.read_text()) not in known_locks:
                 raise ValueError('Existing FIDO2 lock service differs: left untouched')
-            data = target.read_bytes() if target.exists() else LOCK.encode()
+            data = lock_config(mode).encode()
         else:
             source = target if target.exists() else safe_path(root, f'usr/lib/pam.d/{service}')
             if not source.is_file():
                 raise ValueError(f'Missing PAM service: {service}')
-            data = pam_with_key(source.read_text()).encode()
+            data = pam_with_key(source.read_text(), mode, fallback).encode()
         if not target.exists() or target.read_bytes() != data:
             changes[relative] = (data, 0o644)
     mapping = safe_path(root, 'etc/fido2/fido2')
@@ -111,12 +167,17 @@ def write_atomic(path, data, mode):
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
+        directory_fd = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
     finally:
         if os.path.exists(temporary):
             os.unlink(temporary)
 
 
-def restore(root, backup):
+def restore(root, backup, preserve_sync_state=True):
     base = safe_path(root, BACKUPS).resolve()
     backup = Path(backup)
     if backup.is_symlink():
@@ -129,6 +190,8 @@ def restore(root, backup):
     for record in records:
         if record['path'] not in TARGETS:
             raise ValueError('Unexpected target in backup manifest')
+        if preserve_sync_state and record['path'] == 'var/lib/omarchy-yubikey/sync-state.json':
+            continue
         target = safe_path(root, record['path'])
         if record['existed']:
             source = safe_path(backup, record['backup'])
@@ -173,7 +236,7 @@ def apply(root, changes):
                     directory.chmod(0o755)
             write_atomic(safe_path(root, relative), data, mode)
     except BaseException:
-        restore(root, backup)
+        restore(root, backup, preserve_sync_state=False)
         raise
     return backup
 
@@ -185,28 +248,40 @@ def main():
     parser.add_argument('--enrollment', type=Path)
     parser.add_argument('--services', nargs='+', choices=['sudo', 'polkit-1', 'omarchy-lock-fido2'])
     parser.add_argument('--apply', action='store_true', help='Write changes after a complete preflight')
+    parser.add_argument('--auth-mode', choices=['pin', 'touch'], default='pin')
+    parser.add_argument('--fallback', choices=['explicit', 'automatic'], default='explicit')
+    parser.add_argument('--fallback-module', type=Path, help='Locally built PAM conversation gate')
     parser.add_argument('--rollback', type=Path)
     args = parser.parse_args()
     root = args.root.resolve()
     if (args.apply or args.rollback) and root == Path('/') and os.geteuid() != 0:
         parser.error('System changes require sudo')
     if args.rollback:
-        restore(root, args.rollback)
+        with configuration_lock(root):
+            restore(root, args.rollback)
         print('Previous PAM configuration restored.')
         return
     if not args.user or not args.enrollment or not args.services:
         parser.error('--user, --enrollment and --services are required')
-    changes = plan(root, args.services, args.enrollment.read_text(), args.user)
+    enrollment = args.enrollment.read_text()
+    gate = args.fallback_module.read_bytes() if args.fallback_module else None
+    changes = plan(root, args.services, enrollment, args.user, args.auth_mode, args.fallback, gate)
     if not changes:
         print('PAM and key enrollment are already configured.')
         return
     print('Planned changes (enrollment values are hidden):')
+    print(f'  Key policy: {args.auth_mode}; password fallback: {args.fallback}')
     for relative in changes:
         print('  /' + relative)
     if not args.apply:
         print('Preview only; nothing written.')
         return
-    backup = apply(root, changes)
+    with configuration_lock(root):
+        changes = plan(root, args.services, enrollment, args.user, args.auth_mode, args.fallback, gate)
+        backup = apply(root, changes)
+    if backup is None:
+        print('PAM and key enrollment are already configured.')
+        return
     print(f'PAM configured. Backup: {backup}')
     print(f'Rollback: ./install.sh --rollback {backup.name}')
 

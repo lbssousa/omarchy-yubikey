@@ -26,3 +26,11 @@ test('authorization message shortens a command while preserving unfamiliar text'
   assert.equal(model.promptLooksFingerprint('Swipe your finger'), true);
   assert.equal(model.promptLooksFingerprint('Password:'), false);
 });
+
+test('explicit fallback is recognized independently of PIN/password responses', () => {
+  assert.equal(model.isFallbackPrompt('Use password fallback? Type password to continue: '), true);
+  assert.equal(model.isFallbackPrompt('Password:'), false);
+  assert.equal(model.isFallbackPrompt('Enter PIN for key:'), false);
+  assert.equal(model.responseLabel('Enter PIN for key: '), 'Enter PIN for key:');
+  assert.equal(model.responseLabel('Account password:'), 'Account password:');
+});

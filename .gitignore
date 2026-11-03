@@ -20,6 +20,12 @@ __pycache__/
 password.json
 u2f_keys
 fido2
+omarchy-yubikey-enrollment.json
+omarchy-yubikey-enrollment.json.sig
+sync_allowed_signers
+sync-state.json
+sync.lock
+config.lock
 *.key
 *.pem
 *.p12
