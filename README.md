@@ -1,9 +1,8 @@
 <p align="center">
-  <img src="assets/readme/hero.svg" alt="Omarchy YubiKey — touch your key, keep your flow." width="100%">
+  <img src="assets/readme/hero.svg" alt="Omarchy YubiKey security-key illustration." width="100%">
 </p>
 
 <p align="center">
-  <b>Omarchy YubiKey</b><br>
   Security-key authentication for sudo, privileged dialogs and your Omarchy session.
 </p>
 
