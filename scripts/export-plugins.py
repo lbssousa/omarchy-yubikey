@@ -47,9 +47,9 @@ def export(role, output):
 
 {details}
 
-**{version} is a source preview.** This standalone plugin comes from
+**Version {version}.** This standalone plugin comes from
 [Omarchy YubiKey]({SUITE}), which also provides guided key enrollment and PAM
-configuration. An end-to-end hardware check of the extracted version is pending.
+configuration. See the suite release notes for validation and compatibility.
 
 ## Requirements
 

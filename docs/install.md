@@ -6,10 +6,10 @@ Desktop integration requires the existing password lock to work first.
 
 ## Start with one command
 
-Clone the preview release and start setup:
+Clone the release and start setup:
 
 ```sh
-git clone --depth 1 --branch v0.1.0-preview.1 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
+git clone --depth 1 --branch v0.1.0 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
 ```
 
 Already cloned? Run `./install.sh` from that checkout. To inspect prerequisites
@@ -82,6 +82,6 @@ For manual installation or a custom PAM stack, use [PAM setup](pam-setup.md),
 ## Current validation
 
 PAM planning, preservation of other enrollments, rollback, file permissions and
-interrupted writes are covered by isolated tests. The installer has not yet been
-qualified end to end with a fresh hardware enrollment. This remains a source
-preview; keep a recovery path available during testing.
+interrupted writes are covered by isolated tests. A fresh end-to-end hardware
+enrollment test of this installer is still pending. Keep a recovery path
+available while setting up and testing your own system.

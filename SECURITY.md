@@ -1,8 +1,9 @@
 # Security policy
 
-This is a source preview. There are no supported stable releases yet; fixes
-are made on `main` and included in subsequent preview releases. Hardware authentication and session locking require manual
-qualification on the target environment.
+The current release series is **0.1.x**. Fixes are made on `main` and included
+in subsequent releases. Report issues against the latest available version.
+Hardware authentication and session locking also need validation on the target
+environment; see the documented validation scope and security model.
 
 Please use the repository's **Security → Report a vulnerability** feature when
 available. If it is not available, open an issue asking for a private reporting

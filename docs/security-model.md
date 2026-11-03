@@ -1,7 +1,8 @@
 # Security model
 
 This document describes the current implementation, not a certification or a
-completed security audit. The project is a source preview.
+completed security audit. Release numbers identify published versions, not
+independent security certification or hardware compatibility qualification.
 
 ## PAM authentication
 

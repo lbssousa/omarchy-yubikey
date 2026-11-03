@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-93c5fd" alt="License: MIT"></a>
-  <a href="https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.1.0-preview.1"><img src="https://img.shields.io/badge/version-0.1.0-preview.1-facc15" alt="Version 0.1.0-preview.1"></a>
+  <a href="https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/version-0.1.0-c5f46b" alt="Version 0.1.0"></a>
   <img src="https://img.shields.io/badge/made_for-Omarchy_4-a3e635" alt="Made for Omarchy 4">
   <a href="https://github.com/marselnenaj/omarchy-yubikey/actions/workflows/checks.yml"><img src="https://github.com/marselnenaj/omarchy-yubikey/actions/workflows/checks.yml/badge.svg" alt="Checks"></a>
 </p>
@@ -50,7 +50,7 @@ encrypted local store. It does not add native passkey login to GNOME Keyring.
 Run the guided installer from an interactive terminal:
 
 ```sh
-git clone --depth 1 --branch v0.1.0-preview.1 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
+git clone --depth 1 --branch v0.1.0 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
 ```
 
 Already cloned? Run `./install.sh` from the checkout. The wizard lets you choose
@@ -59,8 +59,8 @@ needed packages, enrolls your key, backs up changed files and walks you through
 the password/key checks. **Keep a separate recovery root shell open until the
 checks pass.** [Installation and rollback](docs/install.md) explains each step.
 
-This is a **source-only preview release**, with [downloadable archives and checksums](https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.1.0-preview.1). Software checks cover the installer and extracted
-components; an end-to-end check with a fresh key enrollment is still pending.
+**v0.1.0 is released**, with [source archives and checksums](https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.1.0).
+The [release notes](docs/releases/0.1.0.md) describe validation and compatibility.
 For manual setup or a custom PAM stack, see [PAM setup](docs/pam-setup.md).
 Touch-only authentication does not request a FIDO2 PIN; see the
 [security model](docs/security-model.md).
