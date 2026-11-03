@@ -768,7 +768,7 @@ dependencies = [
 
 [[package]]
 name = "keyring-unlock"
-version = "0.1.0"
+version = "0.1.0-preview.1"
 dependencies = [
  "anyhow",
  "base64",

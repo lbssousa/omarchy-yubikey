@@ -24,7 +24,7 @@ The lightweight publication script is an additional guard, not a complete
 secret detector or anonymization guarantee. `.gitignore` does not protect a
 file already tracked. Never force-add ignored runtime data.
 
-Before making the source preview public, qualify the renamed plugins on a fresh
+Before promoting the preview to a stable release, qualify the plugins on a fresh
 Omarchy profile, enroll new test credentials, test real sudo/Polkit/key unlock,
 test absent-key/password fallbacks, cancel/timeout, suspend/resume, multiple
 displays and backup-key recovery. Verify the optional helper against current

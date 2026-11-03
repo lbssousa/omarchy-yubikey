@@ -6,11 +6,10 @@ Desktop integration requires the existing password lock to work first.
 
 ## Start with one command
 
-While this repository is private, use an authenticated GitHub CLI account with
-access to it (`gh auth login` if you have not signed in yet):
+Clone the preview release and start setup:
 
 ```sh
-gh repo clone marselnenaj/omarchy-yubikey && ./omarchy-yubikey/install.sh
+git clone --depth 1 --branch v0.1.0-preview.1 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
 ```
 
 Already cloned? Run `./install.sh` from that checkout. To inspect prerequisites

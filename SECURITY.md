@@ -1,7 +1,7 @@
 # Security policy
 
 This is a source preview. There are no supported stable releases yet; fixes
-are made on `main`. Hardware authentication and session locking require manual
+are made on `main` and included in subsequent preview releases. Hardware authentication and session locking require manual
 qualification on the target environment.
 
 Please use the repository's **Security → Report a vulnerability** feature when

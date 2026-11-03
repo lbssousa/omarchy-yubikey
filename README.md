@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-93c5fd" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/status-preview-facc15" alt="Status: preview">
+  <a href="https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.1.0-preview.1"><img src="https://img.shields.io/badge/version-0.1.0-preview.1-facc15" alt="Version 0.1.0-preview.1"></a>
   <img src="https://img.shields.io/badge/made_for-Omarchy_4-a3e635" alt="Made for Omarchy 4">
   <a href="https://github.com/marselnenaj/omarchy-yubikey/actions/workflows/checks.yml"><img src="https://github.com/marselnenaj/omarchy-yubikey/actions/workflows/checks.yml/badge.svg" alt="Checks"></a>
 </p>
@@ -47,11 +47,10 @@ encrypted local store. It does not add native passkey login to GNOME Keyring.
 
 ## Getting started
 
-Run the guided installer from an interactive terminal. While the repository is
-private, use an authenticated GitHub CLI account with access:
+Run the guided installer from an interactive terminal:
 
 ```sh
-gh repo clone marselnenaj/omarchy-yubikey && ./omarchy-yubikey/install.sh
+git clone --depth 1 --branch v0.1.0-preview.1 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
 ```
 
 Already cloned? Run `./install.sh` from the checkout. The wizard lets you choose
@@ -60,7 +59,7 @@ needed packages, enrolls your key, backs up changed files and walks you through
 the password/key checks. **Keep a separate recovery root shell open until the
 checks pass.** [Installation and rollback](docs/install.md) explains each step.
 
-This is a **source preview**. Software checks cover the installer and extracted
+This is a **source-only preview release**, with [downloadable archives and checksums](https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.1.0-preview.1). Software checks cover the installer and extracted
 components; an end-to-end check with a fresh key enrollment is still pending.
 For manual setup or a custom PAM stack, see [PAM setup](docs/pam-setup.md).
 Touch-only authentication does not request a FIDO2 PIN; see the
@@ -79,6 +78,17 @@ The source environment used Omarchy **4.0.6**, libfido2 **1.17.0** and pam-u2f
 **1.4.0**. Other shell versions and security-key models are unqualified. A key
 that works with PAM may lack the extension needed by the Rust helper. NFC and
 other desktops are not qualified.
+
+## Individual shell plugins
+
+The full guided installer is the easiest route. If PAM is already configured,
+there are also standalone source repositories for the
+[Polkit agent](https://github.com/marselnenaj/omarchy-yubikey-polkit) and
+[lock screen](https://github.com/marselnenaj/omarchy-yubikey-lock). Each has a
+root manifest for standard `omarchy plugin add` installation. Follow their
+installation and removal instructions; do not install a second copy over a
+plugin already managed by the suite. Marketplace approval is separate from a
+GitHub release and is not a security certification.
 
 ## Build and check
 

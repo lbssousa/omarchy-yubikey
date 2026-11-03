@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "yubikey.polkit",
   "name": "YubiKey Polkit Agent",
-  "version": "0.1.0",
+  "version": "0.1.0-preview.1",
   "author": "marselnenaj",
   "description": "Touch-to-authenticate Polkit dialog with security-key, fingerprint and password prompts.",
   "omarchy": {
