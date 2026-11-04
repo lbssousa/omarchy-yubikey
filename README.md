@@ -66,7 +66,7 @@ LUKS enrollment is a separate opt-in command: `./install.sh --luks --device /dev
 It requests PIN plus touch and preserves the disk passphrase. Boot configuration
 is a manual step; read the [LUKS guide](docs/luks.md) first.
 
-**v0.2.0 is available as a prerelease**, with [source archives and checksums](https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.2.0).
+**v0.2.0 is released**, with [source archives and checksums](https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.2.0).
 The [release notes](docs/releases/0.2.0.md) describe validation and compatibility.
 For manual setup or a custom PAM stack, see [PAM setup](docs/pam-setup.md).
 New PAM setup defaults to PIN plus touch and explicit password fallback.
