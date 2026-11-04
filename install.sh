@@ -14,34 +14,27 @@ confirm() {
   local reply prompt=$1 default=${2:-yes}
   prompt=$(tr "$prompt")
   if [[ $default == yes ]]; then prompt+=' [Y/n] '; else prompt+=' [y/N] '; fi
-  read -r -p "$prompt" reply </dev/tty || return 1
+  read -r -p "$prompt" reply <&3 || return 1
   reply=${reply:-$default}
   [[ $reply == [yY] || $reply == [yY][eE][sS] ]]
 }
-pause() { local reply; read -r -p "$(tr "$1") $(tr 'Press Enter when ready.') " reply </dev/tty; }
+pause() { local reply; read -r -p "$(tr "$1") $(tr 'Press Enter when ready.') " reply <&3; }
 fail() { printf '\n%s: %s\n' "$(tr 'Setup stopped')" "$(tr "$*")" >&2; exit 1; }
 
-# Also works when this script is fetched through a pipe after public release.
-installer_source=${BASH_SOURCE[0]:-}
-if [[ -n $installer_source && -f $installer_source ]]; then
-  source_root=$(cd -- "$(dirname -- "$installer_source")" && pwd)
-else
-  source_root=''
-fi
-if [[ -z $source_root || ! -f $source_root/scripts/configure-pam.py ]]; then
-  [[ ${1:-} != --check ]] || fail 'Run --check from a complete checkout.'
-  command -v git >/dev/null || fail 'Install git first, then run this installer again.'
-  bootstrap_dir=$(mktemp -d "${TMPDIR:-/tmp}/omarchy-yubikey-install.XXXXXX")
-  trap 'rm -rf -- "$bootstrap_dir"' EXIT
-  git clone --depth 1 --branch v0.3.0 https://github.com/marselnenaj/omarchy-yubikey.git "$bootstrap_dir/source"
-  bash "$bootstrap_dir/source/install.sh" "$@" </dev/tty
-  exit $?
+# Setup requires a complete local checkout.
+source_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+[[ -f $source_root/scripts/configure-pam.py ]] || fail 'Run from a complete source checkout.'
+components=all
+if [[ ${1:-} == --components ]]; then
+  [[ $# == 2 && $2 =~ ^(sudo|desktop|keyring)$ ]] || fail 'Choose sudo, desktop or keyring.'
+  components=$2
+  shift 2
 fi
 
 language=$(tr --language-code)
 case ${1:-} in
   --help|-h)
-    printf '%s\n' "$(tr 'Usage'): ./install.sh [--check | --rollback BACKUP_ID | --luks --device DEVICE [--check] | --sync export/import ...]" \
+    printf '%s\n' "$(tr 'Usage'): ./install.sh [--components sudo|desktop|keyring | --check | --rollback BACKUP_ID | --luks --device DEVICE [--check] | --sync export/import ...]" \
       "$(tr 'Guided setup for sudo, desktop authentication and optional GNOME Keyring.')" \
       "$(tr '--sync provides opt-in signed enrollment transfer through a separate private Git checkout; see docs/enrollment-sync.md.')" \
       "$(tr '--luks starts separate opt-in LUKS2 enrollment (PIN + touch); boot setup is manual, see docs/luks.md.')" \
@@ -71,7 +64,7 @@ case ${1:-} in
 esac
 [[ $# == 0 ]] || fail 'Unexpected arguments. Run ./install.sh --help.'
 [[ $EUID != 0 ]] || fail 'Run as your normal desktop user; the installer uses sudo only when needed.'
-[[ -r /dev/tty && -w /dev/tty ]] || fail 'An interactive terminal is required.'
+if ! { exec 3<>/dev/tty; } 2>/dev/null; then fail 'An interactive terminal is required.'; fi
 command -v pacman >/dev/null || fail 'Guided setup currently supports Arch Linux and Omarchy. See docs/pam-setup.md for manual setup.'
 command -v python3 >/dev/null || fail 'Install Python first: sudo pacman -S --needed python'
 
@@ -81,18 +74,21 @@ printf '%s\n' "$(tr 'Choose what to install. Existing password authentication st
 services=()
 use_desktop=no
 use_keyring=no
-if confirm 'Enable security-key authentication for sudo?'; then services+=(sudo); fi
-if command -v omarchy >/dev/null && command -v omarchy-shell >/dev/null; then
+if [[ $components == all ]]; then
+  if confirm 'Enable security-key authentication for sudo?'; then services+=(sudo); fi
+elif [[ $components == sudo ]]; then services+=(sudo); fi
+if [[ $components == all || $components == desktop ]] && command -v omarchy >/dev/null && command -v omarchy-shell >/dev/null; then
   if confirm 'Add desktop touch prompts and security-key screen unlock?'; then
     use_desktop=yes
     services+=(polkit-1 omarchy-lock-fido2)
     omarchy plugin validate "$source_root/plugins/yubikey.polkit"
     omarchy plugin validate "$source_root/plugins/yubikey.lock"
   fi
-else
+elif [[ $components == all || $components == desktop ]]; then
   printf '%s\n' "$(tr 'Desktop integration is unavailable: a compatible Omarchy shell is required.')"
 fi
-if confirm 'Also install the optional GNOME Keyring helper?' no; then use_keyring=yes; fi
+if [[ $components == keyring ]]; then use_keyring=yes
+elif [[ $components == all ]] && confirm 'Also install the optional GNOME Keyring helper?' no; then use_keyring=yes; fi
 if [[ ${#services[@]} == 0 && $use_keyring == no ]]; then printf '%s\n' "$(tr 'Nothing selected; no changes made.')"; exit 0; fi
 
 config_root=${XDG_CONFIG_HOME:-"$HOME/.config"}
@@ -145,6 +141,16 @@ if [[ ${#services[@]} != 0 ]]; then
     pause 'Unplug the previous key and plug in only the backup key.'
     pamu2fcfg "${enrollment_options[@]}" -n -o pam://omarchy -i pam://omarchy >> "$enrollment"
   done
+  # Save these opaque references to identify registrations during later removal.
+  python3 - "$enrollment" "$(id -un)" <<'PYREF'
+import hashlib
+from pathlib import Path
+import sys
+rows = [line for line in Path(sys.argv[1]).read_text().splitlines() if line.startswith(sys.argv[2] + ':')]
+if len(rows) == 1:
+    for index, entry in enumerate(rows[0].split(':')[1:], 1):
+        print('Enrollment ' + str(index) + ' reference: ' + hashlib.sha256(entry.encode()).hexdigest())
+PYREF
   sudo python3 "$source_root/scripts/configure-pam.py" --language "$language" "${pam_options[@]}" --user "$(id -un)" --enrollment "$enrollment" --services "${services[@]}"
   confirm 'Apply the listed changes? Existing user/key mappings will be preserved.' || exit 0
   sudo python3 "$source_root/scripts/configure-pam.py" --language "$language" "${pam_options[@]}" --apply --user "$(id -un)" --enrollment "$enrollment" --services "${services[@]}"
@@ -156,6 +162,7 @@ if [[ ${#services[@]} != 0 ]]; then
     pause 'Test the key: plug in an enrolled key and touch it when sudo asks.'
     sudo -k
     sudo true || fail 'Key test did not succeed. See docs/install.md; desktop plugins have not been enabled.'
+    confirm 'Did the key test succeed using only the key PIN/touch, without your account password?' no || fail 'Key authentication remains unverified; keep the recovery terminal open.'
     printf '%s\n' "$(tr 'sudo tests completed. Close the recovery shell only after desktop testing too.')"
   fi
   rm -rf -- "$enroll_dir"
@@ -218,7 +225,16 @@ if [[ $use_keyring == yes ]]; then
   if [[ -f $store ]]; then cp -- "$store" "$user_backup/password.json"; chmod 600 "$user_backup/password.json"; fi
   install -m 0755 "$source_root/target/release/keyring-unlock" "$binary"
   printf '%s\n' "$(tr 'Enter the existing default keyring password when asked. No new account password is created.')"
-  if ! "$binary" enroll || ! "$binary" check; then
+  enroll_keyring() {
+    if [[ -f $store ]]; then
+      if confirm 'Add a new key to the existing Keyring enrollment? Existing entries will be preserved.' no; then
+        "$binary" enroll --add
+      fi
+    else
+      "$binary" enroll
+    fi
+  }
+  if ! enroll_keyring || ! "$binary" check; then
     if [[ -f $user_backup/keyring-unlock ]]; then cp -p -- "$user_backup/keyring-unlock" "$binary"; else rm -f -- "$binary"; fi
     if [[ -f $user_backup/password.json ]]; then cp -- "$user_backup/password.json" "$store"; chmod 600 "$store"; else rm -f -- "$store"; fi
     fail 'Keyring enrollment/check failed; the previous binary and encrypted store were restored.'

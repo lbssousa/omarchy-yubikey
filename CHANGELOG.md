@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0 — 2026-11-04
+
+- Add the root `yubikey.setup` marketplace plugin: bar entry and native window
+  for status, keys, desktop authentication, GNOME Keyring, LUKS and PAM recovery.
+- Keep authentication responses in explicit terminal actions, validate fixed
+  argument vectors and prevent concurrent launches with private operation state.
+- Add per-account PAM key addition/removal with versioned backups, preserving
+  other accounts and refusing removal of the last or an ambiguous registration.
+- Add component-specific setup, read-only backup listing and preservation of
+  existing Keyring enrollments on helper setup.
+- Provide English/German setup UI, responsive layouts, keyboard confirmation
+  defaulting to Cancel, synthetic previews and native Quickshell checks.
+- Keep standalone lock/Polkit plugins at 0.3.0 and Rust helper at 0.2.0.
+
 ## 0.3.0 — 2026-11-04
 
 - Add all 50 Omarchy languages to the Keyring helper, guided setup, enrollment

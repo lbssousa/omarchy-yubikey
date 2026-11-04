@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-93c5fd" alt="License: MIT"></a>
-  <a href="https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/version-0.3.0-c5f46b" alt="Version 0.3.0"></a>
+  <a href="docs/control-center.md"><img src="https://img.shields.io/badge/setup_plugin-0.4.0-c5f46b" alt="Setup plugin 0.4.0"></a>
   <img src="https://img.shields.io/badge/made_for-Omarchy_4-a3e635" alt="Made for Omarchy 4">
   <a href="https://github.com/marselnenaj/omarchy-yubikey/actions/workflows/checks.yml"><img src="https://github.com/marselnenaj/omarchy-yubikey/actions/workflows/checks.yml/badge.svg" alt="Checks"></a>
 </p>
@@ -30,13 +30,14 @@ authorize a privileged desktop action or unlock your screen, with a password
 available when the key is absent.
 
 **Omarchy YubiKey** brings these pieces together: PAM configuration examples,
-a theme-aware Polkit agent, a session-lock plugin and an optional Rust helper.
+a native setup and management window, a theme-aware Polkit agent, a session-lock plugin and an optional Rust helper.
 Choose the parts you need. The PAM route also works without the plugins.
 
 ## What you get
 
 | Component | What it does | Start here |
 | --- | --- | --- |
+| **Setup & management** | One window for status, setup, backup keys, desktop, Keyring and recovery | [Control center](docs/control-center.md) |
 | **Passwordless sudo** | PIN plus touch by default; confirm before using the existing password stack | [PAM setup](docs/pam-setup.md) |
 | **Polkit dialog** | Show the actual PAM PIN/password prompt and an explicit fallback choice | [Shell plugins](docs/plugins.md) |
 | **Screen unlock** | Select key/PIN, password or optional fingerprint without automatic method switching | [Shell plugins](docs/plugins.md) |
@@ -52,23 +53,36 @@ encrypted local store. It does not add native passkey login to GNOME Keyring.
 
 ## Getting started
 
-Run the guided installer from an interactive terminal:
+Install the complete Omarchy plugin and open its setup window:
 
 ```sh
-git clone --depth 1 --branch v0.3.0 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
+omarchy plugin add https://github.com/marselnenaj/omarchy-yubikey.git
+omarchy plugin enable yubikey.setup
+omarchy-shell shell summon yubikey.setup '{}'
 ```
 
-Already cloned? Run `./install.sh` from the checkout. The wizard lets you choose
-sudo, desktop authentication and optional GNOME Keyring unlock. It installs
-needed packages, enrolls your key, backs up changed files and walks you through
-the password/key checks. **Keep a separate recovery root shell open until the
-checks pass.** [Installation and rollback](docs/install.md) explains each step.
+Use the key button in your bar to reopen it. **Adding the plugin does not change
+authentication.** The window shows local status and opens explicit terminal
+operations for setup and management. PINs and passwords stay in the terminal.
+[Control center, dependencies and removal](docs/control-center.md).
+
+<p align="center"><img src="preview.png" alt="Omarchy YubiKey control center with synthetic example status." width="100%"></p>
+
+The new control center is **0.4.0**. Its interface is English/German with English
+fallback; the existing authentication components retain their 50-language support.
+The standalone lock/Polkit plugins remain 0.3.0 and the Rust helper remains 0.2.0.
+
+For terminal-only setup, clone the current source and run `./install.sh`.
+The wizard lets you choose sudo, desktop authentication and optional GNOME Keyring
+unlock. It installs needed packages, enrolls your key, backs up changed files and
+walks you through password/key checks. **Keep a separate recovery root shell open
+until the checks pass.** [Installation and rollback](docs/install.md) explains each step.
 
 LUKS enrollment is a separate opt-in command: `./install.sh --luks --device /dev/your-luks-partition`.
 It requests PIN plus touch and preserves the disk passphrase. Boot configuration
 is a manual step; read the [LUKS guide](docs/luks.md) first.
 
-**v0.3.0 is released**, with [source archives and checksums](https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.3.0).
+The earlier **v0.3.0 release** remains available with [source archives and checksums](https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.3.0).
 The [release notes](docs/releases/0.3.0.md) describe language support, multiple-account
 safeguards, component versions and validation.
 For manual setup or a custom PAM stack, see [PAM setup](docs/pam-setup.md).
@@ -83,6 +97,7 @@ change PAM. The optional Keyring helper remains touch-only. See the
 | Part | Requirements |
 | --- | --- |
 | PAM | Arch Linux, `pam-u2f`, Linux-PAM headers/C compiler for explicit fallback; FIDO2 key with a configured PIN for default PIN mode |
+| Control center | Compatible Omarchy 4 plugin host, Python 3 and `omarchy-launch-terminal`; feature dependencies are installed only after terminal confirmation |
 | Shell plugins | Omarchy 4 with the Quickshell plugin host, `qs.Commons`, `qs.Ui`, authentication-clone support and the shell's PAM/Polkit modules |
 | Rust helper | Linux, Rust/Cargo, libfido2, OpenSSL, libudev, pkg-config and Clang build tools; a FIDO2 key with `hmac-secret` |
 | Keyring | GNOME Keyring on the user's session bus and an existing default collection |
@@ -95,7 +110,7 @@ other desktops are not qualified.
 
 ## Individual shell plugins
 
-The full guided installer is the easiest route. If PAM is already configured,
+The [control center](docs/control-center.md) is the complete entry point; its guided installer prepares authentication. If PAM is already configured,
 there are also standalone source repositories for the
 [Polkit agent](https://github.com/marselnenaj/omarchy-yubikey-polkit) and
 [lock screen](https://github.com/marselnenaj/omarchy-yubikey-lock). Each has a

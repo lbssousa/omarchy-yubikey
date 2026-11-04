@@ -1,6 +1,9 @@
 # Shell plugins
 
-The repository ships two independent plugins:
+The root [control center](control-center.md), `yubikey.setup`, provides setup,
+management and a bar entry. It does not replace an authentication service.
+
+The repository also ships two independent authentication plugins:
 
 | ID | Replaces | Files |
 | --- | --- | --- |

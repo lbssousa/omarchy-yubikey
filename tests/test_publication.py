@@ -17,6 +17,12 @@ class PublicationTests(unittest.TestCase):
     def test_only_explicit_synthetic_uuid_is_allowed(self):
         self.assertEqual(publication.content_failures(publication.SYNTHETIC_UUID), [])
 
+    def test_only_exact_reviewed_preview_is_allowed(self):
+        preview = publication.ROOT / 'preview.png'
+        self.assertEqual(publication.publication_content_failures('preview.png', preview.read_bytes()), [])
+        self.assertTrue(publication.publication_content_failures('preview.png', b'changed\0image'))
+        self.assertTrue(publication.publication_content_failures('other.png', preview.read_bytes()))
+
     def test_boot_and_chat_artifacts_are_denied(self):
         for suffix in ('.img', '.efi', '.cpio', '.initramfs', '.jsonl'):
             self.assertIn(suffix, publication.DENIED_SUFFIXES)

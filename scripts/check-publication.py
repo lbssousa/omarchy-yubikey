@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Check Git-tracked publication content; never print matched secret values."""
 from pathlib import Path, PurePosixPath
+import hashlib
 import re
 import subprocess
 import sys
@@ -9,9 +10,9 @@ ROOT = Path(__file__).resolve().parent.parent
 ALLOWED_ROOTS = {
     ".editorconfig", ".gitattributes", ".gitignore", "Cargo.toml", "Cargo.lock",
     "rustfmt.toml", "install.sh", "LICENSE", "README.md", "THIRD_PARTY_NOTICES.md",
-    "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md",
+    "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md", "manifest.json", "ControlCenter.qml", "preview.png",
 }
-ALLOWED_DIRS = {".github", "assets", "docs", "keyring-unlock", "plugins", "pam", "scripts", "systemd", "tests", "luks", "i18n"}
+ALLOWED_DIRS = {".github", "assets", "docs", "keyring-unlock", "plugins", "pam", "scripts", "systemd", "tests", "luks", "i18n", "ui"}
 DENIED_PARTS = {".env", ".ssh", ".aws", ".config", ".local", "target", "node_modules", "__pycache__"}
 DENIED_NAMES = {"password.json", "u2f_keys", "fido2", "omarchy-enrollment", "crypttab", "crypttab.initramfs", "machine-id", "omarchy-yubikey-enrollment.json", "omarchy-yubikey-enrollment.json.sig", "sync_allowed_signers", "sync-state.json", "sync.lock"}
 DENIED_SUFFIXES = {".pem", ".key", ".p12", ".pfx", ".bundle", ".log", ".bak", ".tmp", ".sqlite", ".db", ".eml", ".img", ".efi", ".cpio", ".initramfs", ".jsonl"}
@@ -26,6 +27,13 @@ UUID = re.compile(rb"\b[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\b")
 # The sole permitted UUID is an explicitly synthetic test fixture.
 SYNTHETIC_UUID = b"00000000-0000-4000-8000-000000000000"
 
+# Visually reviewed synthetic UI capture; changing it requires renewed review.
+REVIEWED_ASSETS = {"preview.png": "fb313d888deb62444ea1632037c25016572a425c5e6adb3f41376c508af28edc"}
+
+def publication_content_failures(name, data):
+    if name in REVIEWED_ASSETS:
+        return [] if hashlib.sha256(data).hexdigest() == REVIEWED_ASSETS[name] else ["preview changed; explicit visual/privacy review required"]
+    return content_failures(data)
 
 def content_failures(data):
     reasons = [label for label, pattern in PATTERNS.items() if pattern.search(data)]
@@ -57,7 +65,7 @@ def main():
             failures.append((name, "missing file"))
             continue
         data = file.read_bytes()
-        failures.extend((name, reason) for reason in content_failures(data))
+        failures.extend((name, reason) for reason in publication_content_failures(name, data))
     for name, reason in failures:
         print(f"FAIL {name}: {reason}", file=sys.stderr)
     if failures:

@@ -166,6 +166,55 @@ def plan(root, services, enrollment, username, mode='pin', fallback='explicit', 
     return changes
 
 
+def key_references(mapping, username):
+    if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.-]*\$?', username):
+        raise ValueError(tr('Unsupported account name'))
+    rows = [line for line in mapping.splitlines() if line.startswith(username + ':')]
+    if len(rows) > 1:
+        raise ValueError(tr('Duplicate user entries in existing mapping: merge manually first'))
+    credentials = rows[0].split(':')[1:] if rows else []
+    if rows and (not credentials or any(not item or ',' not in item or re.search(r'\s', item) for item in credentials)):
+        raise ValueError(tr('Enrollment is empty or malformed'))
+    return [hashlib.sha256(item.encode()).hexdigest() for item in credentials]
+
+
+def remove_key_plan(root, username, reference):
+    if not re.fullmatch(r'[0-9a-f]{64}', reference):
+        raise ValueError('Choose one complete key reference from the management screen')
+    target = safe_path(root, 'etc/fido2/fido2')
+    info = target.stat()
+    if not stat.S_ISREG(info.st_mode) or info.st_mode & 0o022 or (root == Path('/') and info.st_uid != 0):
+        raise ValueError('Central enrollment must be a root-controlled regular file')
+    text = target.read_text()
+    references = key_references(text, username)
+    if references.count(reference) != 1:
+        raise ValueError('Key reference is missing or ambiguous; refresh the list before removing')
+    if len(references) <= 1:
+        raise ValueError('The last enrolled key cannot be removed here; keep a working recovery key')
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith(username + ':'):
+            entries = line.split(':')[1:]
+            entries.pop(references.index(reference))
+            lines[i] = username + ':' + ':'.join(entries)
+    return {'etc/fido2/fido2': (('\n'.join(lines) + '\n').encode(), 0o644)}
+
+
+def list_backups(root):
+    directory = safe_path(root, BACKUPS)
+    if not directory.exists():
+        print('No system PAM backups found.')
+        return
+    for path in sorted(directory.iterdir(), reverse=True):
+        if path.is_symlink() or not path.is_dir() or not re.fullmatch(r'[0-9]{8}-[0-9]{6}-[a-f0-9]{8}', path.name):
+            continue
+        manifest = safe_path(root, path.relative_to(root) / 'manifest.json')
+        records = json.loads(manifest.read_text())
+        if not isinstance(records, list) or any(not isinstance(record, dict) or record.get('path') not in TARGETS for record in records):
+            raise ValueError('Unexpected backup manifest; review locally')
+        print(path.name + ' — ' + ', '.join('/' + record['path'] for record in records))
+
+
 def write_atomic(path, data, mode):
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix='.yubikey-', dir=path.parent)
@@ -272,35 +321,54 @@ def main():
     parser.add_argument('--fallback-module', type=Path, help='Locally built PAM conversation gate')
     parser.add_argument('--allow-shared-policy-change', action='store_true',
                         help='Explicitly allow PAM policy changes affecting other enrolled accounts')
-    parser.add_argument('--rollback', type=Path)
+    operation = parser.add_mutually_exclusive_group()
+    operation.add_argument('--rollback', type=Path)
+    operation.add_argument('--enrollment-only', action='store_true', help='Merge this account enrollment without changing PAM policy')
+    operation.add_argument('--remove-key', help='Full SHA-256 key reference; changes enrollment only')
+    operation.add_argument('--list-backups', action='store_true', help='List backup IDs and affected paths without credential contents')
     args = parser.parse_args()
     root = args.root.resolve()
-    if (args.apply or args.rollback) and root == Path('/') and os.geteuid() != 0:
+    if (args.apply or args.rollback or args.list_backups) and root == Path('/') and os.geteuid() != 0:
         parser.error(tr('System changes require sudo'))
+    if args.list_backups:
+        list_backups(root)
+        return
     if args.rollback:
         with configuration_lock(root):
             restore(root, args.rollback)
         print(tr('Previous PAM configuration restored.'))
         return
-    if not args.user or not args.enrollment or not args.services:
-        parser.error(tr('--user, --enrollment and --services are required'))
-    enrollment = args.enrollment.read_text()
-    gate = args.fallback_module.read_bytes() if args.fallback_module else None
-    changes = plan(root, args.services, enrollment, args.user, args.auth_mode, args.fallback, gate,
-                   args.allow_shared_policy_change)
+    if not args.user:
+        parser.error('--user is required')
+    if (args.enrollment_only or args.remove_key) and args.services:
+        parser.error('Enrollment-only operations cannot change service policy')
+    if args.remove_key:
+        def make_plan():
+            return remove_key_plan(root, args.user, args.remove_key)
+    else:
+        if not args.enrollment or (not args.enrollment_only and not args.services):
+            parser.error(tr('--user, --enrollment and --services are required'))
+        enrollment = args.enrollment.read_text()
+        gate = args.fallback_module.read_bytes() if args.fallback_module else None
+        def make_plan():
+            return plan(root, args.services or [], enrollment, args.user, args.auth_mode, args.fallback, gate,
+                        args.allow_shared_policy_change)
+    changes = make_plan()
     if not changes:
         print(tr('PAM and key enrollment are already configured.'))
         return
     print(tr('Planned changes (enrollment values are hidden):'))
-    print(tr('  Key policy: %1; password fallback: %2', args.auth_mode, args.fallback))
+    if args.enrollment_only or args.remove_key:
+        print('  Enrollment only; shared PAM policy is unchanged.')
+    else:
+        print(tr('  Key policy: %1; password fallback: %2', args.auth_mode, args.fallback))
     for relative in changes:
         print('  /' + relative)
     if not args.apply:
         print(tr('Preview only; nothing written.'))
         return
     with configuration_lock(root):
-        changes = plan(root, args.services, enrollment, args.user, args.auth_mode, args.fallback, gate,
-                       args.allow_shared_policy_change)
+        changes = make_plan()
         backup = apply(root, changes)
     if backup is None:
         print(tr('PAM and key enrollment are already configured.'))

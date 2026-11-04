@@ -4,17 +4,30 @@ The guided installer supports **Arch Linux and compatible Omarchy 4 shells**.
 You need an interactive terminal, a security key and working sudo access.
 Desktop integration requires the existing password lock to work first.
 
-## Start with one command
+## Open the setup window
 
-Clone the release and start setup:
+Install the [control center](control-center.md) with `omarchy plugin add
+https://github.com/marselnenaj/omarchy-yubikey.git`, enable `yubikey.setup`, then use
+its bar button. Actions open an interactive terminal and require confirmation.
+Installing the window itself does not change PAM or enroll keys.
+
+## Start from a terminal
+
+Clone the current source and start setup:
 
 ```sh
-git clone --depth 1 --branch v0.3.0 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
+git clone --depth 1 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
 ```
 
 Already cloned? Run `./install.sh` from that checkout. To inspect prerequisites
 without changing anything, run `./install.sh --check`. You can review the
 [installer source](../install.sh) before running it.
+
+For a single component, use `./install.sh --components sudo`,
+`./install.sh --components desktop` or `./install.sh --components keyring`.
+Backup keys can be managed without rerunning PAM setup through the control
+center's Security keys page (`python3 scripts/manage-keys.py add` or `remove`).
+Keyring setup preserves an existing store and offers adding a new key separately.
 
 ## What setup asks
 

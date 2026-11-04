@@ -4,6 +4,12 @@ The Keyring helper, guided installer, enrollment tools, lock screen and Polkit
 plugin ship catalogs for all 50 Omarchy languages, including English. Comments,
 command names, options, file paths and developer documentation remain English.
 
+The new 0.4.0 control-center window has separate English/German catalogs under
+`i18n/control/`. It follows the same language choice and uses English fallback
+for other languages; this does not expand the existing standalone catalogs.
+New key-management and component-setup prompts use English where the existing
+catalogs do not have a translation.
+
 ## Language selection
 
 The desktop plugins follow **Setup > Language**, including live changes while

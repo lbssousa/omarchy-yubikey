@@ -110,3 +110,21 @@ real credentials in tests: existing crypto tests use synthetic bytes only.
 Report suspected vulnerabilities privately through the process in
 [SECURITY.md](../SECURITY.md). No hardware matrix or independent security audit
 has been completed for this extracted version.
+
+## Setup control center
+
+The `yubikey.setup` UI reads bounded local metadata. It does not receive PINs,
+passwords, serial numbers, credential values or child command output. Fixed
+action names and validated argument arrays select local scripts; no user field
+is interpolated into a shell command. Operations run in an interactive terminal
+as the account user, with sudo requested only by the selected installer/tool.
+A private state directory, lock and expiring launch ticket coordinate operations.
+They are not a defense against arbitrary code already running as that user.
+
+PAM key management changes only the selected account's mapping. Removal requires
+an exact, unambiguous reference, preserves at least one key, recalculates under
+the system configuration lock and uses existing transactional backups. Restore
+checks applied hashes/modes before writing, protecting later account changes.
+The login-service toggle accepts only a regular unit matching the reviewed
+shipped service. Disable/remove of the setup window does not undo security
+configuration; see [component recovery](control-center.md#recovery-and-removal).
