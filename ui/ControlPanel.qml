@@ -103,16 +103,18 @@ Item {
           anchors { left: parent.left; right: parent.right; top: parent.top; margins: Style.space(12) }
           spacing: Style.space(5)
           Repeater {
-            model: root.pages
+            model: root.shortPages
             Ui.Button {
               required property int index
               required property string modelData
+              objectName: "sidebarTab"
               width: parent.width
+              tooltipText: root.pages[index]
               text: modelData; leftAlign: true; focusable: true
               selected: root.page === index
               fontSize: Style.font.body
               horizontalPadding: Style.space(12); verticalPadding: Style.space(12)
-              Accessible.role: Accessible.PageTab; Accessible.name: modelData
+              Accessible.role: Accessible.PageTab; Accessible.name: root.pages[index]
               onClicked: root.page = index
             }
           }
@@ -122,7 +124,7 @@ Item {
           spacing: Style.space(8)
           Text { width: parent.width; text: strings.t("PRIVATE BY DEFAULT"); color: Commons.Color.muted; font { family: Style.font.family; pixelSize: Style.font.caption; letterSpacing: 0.6 } wrapMode: Text.WordWrap }
           Text { width: parent.width; text: strings.t("No PINs or passwords are collected in this window."); color: Commons.Color.muted; font { family: Style.font.family; pixelSize: Style.font.caption } wrapMode: Text.WordWrap; lineHeight: 1.3 }
-          Ui.Button { text: strings.t("Help & recovery ↗"); focusable: true; fontSize: Style.font.caption; onClicked: root.guideRequested("control-center") }
+          Ui.Button { text: strings.t("Help ↗"); focusable: true; fontSize: Style.font.caption; onClicked: root.guideRequested("control-center") }
         }
       }
       ColumnLayout {

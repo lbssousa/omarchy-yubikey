@@ -28,7 +28,7 @@ UUID = re.compile(rb"\b[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}\b")
 SYNTHETIC_UUID = b"00000000-0000-4000-8000-000000000000"
 
 # Visually reviewed synthetic UI capture; changing it requires renewed review.
-REVIEWED_ASSETS = {"preview.png": "fb313d888deb62444ea1632037c25016572a425c5e6adb3f41376c508af28edc"}
+REVIEWED_ASSETS = {"preview.png": "3e02f58fad9df91c72097964c7c2b04257db56a547cebec780accba35e36a908"}
 
 def publication_content_failures(name, data):
     if name in REVIEWED_ASSETS:

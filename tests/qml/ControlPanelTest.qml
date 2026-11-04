@@ -8,6 +8,12 @@ TestCase {
   when: false
   function test_actions_and_keyboard() {
     verify(panel.width > 0)
+    function checkTabs(item) {
+      if (item.objectName === "sidebarTab" && !panel.compact)
+        verify(item.implicitWidth <= item.width, "Navigation label must fit its button")
+      if (item.children) for (var i=0;i<item.children.length;i++) checkTabs(item.children[i])
+    }
+    checkTabs(panel)
     panel.operationRequested.connect(function(action, parameters) { emitted++; lastParameters=parameters })
     panel.ask("setup-sudo", "Configure sudo")
     var dialog = findChild(panel,"actionConfirmation")
