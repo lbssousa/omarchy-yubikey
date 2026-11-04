@@ -9,7 +9,10 @@ The repository ships two independent plugins:
 
 They import shared Omarchy QML modules. They are not standalone Quickshell
 applications. The lock follows the current theme and background; no personal
-wallpaper or theme files are bundled.
+wallpaper or theme files are bundled. Each plugin also includes
+`Translations.qml`, `Locale.js` and its own `i18n/` catalogs. These follow the
+account's Omarchy language live and support right-to-left layouts; see
+[Languages](languages.md).
 
 ## Compatibility
 

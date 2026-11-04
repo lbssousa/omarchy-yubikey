@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Theip ar an bhfíordheimhniú",
+  "Authentication is needed...": "Teastaíonn fíordheimhniú...",
+  "Authorize running '%1'": "Údaraigh '%1' a rith",
+  "Checking...": "Ag seiceáil...",
+  "Enter response": "Cuir isteach an freagra",
+  "Password available if the security key fails": "Pasfhocal ar fáil má theipeann ar an eochair shlándála",
+  "Touch your security key": "Dteagmháil le d'eochair shlándála",
+  "Use password": "Úsáid pasfhocal"
+}

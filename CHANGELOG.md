@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.0 — 2026-11-04
+
+- Add all 50 Omarchy languages to the Keyring helper, guided setup, enrollment
+  tools, PAM fallback prompt and desktop plugins, with English fallback.
+- Follow per-account language choices, support live shell language changes and
+  right-to-left layouts, and keep commands and confirmation literals stable.
+- Bundle plugin catalogs in standalone exports and embed helper/PAM translations
+  for offline use; validate catalog completeness and placeholder integrity.
+- Protect shared PAM policy changes when other accounts are enrolled.
+- Refuse stale or legacy automatic rollback before writing, preserving later
+  account enrollments and permission changes.
+- Release shell plugins at 0.3.0 and the Keyring helper at 0.2.0; existing
+  credentials and encrypted stores remain compatible.
+
 ## 0.2.1 — 2026-11-04
 
 - Standardize Keyring helper help, prompts, notifications, errors and source

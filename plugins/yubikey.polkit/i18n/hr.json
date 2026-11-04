@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Autentifikacija nije uspjela",
+  "Authentication is needed...": "Potrebna je autentifikacija...",
+  "Authorize running '%1'": "Odobri pokretanje '%1'",
+  "Checking...": "Provjera...",
+  "Enter response": "Unesite odgovor",
+  "Password available if the security key fails": "Lozinka dostupna ako sigurnosni ključ ne uspije",
+  "Touch your security key": "Dodirnite svoj sigurnosni ključ",
+  "Use password": "Koristi lozinku"
+}

@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Autentifikavimas nepavyko",
+  "Authentication is needed...": "Reikalingas tapatybės patvirtinimas...",
+  "Authorize running '%1'": "Leisti vykdyti '%1'",
+  "Checking...": "Tikrinama...",
+  "Enter response": "Įveskite atsakymą",
+  "Password available if the security key fails": "Slaptažodis pasiekiamas, jei saugos raktas nepavyksta",
+  "Touch your security key": "Palieskite saugos raktą",
+  "Use password": "Naudokite slaptažodį"
+}

@@ -11,7 +11,7 @@ ALLOWED_ROOTS = {
     "rustfmt.toml", "install.sh", "LICENSE", "README.md", "THIRD_PARTY_NOTICES.md",
     "CONTRIBUTING.md", "SECURITY.md", "CHANGELOG.md",
 }
-ALLOWED_DIRS = {".github", "assets", "docs", "keyring-unlock", "plugins", "pam", "scripts", "systemd", "tests", "luks"}
+ALLOWED_DIRS = {".github", "assets", "docs", "keyring-unlock", "plugins", "pam", "scripts", "systemd", "tests", "luks", "i18n"}
 DENIED_PARTS = {".env", ".ssh", ".aws", ".config", ".local", "target", "node_modules", "__pycache__"}
 DENIED_NAMES = {"password.json", "u2f_keys", "fido2", "omarchy-enrollment", "crypttab", "crypttab.initramfs", "machine-id", "omarchy-yubikey-enrollment.json", "omarchy-yubikey-enrollment.json.sig", "sync_allowed_signers", "sync-state.json", "sync.lock"}
 DENIED_SUFFIXES = {".pem", ".key", ".p12", ".pfx", ".bundle", ".log", ".bak", ".tmp", ".sqlite", ".db", ".eml", ".img", ".efi", ".cpio", ".initramfs", ".jsonl"}

@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Autentifikācija neizdevās",
+  "Authentication is needed...": "Nepieciešama autentifikācija...",
+  "Authorize running '%1'": "Atļaut palaist '%1'",
+  "Checking...": "Pārbauda...",
+  "Enter response": "Ievadiet atbildi",
+  "Password available if the security key fails": "Parole ir pieejama, ja drošības atslēga neizdodas",
+  "Touch your security key": "Pieskarieties savai drošības atslēgai",
+  "Use password": "Izmantojiet paroli"
+}

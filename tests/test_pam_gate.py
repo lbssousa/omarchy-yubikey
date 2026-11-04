@@ -1,4 +1,6 @@
 import importlib.util
+import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -25,7 +27,7 @@ class PamConversationTests(unittest.TestCase):
         subprocess.run(['cc', '-D_DEFAULT_SOURCE', '-Wall', '-Wextra', '-Werror',
                         str(ROOT / 'tests/pam_test_driver.c'), '-lpam', '-o', str(cls.driver)], check=True)
 
-    def authenticate(self, answers, key='key', silent=False, gate=None, fallback='explicit'):
+    def authenticate(self, answers, key='key', silent=False, gate=None, fallback='explicit', language='en'):
         standard = 'auth include system-auth\naccount include system-auth\n'
         config = pam.pam_with_key(standard, 'pin', fallback)
         config = config.replace('pam_u2f.so', str(self.fake) + ' ' + key)
@@ -33,7 +35,7 @@ class PamConversationTests(unittest.TestCase):
         (self.directory / 'isolated-test').write_text(config)
         (self.directory / 'system-auth').write_text(f'auth required {self.fake} password\n')
         return subprocess.run([str(self.driver), str(self.directory), '32768' if silent else '0', *answers],
-                              capture_output=True, text=True)
+                              capture_output=True, text=True, env=dict(os.environ, OMARCHY_YUBIKEY_LANGUAGE=language))
 
     def test_key_success_never_prompts_for_password(self):
         result = self.authenticate(['123456'])
@@ -67,6 +69,16 @@ class PamConversationTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertNotIn('Account password', result.stdout)
         self.assertNotEqual(self.authenticate(['password', 'test-password'], key='fail', silent=True).returncode, 0)
+
+    def test_all_fifty_languages_preserve_the_literal_confirmation_protocol(self):
+        registry = json.loads((ROOT / 'i18n/locales.json').read_text())
+        for code in registry:
+            with self.subTest(language=code):
+                result = self.authenticate(['password', 'test-password'], key='fail', language=code)
+                self.assertEqual(result.returncode, 0, result.stdout)
+                catalog = json.loads((ROOT / 'i18n' / (code + '.json')).read_text())
+                self.assertIn(catalog['Use password fallback? Type password to continue: '].strip(), result.stdout)
+        self.assertNotEqual(self.authenticate(['Passwort', 'test-password'], key='fail', language='de').returncode, 0)
 
     def test_automatic_legacy_policy_still_requires_real_password(self):
         self.assertEqual(self.authenticate(['test-password'], key='fail', fallback='automatic').returncode, 0)

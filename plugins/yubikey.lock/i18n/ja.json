@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "認証に失敗しました (%1)",
+  "Checking…": "確認中…",
+  "Enter password": "パスワードを入力",
+  "Fingerprint": "指紋",
+  "Retry security key": "セキュリティキーを再試行してください",
+  "Security key authentication failed — retry or use password": "セキュリティ キー認証に失敗しました - 再試行するか、パスワードを使用してください",
+  "Security key unavailable — retry or use password": "セキュリティ キーが利用できません - 再試行するか、パスワードを使用してください",
+  "Touch the fingerprint reader": "指紋リーダーにタッチする",
+  "Touch your security key": "セキュリティキーに触れてください",
+  "Unlock": "ロックを解除する",
+  "Use password": "パスワードを使用する",
+  "Use security key": "セキュリティキーを使用する"
+}

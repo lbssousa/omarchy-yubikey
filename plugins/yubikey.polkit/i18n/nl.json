@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Authenticatie mislukt",
+  "Authentication is needed...": "Authenticatie vereist...",
+  "Authorize running '%1'": "Uitvoering van '%1' toestaan",
+  "Checking...": "Controleren...",
+  "Enter response": "Voer antwoord in",
+  "Password available if the security key fails": "Wachtwoord beschikbaar als de beveiligingssleutel mislukt",
+  "Touch your security key": "Raak uw beveiligingssleutel aan",
+  "Use password": "Gebruik wachtwoord"
+}

@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Pengesahan gagal (%1)",
+  "Checking…": "Menyemak…",
+  "Enter password": "Masukkan kata laluan",
+  "Fingerprint": "Cap jari",
+  "Retry security key": "Cuba semula kunci keselamatan",
+  "Security key authentication failed — retry or use password": "Pengesahan kunci keselamatan gagal — cuba semula atau gunakan kata laluan",
+  "Security key unavailable — retry or use password": "Kunci keselamatan tidak tersedia — cuba semula atau gunakan kata laluan",
+  "Touch the fingerprint reader": "Sentuh pembaca cap jari",
+  "Touch your security key": "Sentuh kunci keselamatan anda",
+  "Unlock": "Buka kunci",
+  "Use password": "Gunakan kata laluan",
+  "Use security key": "Gunakan kunci keselamatan"
+}

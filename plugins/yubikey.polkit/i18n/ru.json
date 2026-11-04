@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Аутентификация не удалась",
+  "Authentication is needed...": "Требуется аутентификация...",
+  "Authorize running '%1'": "Разрешить запуск '%1'",
+  "Checking...": "Проверка...",
+  "Enter response": "Введите ответ",
+  "Password available if the security key fails": "Пароль доступен, если ключ безопасности не работает",
+  "Touch your security key": "Нажмите на свой электронный ключ",
+  "Use password": "Использовать пароль"
+}

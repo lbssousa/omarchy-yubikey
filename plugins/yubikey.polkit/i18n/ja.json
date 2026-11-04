@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "認証に失敗しました",
+  "Authentication is needed...": "認証が必要です...",
+  "Authorize running '%1'": "'%1' の実行を許可",
+  "Checking...": "確認中...",
+  "Enter response": "応答を入力してください",
+  "Password available if the security key fails": "セキュリティキーが失敗した場合に利用可能なパスワード",
+  "Touch your security key": "セキュリティキーに触れてください",
+  "Use password": "パスワードを使用する"
+}

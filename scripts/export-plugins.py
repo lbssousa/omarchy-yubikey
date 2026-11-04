@@ -8,7 +8,8 @@ import shutil
 
 ROOT = Path(__file__).resolve().parent.parent
 SUITE = 'https://github.com/marselnenaj/omarchy-yubikey'
-FILES = {'lock': ['Service.qml', 'LockView.qml'], 'polkit': ['PolkitAgent.qml', 'PolkitModel.js']}
+FILES = {'lock': ['Service.qml', 'LockView.qml', 'Translations.qml', 'Locale.js'],
+         'polkit': ['PolkitAgent.qml', 'PolkitModel.js', 'Translations.qml', 'Locale.js']}
 
 
 def export(role, output):
@@ -21,11 +22,12 @@ def export(role, output):
     if destination.exists():
         raise ValueError(f'Refusing to overwrite {destination}')
     destination.mkdir(parents=True)
-    exported = ['manifest.json', *FILES[role]]
+    exported = ['manifest.json', *FILES[role], *[str(path.relative_to(source)) for path in sorted((source / 'i18n').glob('*.json'))]]
     for filename in exported:
         path = source / filename
         if path.is_symlink() or not path.is_file():
             raise ValueError('Expected a regular plugin source file')
+        (destination / filename).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(path, destination / filename)
     for filename in ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'SECURITY.md']:
         shutil.copy2(ROOT / filename, destination / filename)
@@ -49,7 +51,8 @@ def export(role, output):
 
 **Version {version}.** This standalone plugin comes from
 [Omarchy YubiKey]({SUITE}), which also provides guided key enrollment and PAM
-configuration. See the suite release notes for validation and compatibility.
+configuration. Includes all 50 Omarchy languages and follows Setup > Language
+live, with English fallback. See the suite release notes for validation and compatibility.
 
 ## Requirements
 

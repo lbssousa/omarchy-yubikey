@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "تصدیق ناکام (%1)",
+  "Checking…": "جانچ جاری ہے…",
+  "Enter password": "پاس ورڈ درج کریں",
+  "Fingerprint": "فنگر پرنٹ",
+  "Retry security key": "سیکیورٹی کلید کی دوبارہ کوشش کریں۔",
+  "Security key authentication failed — retry or use password": "سیکیورٹی کلید کی توثیق ناکام ہوگئی — دوبارہ کوشش کریں یا پاس ورڈ استعمال کریں۔",
+  "Security key unavailable — retry or use password": "سیکیورٹی کلید دستیاب نہیں ہے — دوبارہ کوشش کریں یا پاس ورڈ استعمال کریں۔",
+  "Touch the fingerprint reader": "فنگر پرنٹ ریڈر کو ٹچ کریں۔",
+  "Touch your security key": "اپنی سیکیورٹی کلید کو ٹچ کریں۔",
+  "Unlock": "غیر مقفل کریں۔",
+  "Use password": "پاس ورڈ استعمال کریں۔",
+  "Use security key": "سیکیورٹی کلید استعمال کریں۔"
+}

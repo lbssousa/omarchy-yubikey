@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "L'authentification a échoué",
+  "Authentication is needed...": "Authentification requise...",
+  "Authorize running '%1'": "Autoriser l'exécution de '%1'",
+  "Checking...": "Vérification...",
+  "Enter response": "Entrez la réponse",
+  "Password available if the security key fails": "Mot de passe disponible en cas d'échec de la clé de sécurité",
+  "Touch your security key": "Touchez votre clé de sécurité",
+  "Use password": "Utiliser le mot de passe"
+}

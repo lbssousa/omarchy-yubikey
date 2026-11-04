@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "प्रमाणीकरण विफल रहा (%1)",
+  "Checking…": "जाँच हो रही है…",
+  "Enter password": "पासवर्ड दर्ज करें",
+  "Fingerprint": "फ़िंगरप्रिंट",
+  "Retry security key": "सुरक्षा कुंजी पुनः प्रयास करें",
+  "Security key authentication failed — retry or use password": "सुरक्षा कुंजी प्रमाणीकरण विफल - पुनः प्रयास करें या पासवर्ड का उपयोग करें",
+  "Security key unavailable — retry or use password": "सुरक्षा कुंजी अनुपलब्ध - पुनः प्रयास करें या पासवर्ड का उपयोग करें",
+  "Touch the fingerprint reader": "फ़िंगरप्रिंट रीडर को स्पर्श करें",
+  "Touch your security key": "अपनी सुरक्षा कुंजी स्पर्श करें",
+  "Unlock": "अनलॉक",
+  "Use password": "पासवर्ड का प्रयोग करें",
+  "Use security key": "सुरक्षा कुंजी का प्रयोग करें"
+}

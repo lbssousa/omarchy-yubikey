@@ -130,7 +130,9 @@ the same root-controlled transaction lock.
 ## Recovery and limitations
 
 Each applied import creates a private backup using the suite's existing backup
-format. `./install.sh --rollback BACKUP_ID` restores mappings, but deliberately
+format. `./install.sh --rollback BACKUP_ID` restores mappings only if the
+transaction targets have not changed since; later account enrollments stop the
+rollback before writing. Legacy backups require manual review. Rollback deliberately
 preserves the accepted sync high-water mark. Restoring mappings can itself
 re-enable old keys; review this recovery action and issue a **newer signed
 snapshot** to establish the intended current state.

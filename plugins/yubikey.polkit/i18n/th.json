@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "การตรวจสอบสิทธิ์ล้มเหลว",
+  "Authentication is needed...": "จำเป็นต้องยืนยันตัวตน...",
+  "Authorize running '%1'": "อนุญาตให้เรียกใช้ '%1'",
+  "Checking...": "กำลังตรวจสอบ...",
+  "Enter response": "ป้อนคำตอบ",
+  "Password available if the security key fails": "รหัสผ่านสามารถใช้ได้หากรหัสความปลอดภัยล้มเหลว",
+  "Touch your security key": "แตะคีย์ความปลอดภัยของคุณ",
+  "Use password": "ใช้รหัสผ่าน"
+}

@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "تصدیق ناکام ہوگئی",
+  "Authentication is needed...": "تصدیق درکار ہے...",
+  "Authorize running '%1'": "'%1' چلانے کی اجازت دیں",
+  "Checking...": "جانچ ہو رہی ہے...",
+  "Enter response": "جواب درج کریں۔",
+  "Password available if the security key fails": "سیکیورٹی کلید ناکام ہونے پر پاس ورڈ دستیاب ہے۔",
+  "Touch your security key": "اپنی سیکیورٹی کلید کو ٹچ کریں۔",
+  "Use password": "پاس ورڈ استعمال کریں۔"
+}

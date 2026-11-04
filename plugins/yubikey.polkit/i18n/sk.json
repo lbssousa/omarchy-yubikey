@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Autentifikácia zlyhala",
+  "Authentication is needed...": "Vyžaduje sa overenie...",
+  "Authorize running '%1'": "Povoliť spustenie '%1'",
+  "Checking...": "Kontroluje sa...",
+  "Enter response": "Zadajte odpoveď",
+  "Password available if the security key fails": "Heslo je k dispozícii, ak bezpečnostný kľúč zlyhá",
+  "Touch your security key": "Klepnite na svoj bezpečnostný kľúč",
+  "Use password": "Použite heslo"
+}

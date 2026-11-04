@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Autenticazione non riuscita (%1)",
+  "Checking…": "Verifica…",
+  "Enter password": "Inserisci password",
+  "Fingerprint": "Impronta digitale",
+  "Retry security key": "Riprova con la chiave di sicurezza",
+  "Security key authentication failed — retry or use password": "Autenticazione della chiave di sicurezza non riuscita: riprova o utilizza la password",
+  "Security key unavailable — retry or use password": "Token di sicurezza non disponibile: riprova o utilizza la password",
+  "Touch the fingerprint reader": "Tocca il lettore di impronte digitali",
+  "Touch your security key": "Tocca la tua chiave di sicurezza",
+  "Unlock": "Sblocca",
+  "Use password": "Usa la password",
+  "Use security key": "Utilizza la chiave di sicurezza"
+}

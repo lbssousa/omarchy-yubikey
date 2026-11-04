@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Autentisering mislyktes",
+  "Authentication is needed...": "Autentisering kreves...",
+  "Authorize running '%1'": "Autoriser å kjøre '%1'",
+  "Checking...": "Sjekker...",
+  "Enter response": "Skriv inn svar",
+  "Password available if the security key fails": "Passord tilgjengelig hvis sikkerhetsnøkkelen mislykkes",
+  "Touch your security key": "Trykk på sikkerhetsnøkkelen din",
+  "Use password": "Bruk passord"
+}

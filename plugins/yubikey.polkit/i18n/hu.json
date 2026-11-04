@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "A hitelesítés nem sikerült",
+  "Authentication is needed...": "Hitelesítés szükséges...",
+  "Authorize running '%1'": "'%1' futtatásának engedélyezése",
+  "Checking...": "Ellenőrzés...",
+  "Enter response": "Írja be a választ",
+  "Password available if the security key fails": "Jelszó elérhető, ha a biztonsági kulcs sikertelen",
+  "Touch your security key": "Érintse meg a biztonsági kulcsot",
+  "Use password": "Használjon jelszót"
+}

@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Autentifikatsiya amalga oshmadi (%1)",
+  "Checking…": "Tekshirilmoqda…",
+  "Enter password": "Parolni kiriting",
+  "Fingerprint": "Barmoq izi",
+  "Retry security key": "Xavfsizlik kalitini qaytadan urining",
+  "Security key authentication failed — retry or use password": "Xavfsizlik kaliti autentifikatsiyasi amalga oshmadi — qayta urining yoki paroldan foydalaning",
+  "Security key unavailable — retry or use password": "Xavfsizlik kaliti mavjud emas — qayta urining yoki paroldan foydalaning",
+  "Touch the fingerprint reader": "Barmoq izini o'quvchiga teging",
+  "Touch your security key": "Elektron kalitni bosing",
+  "Unlock": "Qulfni ochish",
+  "Use password": "Paroldan foydalaning",
+  "Use security key": "Xavfsizlik kalitidan foydalaning"
+}

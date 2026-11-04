@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "인증 실패",
+  "Authentication is needed...": "인증이 필요합니다...",
+  "Authorize running '%1'": "'%1' 실행 승인",
+  "Checking...": "확인 중...",
+  "Enter response": "응답 입력",
+  "Password available if the security key fails": "보안 키가 실패할 경우 사용할 수 있는 비밀번호",
+  "Touch your security key": "보안 키를 터치하세요.",
+  "Use password": "비밀번호 사용"
+}

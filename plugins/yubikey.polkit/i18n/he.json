@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "האימות נכשל",
+  "Authentication is needed...": "נדרש אימות...",
+  "Authorize running '%1'": "אישור הרצת '%1'",
+  "Checking...": "בודק...",
+  "Enter response": "הזן תגובה",
+  "Password available if the security key fails": "סיסמה זמינה אם מפתח האבטחה נכשל",
+  "Touch your security key": "גע במפתח האבטחה שלך",
+  "Use password": "השתמש בסיסמה"
+}

@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Auðkenning mistókst (%1)",
+  "Checking…": "Athuga…",
+  "Enter password": "Sláðu inn lykilorð",
+  "Fingerprint": "Fingrafar",
+  "Retry security key": "Reyndu aftur öryggislykil",
+  "Security key authentication failed — retry or use password": "Auðkenning öryggislykils mistókst — reyndu aftur eða notaðu lykilorð",
+  "Security key unavailable — retry or use password": "Öryggislykill ekki tiltækur — reyndu aftur eða notaðu lykilorð",
+  "Touch the fingerprint reader": "Snertu fingrafaralesarann",
+  "Touch your security key": "Snertu öryggislykilinn þinn",
+  "Unlock": "Opnaðu",
+  "Use password": "Notaðu lykilorð",
+  "Use security key": "Notaðu öryggislykil"
+}

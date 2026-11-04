@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "සත්‍යාපනය අසාර්ථක විය",
+  "Authentication is needed...": "සත්‍යාපනය අවශ්‍යයි...",
+  "Authorize running '%1'": "'%1' ධාවනයට අවසර දෙන්න",
+  "Checking...": "පරීක්ෂා කරමින්...",
+  "Enter response": "ප්රතිචාර ඇතුලත් කරන්න",
+  "Password available if the security key fails": "ආරක්ෂක යතුර අසමත් වුවහොත් මුරපදය තිබේ",
+  "Touch your security key": "ඔබගේ ආරක්ෂක යතුර ස්පර්ශ කරන්න",
+  "Use password": "මුරපදය භාවිතා කරන්න"
+}

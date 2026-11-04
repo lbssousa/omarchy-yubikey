@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "அங்கீகாரம் தோல்வியடைந்தது (%1)",
+  "Checking…": "சரிபார்க்கிறது…",
+  "Enter password": "கடவுச்சொல்லை உள்ளிடவும்",
+  "Fingerprint": "கைரேகை",
+  "Retry security key": "பாதுகாப்பு விசையை மீண்டும் முயற்சிக்கவும்",
+  "Security key authentication failed — retry or use password": "பாதுகாப்பு விசை அங்கீகாரம் தோல்வியடைந்தது - மீண்டும் முயற்சிக்கவும் அல்லது கடவுச்சொல்லைப் பயன்படுத்தவும்",
+  "Security key unavailable — retry or use password": "பாதுகாப்பு விசை கிடைக்கவில்லை - மீண்டும் முயற்சிக்கவும் அல்லது கடவுச்சொல்லைப் பயன்படுத்தவும்",
+  "Touch the fingerprint reader": "கைரேகை ரீடரைத் தொடவும்",
+  "Touch your security key": "உங்கள் பாதுகாப்பு விசையைத் தொடவும்",
+  "Unlock": "திறக்கவும்",
+  "Use password": "கடவுச்சொல்லை பயன்படுத்தவும்",
+  "Use security key": "பாதுகாப்பு விசையைப் பயன்படுத்தவும்"
+}

@@ -11,6 +11,8 @@ import "PolkitModel.js" as PolkitModel
 Item {
   id: root
 
+  Translations { id: strings }
+
   property string fontFamily: Style.font.menuFamily
   // Bound to the central [polkit] section in shell.toml via Commons.Color.qml.
   property color accent: Commons.Color.polkit.accent
@@ -43,7 +45,7 @@ Item {
   property int shakeOffset: 0
 
   readonly property bool dialogVisible: polkitAgent.isActive || closing
-  readonly property bool fallbackChoice: responseRequired && PolkitModel.isFallbackPrompt(currentPrompt)
+  readonly property bool fallbackChoice: responseRequired && PolkitModel.isFallbackPrompt(currentPrompt, strings.fallbackPrompts)
   // We show one method at a time. Fingerprint owns the dialog while PAM is
   // waiting on the reader (lid open, sensor enrolled); the moment PAM asks for
   // a password — including immediately when the lid is shut and the clamshell
@@ -52,7 +54,7 @@ Item {
   // Never collect a secret before PAM identifies the actual response prompt.
   readonly property bool keyWaiting: fido2Configured && !fingerprintMode && dialogVisible && !responseRequired && !submitted && !errorFlash
   readonly property bool fido2Square: keyWaiting
-  readonly property int squareSize: Style.space(168)
+  readonly property int squareSize: Style.space(240)
   readonly property int baseCardHeight: panel.height > 0 ? Math.min(fieldHeight + contentMargin * 2, panel.height - Style.gapsOut * 2) : fieldHeight + contentMargin * 2
   readonly property int cardHeight: fido2Square ? squareSize : baseCardHeight
   // Password mode is a wide field; fingerprint mode collapses to a square that
@@ -60,7 +62,7 @@ Item {
   readonly property int cardWidth: (fingerprintMode || fido2Square) ? cardHeight : Math.min(Style.space(312), Math.max(Style.space(260), panel.width - Style.gapsOut * 2))
 
   function authorizationLabel(message) {
-    return PolkitModel.authorizationLabel(message)
+    return PolkitModel.authorizationLabel(message || strings.t("Authentication is needed..."), function(source, values) { return strings.t(source, values) })
   }
 
   function loadPamConfig(raw) {
@@ -88,7 +90,7 @@ Item {
     var flow = polkitAgent.flow
     if (!flow) return
 
-    currentMessage = String(flow.message || "Authentication is needed...")
+    currentMessage = String(flow.message || "")
     currentPrompt = String(flow.inputPrompt || "")
     currentSupplementary = String(flow.supplementaryMessage || "")
     responseRequired = !!flow.isResponseRequired
@@ -240,6 +242,8 @@ Item {
 
   PanelWindow {
     id: panel
+    contentItem.LayoutMirroring.enabled: strings.rightToLeft
+    contentItem.LayoutMirroring.childrenInherit: true
     visible: root.dialogVisible
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
@@ -370,7 +374,10 @@ Item {
           Text {
             textFormat: Text.PlainText
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "Touch your key"
+            text: strings.t("Touch your security key")
+            width: root.squareSize - root.contentMargin * 2
+            wrapMode: Text.WordWrap
+            horizontalAlignment: Text.AlignHCenter
             color: root.foreground
             opacity: 0.92
             font.family: root.fontFamily
@@ -381,7 +388,7 @@ Item {
           Text {
             textFormat: Text.PlainText
             anchors.horizontalCenter: parent.horizontalCenter
-            text: "Fallback after key failure"
+            text: strings.t("Password available if the security key fails")
             width: root.squareSize - root.contentMargin * 2
             wrapMode: Text.WordWrap
             horizontalAlignment: Text.AlignHCenter
@@ -448,6 +455,7 @@ Item {
             selectedTextColor: root.foreground
             font.family: root.fontFamily
             font.pixelSize: Style.font.iconLarge
+            LayoutMirroring.enabled: false
             echoMode: root.responseVisible ? TextInput.Normal : TextInput.Password
             passwordCharacter: "\u2022"
             color: root.errorFlash ? Commons.Color.polkit.textError : root.foreground
@@ -473,7 +481,7 @@ Item {
             Text {
               textFormat: Text.PlainText
               width: parent.width
-              text: root.errorFlash ? "Authentication failed" : (root.submitted ? "Checking..." : PolkitModel.responseLabel(root.currentPrompt))
+              text: root.errorFlash ? strings.t("Authentication failed") : (root.submitted ? strings.t("Checking...") : PolkitModel.responseLabel(root.currentPrompt, function(source) { return strings.t(source) }))
               color: root.errorFlash ? Commons.Color.polkit.textError : root.foreground
               opacity: root.errorFlash ? 1 : 0.55
               font.family: root.fontFamily
@@ -505,7 +513,7 @@ Item {
         id: fallbackButton
         anchors.centerIn: parent
         visible: root.fallbackChoice
-        text: "Use password"
+        text: strings.t("Use password")
         focusable: true
         enabled: !root.submitted
         foreground: root.foreground

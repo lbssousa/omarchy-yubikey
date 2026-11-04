@@ -54,7 +54,7 @@ pub fn path() -> Result<PathBuf> {
     }
     let base = match std::env::var_os("XDG_CONFIG_HOME") {
         Some(dir) if !dir.is_empty() => PathBuf::from(dir),
-        _ => PathBuf::from(std::env::var_os("HOME").context("HOME is not set")?).join(".config"),
+        _ => PathBuf::from(std::env::var_os("HOME").context(tr!("HOME is not set"))?).join(".config"),
     };
     Ok(base.join("keyring-unlock").join("password.json"))
 }
@@ -63,21 +63,21 @@ pub fn load(path: &Path) -> Result<Store> {
     let raw = match fs::read(path) {
         Ok(raw) => raw,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            bail!("No enrollment store found at {}. Run: keyring-unlock enroll", path.display())
+            bail!(tr!("No enrollment store found at %1. Run: keyring-unlock enroll", path.display()))
         }
-        Err(e) => return Err(e).with_context(|| format!("Could not read {}", path.display())),
+        Err(e) => return Err(e).with_context(|| tr!("Could not read %1", path.display())),
     };
     let store: Store =
-        serde_json::from_slice(&raw).with_context(|| format!("Invalid enrollment store JSON in {}", path.display()))?;
+        serde_json::from_slice(&raw).with_context(|| tr!("Invalid enrollment store JSON in %1", path.display()))?;
     if store.version != VERSION {
-        bail!("{}: unsupported store version {}", path.display(), store.version);
+        bail!(tr!("%1: unsupported store version %2", path.display(), store.version));
     }
     Ok(store)
 }
 
 /// Save atomically, creating the file with mode 0600 and new directories with mode 0700.
 pub fn save(path: &Path, store: &Store) -> Result<()> {
-    let dir = path.parent().context("Store path has no parent directory")?;
+    let dir = path.parent().context(tr!("Store path has no parent directory"))?;
     fs::DirBuilder::new().recursive(true).mode(0o700).create(dir)?;
     let tmp = path.with_extension("json.tmp");
     let mut file = fs::OpenOptions::new()
@@ -86,7 +86,7 @@ pub fn save(path: &Path, store: &Store) -> Result<()> {
         .truncate(true)
         .mode(0o600)
         .open(&tmp)
-        .with_context(|| format!("Could not write {}", tmp.display()))?;
+        .with_context(|| tr!("Could not write %1", tmp.display()))?;
     file.write_all(&serde_json::to_vec_pretty(store)?)?;
     file.write_all(b"\n")?;
     file.sync_all()?;
@@ -96,32 +96,32 @@ pub fn save(path: &Path, store: &Store) -> Result<()> {
 
 fn cipher(hmac_secret: &[u8]) -> Result<ChaCha20Poly1305> {
     if hmac_secret.len() != 32 {
-        bail!("Invalid hmac-secret length: {} bytes; expected 32", hmac_secret.len());
+        bail!(tr!("Invalid hmac-secret length: %1 bytes; expected 32", hmac_secret.len()));
     }
     let mut key = Zeroizing::new([0u8; 32]);
     Hkdf::<Sha256>::new(None, hmac_secret)
         .expand(HKDF_INFO, key.as_mut())
-        .map_err(|_| anyhow::anyhow!("HKDF key derivation failed"))?;
+        .map_err(|_| anyhow::anyhow!(tr!("HKDF key derivation failed")))?;
     Ok(ChaCha20Poly1305::new(Key::from_slice(key.as_ref())))
 }
 
 /// Encrypt the password, binding the credential ID as authenticated associated data.
 pub fn seal(hmac_secret: &[u8], credential_id: &[u8], password: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
     let mut nonce = [0u8; 12];
-    getrandom::fill(&mut nonce).map_err(|e| anyhow::anyhow!("Could not generate random bytes: {e}"))?;
+    getrandom::fill(&mut nonce).map_err(|e| anyhow::anyhow!(tr!("Could not generate random bytes: %1", e)))?;
     let ciphertext = cipher(hmac_secret)?
         .encrypt(Nonce::from_slice(&nonce), Payload { msg: password, aad: credential_id })
-        .map_err(|_| anyhow::anyhow!("Password encryption failed"))?;
+        .map_err(|_| anyhow::anyhow!(tr!("Password encryption failed")))?;
     Ok((nonce.to_vec(), ciphertext))
 }
 
 pub fn open(entry: &Entry, hmac_secret: &[u8]) -> Result<Zeroizing<Vec<u8>>> {
     if entry.nonce.len() != 12 {
-        bail!("Entry '{}': invalid nonce length", entry.label);
+        bail!(tr!("Entry '%1': invalid nonce length", entry.label));
     }
     let password = cipher(hmac_secret)?
         .decrypt(Nonce::from_slice(&entry.nonce), Payload { msg: &entry.ciphertext, aad: &entry.credential_id })
-        .map_err(|_| anyhow::anyhow!("Could not decrypt password (wrong key or modified enrollment store)"))?;
+        .map_err(|_| anyhow::anyhow!(tr!("Could not decrypt password (wrong key or modified enrollment store)")))?;
     Ok(Zeroizing::new(password))
 }
 

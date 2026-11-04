@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Uwierzytelnienie nie powiodło się",
+  "Authentication is needed...": "Wymagane uwierzytelnienie...",
+  "Authorize running '%1'": "Autoryzuj uruchomienie '%1'",
+  "Checking...": "Sprawdzanie...",
+  "Enter response": "Wpisz odpowiedź",
+  "Password available if the security key fails": "Hasło dostępne w przypadku niepowodzenia klucza bezpieczeństwa",
+  "Touch your security key": "Kliknij swój klucz bezpieczeństwa",
+  "Use password": "Użyj hasła"
+}

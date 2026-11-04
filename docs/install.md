@@ -9,7 +9,7 @@ Desktop integration requires the existing password lock to work first.
 Clone the release and start setup:
 
 ```sh
-git clone --depth 1 --branch v0.2.1 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
+git clone --depth 1 --branch v0.3.0 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
 ```
 
 Already cloned? Run `./install.sh` from that checkout. To inspect prerequisites
@@ -62,6 +62,10 @@ Git enrollment transfer is separately opt-in through `./install.sh --sync`.
 It does not run during normal setup, create a repository, upload mappings or
 automatically change PAM. See [signed enrollment transfer](enrollment-sync.md).
 
+Setup follows the account's [display language](languages.md). On a shared
+machine, review the [multiple-account guide](multi-user.md) before changing
+PAM policy; authentication mode and fallback rules affect every account.
+
 ## Backups and rollback
 
 The installer prints the system backup ID. From the checkout, restore it with:
@@ -77,7 +81,10 @@ python3 scripts/configure-pam.py --rollback /var/lib/omarchy-yubikey/backups/BAC
 ```
 
 PAM rollback restores the selected files and removes overrides created during
-that setup. Later enrollments/changes to those files are replaced by the backup.
+that setup only when the targets still match that transaction. Later enrollment
+or configuration changes stop rollback before anything is written. Legacy
+backups without conflict fingerprints require manual review and restoration.
+See [multiple accounts](multi-user.md) for shared-policy and rollback behavior.
 It does not change the currently selected desktop plugins or Keyring helper.
 
 While the desktop is unlocked, disable the replacements to return to the stock

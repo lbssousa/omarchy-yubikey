@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "அங்கீகாரம் தோல்வியடைந்தது",
+  "Authentication is needed...": "அங்கீகாரம் தேவை...",
+  "Authorize running '%1'": "'%1' ஐ இயக்க அனுமதிக்கவும்",
+  "Checking...": "சரிபார்க்கிறது...",
+  "Enter response": "பதிலை உள்ளிடவும்",
+  "Password available if the security key fails": "பாதுகாப்பு விசை தோல்வியுற்றால் கடவுச்சொல் கிடைக்கும்",
+  "Touch your security key": "உங்கள் பாதுகாப்பு விசையைத் தொடவும்",
+  "Use password": "கடவுச்சொல்லை பயன்படுத்தவும்"
+}

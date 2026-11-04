@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "L'autenticació ha fallat",
+  "Authentication is needed...": "Cal autenticació...",
+  "Authorize running '%1'": "Autoritza l'execució de '%1'",
+  "Checking...": "S'està comprovant...",
+  "Enter response": "Introduïu la resposta",
+  "Password available if the security key fails": "La contrasenya està disponible si la clau de seguretat falla",
+  "Touch your security key": "Toca la teva clau de seguretat",
+  "Use password": "Utilitzeu la contrasenya"
+}

@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Autentifikatsiya amalga oshmadi",
+  "Authentication is needed...": "Autentifikatsiya talab qilinadi...",
+  "Authorize running '%1'": "'%1' ni ishga tushirishga ruxsat berish",
+  "Checking...": "Tekshirilmoqda...",
+  "Enter response": "Javobni kiriting",
+  "Password available if the security key fails": "Xavfsizlik kaliti ishlamay qolsa, parol mavjud",
+  "Touch your security key": "Elektron kalitni bosing",
+  "Use password": "Paroldan foydalaning"
+}

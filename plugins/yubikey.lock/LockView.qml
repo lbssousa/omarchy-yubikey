@@ -6,6 +6,10 @@ import qs.Ui
 Item {
   id: root
 
+  Translations { id: strings }
+  LayoutMirroring.enabled: strings.rightToLeft
+  LayoutMirroring.childrenInherit: true
+
   property string backgroundPath: ""
   property int backgroundVersion: 0
   property bool fingerprintConfigured: false
@@ -18,12 +22,12 @@ Item {
   property string passwordText: ""
   property bool syncingPasswordText: false
   property string authMethod: "password"
-  property string inputPrompt: "Enter password"
+  property string inputPrompt: strings.t("Enter password")
   property bool keyResponseRequired: false
   readonly property bool acceptsInput: authMethod === "password" || keyResponseRequired
 
   readonly property string placeholderText: inputPrompt
-  readonly property int fieldWidth: 381
+  readonly property int fieldWidth: Math.min(481, Math.max(240, root.width - 48))
   readonly property int fieldHeight: 67
   readonly property int outlineThickness: 3
   readonly property int fieldFontSize: Math.round(Style.font.heading * 1.125)
@@ -128,12 +132,13 @@ Item {
       anchors.right: inputField.right
       anchors.bottom: inputField.top
       anchors.bottomMargin: 18
-      text: "NENAJ  /  UNLOCK"
+      text: strings.t("Unlock")
+      textFormat: Text.PlainText
       color: Commons.Color.lock.text
       font.family: Style.font.family
       font.pixelSize: Math.round(Style.font.caption * 0.9)
       font.bold: true
-      font.letterSpacing: 2
+      font.letterSpacing: strings.rightToLeft ? 0 : 2
     }
 
     BorderSurface {
@@ -141,7 +146,7 @@ Item {
       width: root.fieldWidth
       height: root.fieldHeight
       anchors.right: parent.right
-      anchors.rightMargin: Math.max(56, Math.round(parent.width * 0.075))
+      anchors.rightMargin: Math.min(Math.max(24, Math.round(parent.width * 0.075)), Math.max(0, (parent.width - width) / 2))
       anchors.top: parent.top
       anchors.topMargin: Math.max(96, Math.round(parent.height * 0.14))
       color: Commons.Color.lock.background
@@ -164,6 +169,7 @@ Item {
         clip: true
         enabled: root.inputEnabled && root.acceptsInput && !root.authenticatingPassword
         readOnly: root.authenticatingPassword
+        LayoutMirroring.enabled: false
         echoMode: TextInput.Password
         passwordCharacter: "\u25CF"
         passwordMaskDelay: 0
@@ -206,7 +212,7 @@ Item {
       Text {
         textFormat: Text.PlainText
         anchors.fill: passwordInput
-        text: root.authenticatingPassword ? "Checking…" : (root.failureMessage.length > 0 ? root.failureMessage : root.placeholderText)
+        text: root.authenticatingPassword ? strings.t("Checking…") : (root.failureMessage.length > 0 ? strings.t(root.failureMessage, [strings.number(root.failedAttempts)]) : root.placeholderText)
         visible: passwordInput.text.length === 0
         color: root.authenticatingPassword ? Commons.Color.lock.text : (root.failureMessage.length > 0 ? Commons.Color.lock.textError : Commons.Color.lock.placeholder)
         font.family: Style.font.family
@@ -214,7 +220,10 @@ Item {
         font.italic: !root.authenticatingPassword && root.failureMessage.length > 0
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
-        elide: Text.ElideRight
+        wrapMode: Text.WordWrap
+        fontSizeMode: Text.Fit
+        minimumPixelSize: Math.max(12, Style.font.bodySmall)
+        elide: Text.ElideNone
       }
 
       // Fingerprint hint pinned inside the field's right edge when a sensor is
@@ -254,8 +263,9 @@ Item {
       }
     }
 
-    Row {
+    Flow {
       id: methodButtons
+      width: Math.min(root.fieldWidth, root.width - 32)
       anchors.top: inputField.bottom
       anchors.topMargin: 12
       anchors.right: inputField.right
@@ -267,7 +277,7 @@ Item {
       }
 
       Button {
-        text: root.authMethod === "key" ? "Retry key" : "Use key"
+        text: root.authMethod === "key" ? strings.t("Retry security key") : strings.t("Use security key")
         visible: root.fido2Configured
         enabled: root.inputEnabled
         focusable: true
@@ -275,7 +285,7 @@ Item {
         onClicked: root.chooseMethod("key")
       }
       Button {
-        text: "Fingerprint"
+        text: strings.t("Fingerprint")
         visible: root.fingerprintConfigured
         enabled: root.inputEnabled
         focusable: true
@@ -283,7 +293,7 @@ Item {
         onClicked: root.chooseMethod("fingerprint")
       }
       Button {
-        text: "Use password"
+        text: strings.t("Use password")
         visible: root.authMethod !== "password"
         enabled: root.inputEnabled
         focusable: true

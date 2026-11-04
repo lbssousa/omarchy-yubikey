@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "प्रमाणीकरण विफल रहा",
+  "Authentication is needed...": "प्रमाणीकरण आवश्यक है...",
+  "Authorize running '%1'": "'%1' चलाने की अनुमति दें",
+  "Checking...": "जांच हो रही है...",
+  "Enter response": "प्रतिक्रिया दर्ज करें",
+  "Password available if the security key fails": "सुरक्षा कुंजी विफल होने पर पासवर्ड उपलब्ध है",
+  "Touch your security key": "अपनी सुरक्षा कुंजी स्पर्श करें",
+  "Use password": "पासवर्ड का प्रयोग करें"
+}

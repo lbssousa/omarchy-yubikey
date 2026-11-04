@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Xác thực không thành công",
+  "Authentication is needed...": "Cần xác thực...",
+  "Authorize running '%1'": "Ủy quyền chạy '%1'",
+  "Checking...": "Đang kiểm tra...",
+  "Enter response": "Nhập phản hồi",
+  "Password available if the security key fails": "Có sẵn mật khẩu nếu khóa bảo mật bị lỗi",
+  "Touch your security key": "Chạm vào khóa bảo mật của bạn",
+  "Use password": "Sử dụng mật khẩu"
+}

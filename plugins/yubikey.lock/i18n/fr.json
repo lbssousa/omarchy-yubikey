@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Échec de l'authentification (%1)",
+  "Checking…": "Vérification…",
+  "Enter password": "Saisir le mot de passe",
+  "Fingerprint": "Empreinte digitale",
+  "Retry security key": "Réessayez la clé de sécurité",
+  "Security key authentication failed — retry or use password": "Échec de l'authentification par clé de sécurité : réessayez ou utilisez le mot de passe",
+  "Security key unavailable — retry or use password": "Clé de sécurité indisponible : réessayez ou utilisez le mot de passe",
+  "Touch the fingerprint reader": "Touchez le lecteur d'empreintes digitales",
+  "Touch your security key": "Touchez votre clé de sécurité",
+  "Unlock": "Déverrouiller",
+  "Use password": "Utiliser le mot de passe",
+  "Use security key": "Utiliser la clé de sécurité"
+}

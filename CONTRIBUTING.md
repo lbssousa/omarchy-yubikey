@@ -12,6 +12,7 @@ cargo fmt --all -- --check
 cargo test --workspace --locked
 node --test tests/*.test.cjs
 python3 scripts/check-publication.py
+python3 scripts/sync-i18n.py --check
 python3 -m unittest discover -s tests -p 'test_*.py'
 for script in install.sh scripts/install-plugins.sh scripts/build-pam-gate.sh luks/zzzz-omarchy-yubikey-luks.conf; do
   bash -n "$script"
@@ -48,10 +49,16 @@ password access available. Do not replace the active lock implementation during
 a locked session. Changes to relying-party IDs or crypto contexts require an
 explicit enrollment migration plan.
 
+Translation changes must preserve placeholder parity and confirmation literals.
+Run the catalog generator and its checks before committing. Test right-to-left
+layouts and long labels when changing translated UI. Multi-user changes need
+coverage for unrelated account entries and conflicting rollback.
+
 ## Writing conventions
 
-Use English for source comments, CLI help, prompts, notifications, error
-messages and documentation. Keep wording concise and consistent: use
+Use English for source comments, canonical messages and developer documentation.
+Keep user-facing translations in the catalogs described in
+[Languages](docs/languages.md). Keep wording concise and consistent: use
 "security key" for generic FIDO2 devices, "YubiKey" for the product, and
 "keyring password" and "FIDO2 PIN" for the two distinct secrets. Comments should
 explain intent, constraints or non-obvious behavior, and match the implementation.

@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Autentimine ebaõnnestus (%1)",
+  "Checking…": "Kontrollimine…",
+  "Enter password": "Sisesta parool",
+  "Fingerprint": "Sõrmejälg",
+  "Retry security key": "Proovige turvavõtit uuesti",
+  "Security key authentication failed — retry or use password": "Turvavõtme autentimine ebaõnnestus – proovige uuesti või kasutage parooli",
+  "Security key unavailable — retry or use password": "Turvavõti pole saadaval – proovige uuesti või kasutage parooli",
+  "Touch the fingerprint reader": "Puudutage sõrmejäljelugejat",
+  "Touch your security key": "Puudutage oma turvavõtit",
+  "Unlock": "Avage lukustus",
+  "Use password": "Kasutage parooli",
+  "Use security key": "Kasutage turvavõtit"
+}

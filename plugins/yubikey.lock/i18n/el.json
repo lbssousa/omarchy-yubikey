@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Η επαλήθευση απέτυχε (%1)",
+  "Checking…": "Έλεγχος…",
+  "Enter password": "Εισήγαγε κωδικό",
+  "Fingerprint": "Δακτυλικό αποτύπωμα",
+  "Retry security key": "Δοκιμάστε ξανά το κλειδί ασφαλείας",
+  "Security key authentication failed — retry or use password": "Ο έλεγχος ταυτότητας με κλειδί ασφαλείας απέτυχε — δοκιμάστε ξανά ή χρησιμοποιήστε τον κωδικό πρόσβασης",
+  "Security key unavailable — retry or use password": "Το κλειδί ασφαλείας δεν είναι διαθέσιμο — δοκιμάστε ξανά ή χρησιμοποιήστε τον κωδικό πρόσβασης",
+  "Touch the fingerprint reader": "Αγγίξτε τη συσκευή ανάγνωσης δακτυλικών αποτυπωμάτων",
+  "Touch your security key": "Αγγίξτε το κλειδί ασφαλείας σας",
+  "Unlock": "Ξεκλείδωμα",
+  "Use password": "Χρησιμοποιήστε κωδικό πρόσβασης",
+  "Use security key": "Χρησιμοποιήστε κλειδί ασφαλείας"
+}

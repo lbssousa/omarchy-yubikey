@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "yubikey.polkit",
   "name": "YubiKey Polkit Agent",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "marselnenaj",
   "description": "Polkit dialog with PIN prompts and explicit password fallback confirmation.",
   "omarchy": {

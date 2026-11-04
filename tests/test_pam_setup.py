@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -65,6 +66,55 @@ class PamSetupTests(unittest.TestCase):
         merged = pam.merge_mapping(existing, ENROLLMENT, 'example_user')
         self.assertEqual(merged, existing.rstrip() + ':example-handle,example-public-key\n')
         self.assertEqual(pam.merge_mapping(merged, ENROLLMENT, 'example_user'), merged)
+
+    def test_second_account_enrollment_keeps_first_account_and_shared_policy(self):
+        pam.apply(self.root, self.plan())
+        before = (self.root / 'etc/pam.d/sudo').read_bytes()
+        second = 'another_user:other-handle,other-public-key'
+        changes = pam.plan(self.root, ['sudo'], second, 'another_user')
+        self.assertEqual(set(changes), {'etc/fido2/fido2'})
+        pam.apply(self.root, changes)
+        mapping = (self.root / 'etc/fido2/fido2').read_text()
+        self.assertIn(ENROLLMENT, mapping)
+        self.assertIn(second, mapping)
+        self.assertEqual((self.root / 'etc/pam.d/sudo').read_bytes(), before)
+        with self.assertRaisesRegex(ValueError, 'shared'):
+            pam.plan(self.root, ['sudo'], second, 'another_user', 'touch', 'automatic')
+        reviewed = pam.plan(self.root, ['sudo'], second, 'another_user', 'touch', 'automatic',
+                            allow_shared_policy_change=True)
+        self.assertIn('etc/pam.d/sudo', reviewed)
+
+    def test_old_rollback_cannot_remove_later_account_enrollment(self):
+        backup = pam.apply(self.root, self.plan())
+        second = 'another_user:other-handle,other-public-key'
+        pam.apply(self.root, pam.plan(self.root, ['sudo'], second, 'another_user'))
+        before = {name: (self.root / name).read_bytes()
+                  for name in ['etc/fido2/fido2', 'etc/pam.d/sudo']}
+        with self.assertRaisesRegex(ValueError, 'changed after'):
+            pam.restore(self.root, backup)
+        for name, data in before.items():
+            self.assertEqual((self.root / name).read_bytes(), data)
+
+    def test_rollback_refuses_later_permission_changes(self):
+        backup = pam.apply(self.root, self.plan())
+        target = self.root / 'etc/pam.d/sudo'
+        target.chmod(0o640)
+        with self.assertRaisesRegex(ValueError, 'changed after'):
+            pam.restore(self.root, backup)
+        self.assertEqual(target.stat().st_mode & 0o777, 0o640)
+        self.assertTrue((self.root / 'etc/fido2/fido2').exists())
+
+    def test_legacy_backup_requires_manual_review_before_any_writes(self):
+        backup = pam.apply(self.root, self.plan())
+        manifest = backup / 'manifest.json'
+        records = json.loads(manifest.read_text())
+        for record in records:
+            record.pop('applied_sha256')
+            record.pop('applied_mode')
+        manifest.write_text(json.dumps(records))
+        with self.assertRaisesRegex(ValueError, 'Legacy backup'):
+            pam.restore(self.root, backup)
+        self.assertEqual(self.plan(), {})
 
     def test_rejects_duplicate_or_wrong_user_mapping(self):
         with self.assertRaises(ValueError):

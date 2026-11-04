@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Ο έλεγχος ταυτότητας απέτυχε",
+  "Authentication is needed...": "Απαιτείται πιστοποίηση...",
+  "Authorize running '%1'": "Εξουσιοδότησε την εκτέλεση του '%1'",
+  "Checking...": "Έλεγχος...",
+  "Enter response": "Εισαγάγετε την απάντηση",
+  "Password available if the security key fails": "Ο κωδικός πρόσβασης είναι διαθέσιμος εάν το κλειδί ασφαλείας αποτύχει",
+  "Touch your security key": "Αγγίξτε το κλειδί ασφαλείας σας",
+  "Use password": "Χρησιμοποιήστε κωδικό πρόσβασης"
+}

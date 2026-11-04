@@ -30,19 +30,21 @@ function fido2ConfiguredFromPamConfig(raw) {
   return false
 }
 
-function authorizationLabel(message) {
+function authorizationLabel(message, tr) {
   var text = String(message || "")
   var match = text.match(/^Authentication is (?:needed|required) to run [`']([^`']+)[`'] as /i)
-  return match ? "Authorize running '" + match[1] + "'" : text
+  return match ? (tr ? tr("Authorize running '%1'", [match[1]]) : "Authorize running '" + match[1] + "'") : text
 }
 
-function isFallbackPrompt(prompt) {
-  return String(prompt || "").trim() === "Use password fallback? Type password to continue:"
-}
-
-function responseLabel(prompt) {
+function isFallbackPrompt(prompt, translatedPrompts) {
   var text = String(prompt || "").trim()
-  return text || "Enter response"
+  var allowed = ["Use password fallback? Type password to continue:"].concat(translatedPrompts || [])
+  return allowed.some(function(value) { return text === String(value).trim() })
+}
+
+function responseLabel(prompt, tr) {
+  var text = String(prompt || "").trim()
+  return text || (tr ? tr("Enter response") : "Enter response")
 }
 
 if (typeof module !== "undefined") {

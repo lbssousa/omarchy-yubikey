@@ -10,6 +10,8 @@ import qs.Commons as Commons
 Item {
   id: root
 
+  Translations { id: strings }
+
   property var shell: null
   property string omarchyPath: ""
 
@@ -28,7 +30,7 @@ Item {
   // password service; timeout/error never selects another method.
   property string authMethod: "password"
   readonly property bool keyResponseRequired: authMethod === "key" && fido2Pam.active && fido2Pam.responseRequired
-  readonly property string inputPrompt: authMethod === "key" ? (keyResponseRequired ? fido2Pam.message : "Touch your key") : (authMethod === "fingerprint" ? "Touch fingerprint reader" : "Enter password")
+  readonly property string inputPrompt: authMethod === "key" ? (keyResponseRequired ? fido2Pam.message : strings.t("Touch your security key")) : (authMethod === "fingerprint" ? strings.t("Touch the fingerprint reader") : strings.t("Enter password"))
   property bool fido2Authenticating: false
   property bool fido2Configured: false
   property bool fido2StatusKnown: false
@@ -305,7 +307,7 @@ Item {
     enteredPassword = ""
     pendingPassword = ""
     failedAttempts += 1
-    failureMessage = "Authentication failed (" + failedAttempts + ")"
+    failureMessage = "Authentication failed (%1)"
     runWake()
   }
 
@@ -337,7 +339,7 @@ Item {
     fido2Authenticating = true
     if (!fido2Pam.start()) {
       fido2Authenticating = false
-      failureMessage = "Key unavailable — retry or use password"
+      failureMessage = "Security key unavailable — retry or use password"
     }
   }
 
@@ -350,7 +352,7 @@ Item {
       logEvent("unlock: fido2")
       finishUnlock()
     } else {
-      failureMessage = "Key authentication failed — retry or use password"
+      failureMessage = "Security key authentication failed — retry or use password"
     }
   }
 

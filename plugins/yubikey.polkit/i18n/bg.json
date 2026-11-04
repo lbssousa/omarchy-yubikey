@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Неуспешно удостоверяване",
+  "Authentication is needed...": "Нужно е удостоверяване...",
+  "Authorize running '%1'": "Разреши стартирането на '%1'",
+  "Checking...": "Проверка...",
+  "Enter response": "Въведете отговор",
+  "Password available if the security key fails": "Налична е парола, ако ключът за сигурност не успее",
+  "Touch your security key": "Докоснете своя ключ за сигурност",
+  "Use password": "Използвайте парола"
+}

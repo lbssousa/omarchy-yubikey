@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Autentifikācija neizdevās (%1)",
+  "Checking…": "Pārbauda…",
+  "Enter password": "Ievadi paroli",
+  "Fingerprint": "Pirkstu nospiedums",
+  "Retry security key": "Mēģiniet vēlreiz drošības atslēgu",
+  "Security key authentication failed — retry or use password": "Drošības atslēgas autentifikācija neizdevās — mēģiniet vēlreiz vai izmantojiet paroli",
+  "Security key unavailable — retry or use password": "Drošības atslēga nav pieejama — mēģiniet vēlreiz vai izmantojiet paroli",
+  "Touch the fingerprint reader": "Pieskarieties pirkstu nospiedumu lasītājam",
+  "Touch your security key": "Pieskarieties savai drošības atslēgai",
+  "Unlock": "Atbloķēt",
+  "Use password": "Izmantojiet paroli",
+  "Use security key": "Izmantojiet drošības atslēgu"
+}

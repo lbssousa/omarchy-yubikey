@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Kimlik doğrulama başarısız (%1)",
+  "Checking…": "Kontrol ediliyor…",
+  "Enter password": "Parola girin",
+  "Fingerprint": "Parmak izi",
+  "Retry security key": "Güvenlik anahtarını yeniden dene",
+  "Security key authentication failed — retry or use password": "Güvenlik anahtarı kimlik doğrulaması başarısız oldu — şifreyi yeniden deneyin veya kullanın",
+  "Security key unavailable — retry or use password": "Güvenlik anahtarı kullanılamıyor — şifreyi yeniden deneyin veya kullanın",
+  "Touch the fingerprint reader": "Parmak izi okuyucuya dokunun",
+  "Touch your security key": "Güvenlik anahtarınıza dokunun",
+  "Unlock": "Kilidi aç",
+  "Use password": "Şifre kullan",
+  "Use security key": "Güvenlik anahtarını kullan"
+}

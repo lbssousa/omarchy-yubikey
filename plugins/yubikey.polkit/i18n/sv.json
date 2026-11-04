@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Autentiseringen misslyckades",
+  "Authentication is needed...": "Autentisering krävs...",
+  "Authorize running '%1'": "Auktorisera körning av '%1'",
+  "Checking...": "Kontrollerar...",
+  "Enter response": "Ange svar",
+  "Password available if the security key fails": "Lösenord tillgängligt om säkerhetsnyckeln misslyckas",
+  "Touch your security key": "Tryck på din säkerhetsnyckel",
+  "Use password": "Använd lösenord"
+}

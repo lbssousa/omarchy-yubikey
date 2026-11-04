@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Xác thực thất bại (%1)",
+  "Checking…": "Đang kiểm tra…",
+  "Enter password": "Nhập mật khẩu",
+  "Fingerprint": "Dấu vân tay",
+  "Retry security key": "Thử lại khóa bảo mật",
+  "Security key authentication failed — retry or use password": "Xác thực khóa bảo mật không thành công — thử lại hoặc sử dụng mật khẩu",
+  "Security key unavailable — retry or use password": "Khóa bảo mật không có sẵn — hãy thử lại hoặc sử dụng mật khẩu",
+  "Touch the fingerprint reader": "Chạm vào đầu đọc dấu vân tay",
+  "Touch your security key": "Chạm vào khóa bảo mật của bạn",
+  "Unlock": "Mở khóa",
+  "Use password": "Sử dụng mật khẩu",
+  "Use security key": "Sử dụng khóa bảo mật"
+}

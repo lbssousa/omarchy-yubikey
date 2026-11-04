@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Godkendelse mislykkedes (%1)",
+  "Checking…": "Kontrollerer…",
+  "Enter password": "Indtast adgangskode",
+  "Fingerprint": "Fingeraftryk",
+  "Retry security key": "Prøv sikkerhedsnøgle igen",
+  "Security key authentication failed — retry or use password": "Sikkerhedsnøglegodkendelse mislykkedes — prøv igen, eller brug adgangskoden",
+  "Security key unavailable — retry or use password": "Sikkerhedsnøgle er ikke tilgængelig — prøv igen eller brug adgangskoden",
+  "Touch the fingerprint reader": "Tryk på fingeraftrykslæseren",
+  "Touch your security key": "Tryk på din sikkerhedsnøgle",
+  "Unlock": "Lås op",
+  "Use password": "Brug adgangskode",
+  "Use security key": "Brug sikkerhedsnøgle"
+}

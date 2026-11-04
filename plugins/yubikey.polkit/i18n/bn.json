@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "প্রমাণীকরণ ব্যর্থ হয়েছে৷",
+  "Authentication is needed...": "প্রমাণীকরণ প্রয়োজন...",
+  "Authorize running '%1'": "'%1' চালানোর অনুমতি দিন",
+  "Checking...": "যাচাই হচ্ছে...",
+  "Enter response": "প্রতিক্রিয়া লিখুন",
+  "Password available if the security key fails": "নিরাপত্তা কী ব্যর্থ হলে পাসওয়ার্ড উপলব্ধ",
+  "Touch your security key": "আপনার নিরাপত্তা কী স্পর্শ করুন",
+  "Use password": "পাসওয়ার্ড ব্যবহার করুন"
+}

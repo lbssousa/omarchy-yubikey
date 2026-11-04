@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Autentimine ebaõnnestus",
+  "Authentication is needed...": "Vaja on autentimist...",
+  "Authorize running '%1'": "Luba '%1' käivitamine",
+  "Checking...": "Kontrollib...",
+  "Enter response": "Sisestage vastus",
+  "Password available if the security key fails": "Parool on saadaval, kui turvavõti ebaõnnestub",
+  "Touch your security key": "Puudutage oma turvavõtit",
+  "Use password": "Kasutage parooli"
+}

@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Uthibitishaji umeshindwa (%1)",
+  "Checking…": "Inakagua…",
+  "Enter password": "Weka nenosiri",
+  "Fingerprint": "Alama ya vidole",
+  "Retry security key": "Jaribu tena ufunguo wa usalama",
+  "Security key authentication failed — retry or use password": "Uthibitishaji wa ufunguo wa usalama haukufaulu - jaribu tena au tumia nenosiri",
+  "Security key unavailable — retry or use password": "Ufunguo wa usalama haupatikani - jaribu tena au tumia nenosiri",
+  "Touch the fingerprint reader": "Gusa kisoma vidole",
+  "Touch your security key": "Gusa ufunguo wako wa usalama",
+  "Unlock": "Fungua",
+  "Use password": "Tumia nenosiri",
+  "Use security key": "Tumia ufunguo wa usalama"
+}

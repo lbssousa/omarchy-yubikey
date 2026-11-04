@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Nabigo ang pagpapatunay (%1)",
+  "Checking…": "Sinusuri…",
+  "Enter password": "Ilagay ang password",
+  "Fingerprint": "Fingerprint",
+  "Retry security key": "Subukan muli ang security key",
+  "Security key authentication failed — retry or use password": "Nabigo ang pagpapatunay ng security key — subukang muli o gumamit ng password",
+  "Security key unavailable — retry or use password": "Hindi magagamit ang security key — subukang muli o gumamit ng password",
+  "Touch the fingerprint reader": "Pindutin ang fingerprint reader",
+  "Touch your security key": "Pindutin ang iyong security key",
+  "Unlock": "I-unlock",
+  "Use password": "Gumamit ng password",
+  "Use security key": "Gamitin ang security key"
+}

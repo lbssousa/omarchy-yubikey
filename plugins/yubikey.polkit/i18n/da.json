@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Godkendelse mislykkedes",
+  "Authentication is needed...": "Godkendelse påkrævet...",
+  "Authorize running '%1'": "Godkend kørsel af '%1'",
+  "Checking...": "Kontrollerer...",
+  "Enter response": "Indtast svar",
+  "Password available if the security key fails": "Adgangskode tilgængelig, hvis sikkerhedsnøglen fejler",
+  "Touch your security key": "Tryk på din sikkerhedsnøgle",
+  "Use password": "Brug adgangskode"
+}

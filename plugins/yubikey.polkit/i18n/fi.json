@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Todennus epäonnistui",
+  "Authentication is needed...": "Todennus vaaditaan...",
+  "Authorize running '%1'": "Valtuuta '%1':n suorittaminen",
+  "Checking...": "Tarkistetaan...",
+  "Enter response": "Syötä vastaus",
+  "Password available if the security key fails": "Salasana käytettävissä, jos suojausavain epäonnistuu",
+  "Touch your security key": "Kosketa suojausavainta",
+  "Use password": "Käytä salasanaa"
+}

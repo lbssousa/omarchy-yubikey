@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Auðkenning mistókst",
+  "Authentication is needed...": "Auðkenningar er krafist...",
+  "Authorize running '%1'": "Heimila keyrslu '%1'",
+  "Checking...": "Athugar...",
+  "Enter response": "Sláðu inn svar",
+  "Password available if the security key fails": "Lykilorð í boði ef öryggislykillinn bilar",
+  "Touch your security key": "Snertu öryggislykilinn þinn",
+  "Use password": "Notaðu lykilorð"
+}

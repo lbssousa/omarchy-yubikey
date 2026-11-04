@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Authentication failed (%1)",
+  "Checking…": "Checking…",
+  "Enter password": "Enter password",
+  "Fingerprint": "Fingerprint",
+  "Retry security key": "Retry security key",
+  "Security key authentication failed — retry or use password": "Security key authentication failed — retry or use password",
+  "Security key unavailable — retry or use password": "Security key unavailable — retry or use password",
+  "Touch the fingerprint reader": "Touch the fingerprint reader",
+  "Touch your security key": "Touch your security key",
+  "Unlock": "Unlock",
+  "Use password": "Use password",
+  "Use security key": "Use security key"
+}

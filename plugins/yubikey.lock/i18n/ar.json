@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "فشلت المصادقة (%1)",
+  "Checking…": "جارٍ التحقق…",
+  "Enter password": "أدخل كلمة المرور",
+  "Fingerprint": "بصمة الإصبع",
+  "Retry security key": "أعد محاولة مفتاح الأمان",
+  "Security key authentication failed — retry or use password": "فشلت مصادقة مفتاح الأمان — أعد المحاولة أو استخدم كلمة المرور",
+  "Security key unavailable — retry or use password": "مفتاح الأمان غير متوفر - أعد المحاولة أو استخدم كلمة المرور",
+  "Touch the fingerprint reader": "المس قارئ بصمات الأصابع",
+  "Touch your security key": "المس مفتاح الأمان الخاص بك",
+  "Unlock": "فتح",
+  "Use password": "استخدم كلمة المرور",
+  "Use security key": "استخدم مفتاح الأمان"
+}

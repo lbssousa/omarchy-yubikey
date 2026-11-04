@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Autentificarea eșuată",
+  "Authentication is needed...": "Este necesară autentificarea...",
+  "Authorize running '%1'": "Autorizează rularea '%1'",
+  "Checking...": "Se verifică...",
+  "Enter response": "Introduceți răspunsul",
+  "Password available if the security key fails": "Parola disponibilă dacă cheia de securitate nu reușește",
+  "Touch your security key": "Atingeți cheia de securitate",
+  "Use password": "Folosește parola"
+}

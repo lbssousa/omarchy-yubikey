@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Nie udało się uwierzytelnić (%1)",
+  "Checking…": "Sprawdzanie…",
+  "Enter password": "Podaj hasło",
+  "Fingerprint": "Odcisk palca",
+  "Retry security key": "Spróbuj ponownie użyć klucza bezpieczeństwa",
+  "Security key authentication failed — retry or use password": "Uwierzytelnienie klucza bezpieczeństwa nie powiodło się — spróbuj ponownie lub użyj hasła",
+  "Security key unavailable — retry or use password": "Klucz bezpieczeństwa niedostępny — spróbuj ponownie lub użyj hasła",
+  "Touch the fingerprint reader": "Dotknij czytnika linii papilarnych",
+  "Touch your security key": "Kliknij swój klucz bezpieczeństwa",
+  "Unlock": "Odblokuj",
+  "Use password": "Użyj hasła",
+  "Use security key": "Użyj klucza bezpieczeństwa"
+}

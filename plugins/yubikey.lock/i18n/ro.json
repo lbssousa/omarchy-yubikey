@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Autentificare eșuată (%1)",
+  "Checking…": "Se verifică…",
+  "Enter password": "Introdu parola",
+  "Fingerprint": "Amprenta",
+  "Retry security key": "Reîncercați cheia de securitate",
+  "Security key authentication failed — retry or use password": "Autentificarea cheii de securitate a eșuat — reîncercați sau utilizați parola",
+  "Security key unavailable — retry or use password": "Cheia de securitate indisponibilă — reîncercați sau utilizați parola",
+  "Touch the fingerprint reader": "Atingeți cititorul de amprentă",
+  "Touch your security key": "Atingeți cheia de securitate",
+  "Unlock": "Deblocați",
+  "Use password": "Folosește parola",
+  "Use security key": "Utilizați cheia de securitate"
+}

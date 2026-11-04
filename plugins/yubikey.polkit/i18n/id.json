@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Otentikasi gagal",
+  "Authentication is needed...": "Autentikasi diperlukan...",
+  "Authorize running '%1'": "Izinkan menjalankan '%1'",
+  "Checking...": "Memeriksa...",
+  "Enter response": "Masukkan respons",
+  "Password available if the security key fails": "Kata sandi tersedia jika kunci keamanan gagal",
+  "Touch your security key": "Sentuh kunci keamanan Anda",
+  "Use password": "Gunakan kata sandi"
+}

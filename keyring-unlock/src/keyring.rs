@@ -36,20 +36,22 @@ type Secret = (OwnedObjectPath, Vec<u8>, Vec<u8>, String);
 impl Keyring {
     /// Connect to the user session bus; service calls can activate the keyring daemon.
     pub fn connect() -> Result<Self> {
-        let conn = Connection::session().context("Could not connect to the session bus")?;
+        let conn = Connection::session().context(tr!("Could not connect to the session bus"))?;
         Ok(Keyring { conn })
     }
 
     fn proxy<'a>(&'a self, path: &'a str, iface: &'a str) -> Result<Proxy<'a>> {
-        Proxy::new(&self.conn, DEST, path, iface).context("Could not connect to Secret Service")
+        Proxy::new(&self.conn, DEST, path, iface).context(tr!("Could not connect to Secret Service"))
     }
 
     /// Resolve the default collection used by browsers to store secrets.
     pub fn default_collection(&self) -> Result<Collection> {
-        let path: OwnedObjectPath =
-            self.proxy(SERVICE_PATH, SERVICE)?.call("ReadAlias", &("default",)).context("ReadAlias(default) failed")?;
+        let path: OwnedObjectPath = self
+            .proxy(SERVICE_PATH, SERVICE)?
+            .call("ReadAlias", &("default",))
+            .context(tr!("ReadAlias(default) failed"))?;
         if path.as_str() == "/" {
-            anyhow::bail!("No default keyring is configured");
+            anyhow::bail!(tr!("No default keyring is configured"));
         }
         self.collection(path)
     }
@@ -73,9 +75,9 @@ impl Keyring {
         let (_, prompt): (Vec<OwnedObjectPath>, OwnedObjectPath) = self
             .proxy(SERVICE_PATH, SERVICE)?
             .call("Lock", &(vec![ObjectPath::from(&collection.path)],))
-            .with_context(|| format!("Could not lock keyring '{}'", collection.label))?;
+            .with_context(|| tr!("Could not lock keyring '%1'", collection.label))?;
         if prompt.as_str() != "/" || !self.locked(collection)? {
-            anyhow::bail!("Keyring '{}' did not lock", collection.label);
+            anyhow::bail!(tr!("Keyring '%1' did not lock", collection.label));
         }
         Ok(())
     }
@@ -86,7 +88,7 @@ impl Keyring {
         let (_, session): (OwnedValue, OwnedObjectPath) = self
             .proxy(SERVICE_PATH, SERVICE)?
             .call("OpenSession", &("plain", Value::from("")))
-            .context("OpenSession failed")?;
+            .context(tr!("OpenSession failed"))?;
         let result = run(&session);
         let _: zbus::Result<()> = self.proxy(session.as_str(), "org.freedesktop.Secret.Session")?.call("Close", &());
         result
@@ -99,7 +101,7 @@ impl Keyring {
             let result: zbus::Result<()> = self
                 .proxy(SERVICE_PATH, GNOME)?
                 .call("UnlockWithMasterPassword", &(ObjectPath::from(&collection.path), master));
-            result.with_context(|| format!("Could not unlock keyring '{}' (check the password)", collection.label))
+            result.with_context(|| tr!("Could not unlock keyring '%1' (check the password)", collection.label))
         })
     }
 
@@ -113,13 +115,13 @@ impl Keyring {
             Ok(self
                 .proxy(SERVICE_PATH, SERVICE)?
                 .call("GetSecrets", &(&paths, ObjectPath::from(session)))
-                .with_context(|| format!("Could not read secrets from keyring '{}'", collection.label))?)
+                .with_context(|| tr!("Could not read secrets from keyring '%1'", collection.label))?)
         })?;
         let mut items = Vec::new();
         for path in paths {
             let item = self.proxy(path.as_str(), ITEM)?;
             let (_, _, value, content_type) =
-                secrets.get(&path).with_context(|| format!("No secret returned for {}", path.as_str()))?.clone();
+                secrets.get(&path).with_context(|| tr!("No secret returned for %1", path.as_str()))?.clone();
             items.push(Item {
                 label: item.get_property("Label")?,
                 attributes: item.get_property("Attributes")?,
@@ -157,7 +159,7 @@ impl Keyring {
             let _: (OwnedObjectPath, OwnedObjectPath) = self
                 .proxy(collection.path.as_str(), COLLECTION)?
                 .call("CreateItem", &(properties, secret, false))
-                .with_context(|| format!("Could not copy item '{}'", item.label))?;
+                .with_context(|| tr!("Could not copy item '%1'", item.label))?;
             Ok(())
         })
     }
@@ -167,9 +169,12 @@ impl Keyring {
         let prompt: OwnedObjectPath = self
             .proxy(collection.path.as_str(), COLLECTION)?
             .call("Delete", &())
-            .with_context(|| format!("Could not delete keyring '{}'", collection.label))?;
+            .with_context(|| tr!("Could not delete keyring '%1'", collection.label))?;
         if prompt.as_str() != "/" {
-            anyhow::bail!("Keyring '{}': deletion requires confirmation; collection was not deleted", collection.label);
+            anyhow::bail!(tr!(
+                "Keyring '%1': deletion requires confirmation; collection was not deleted",
+                collection.label
+            ));
         }
         Ok(())
     }

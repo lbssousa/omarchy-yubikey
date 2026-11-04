@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Provjera autentičnosti nije uspjela (%1)",
+  "Checking…": "Provjera…",
+  "Enter password": "Unesite lozinku",
+  "Fingerprint": "Otisak prsta",
+  "Retry security key": "Pokušajte ponovo sa sigurnosnim ključem",
+  "Security key authentication failed — retry or use password": "Provjera autentičnosti sigurnosnog ključa nije uspjela — pokušajte ponovno ili upotrijebite lozinku",
+  "Security key unavailable — retry or use password": "Sigurnosni ključ nije dostupan — pokušajte ponovno ili upotrijebite lozinku",
+  "Touch the fingerprint reader": "Dodirnite čitač otiska prsta",
+  "Touch your security key": "Dodirnite svoj sigurnosni ključ",
+  "Unlock": "Otključaj",
+  "Use password": "Koristi lozinku",
+  "Use security key": "Koristite sigurnosni ključ"
+}

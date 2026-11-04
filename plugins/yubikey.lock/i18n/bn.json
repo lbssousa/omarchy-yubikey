@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "প্রমাণীকরণ ব্যর্থ হয়েছে (%1)",
+  "Checking…": "যাচাই হচ্ছে…",
+  "Enter password": "পাসওয়ার্ড দিন",
+  "Fingerprint": "আঙুলের ছাপ",
+  "Retry security key": "নিরাপত্তা কী আবার চেষ্টা করুন",
+  "Security key authentication failed — retry or use password": "নিরাপত্তা কী প্রমাণীকরণ ব্যর্থ হয়েছে — পুনরায় চেষ্টা করুন বা পাসওয়ার্ড ব্যবহার করুন৷",
+  "Security key unavailable — retry or use password": "নিরাপত্তা কী অনুপলব্ধ — আবার চেষ্টা করুন বা পাসওয়ার্ড ব্যবহার করুন",
+  "Touch the fingerprint reader": "ফিঙ্গারপ্রিন্ট রিডার স্পর্শ করুন",
+  "Touch your security key": "আপনার নিরাপত্তা কী স্পর্শ করুন",
+  "Unlock": "আনলক",
+  "Use password": "পাসওয়ার্ড ব্যবহার করুন",
+  "Use security key": "নিরাপত্তা কী ব্যবহার করুন"
+}

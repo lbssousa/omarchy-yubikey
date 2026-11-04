@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Ověření se nezdařilo",
+  "Authentication is needed...": "Je vyžadováno ověření...",
+  "Authorize running '%1'": "Povolit spuštění '%1'",
+  "Checking...": "Kontroluji...",
+  "Enter response": "Zadejte odpověď",
+  "Password available if the security key fails": "Heslo je k dispozici, pokud bezpečnostní klíč selže",
+  "Touch your security key": "Klepněte na svůj bezpečnostní klíč",
+  "Use password": "Použijte heslo"
+}

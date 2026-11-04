@@ -13,6 +13,9 @@ import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from i18n import tr
+
 SOURCE = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location('pam_setup', SOURCE / 'scripts/configure-pam.py')
 pam = importlib.util.module_from_spec(spec)
@@ -28,7 +31,7 @@ FILENAME = 'omarchy-yubikey-enrollment.json'
 
 def username(value):
     if not isinstance(value, str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.-]*\$?', value):
-        raise ValueError('Invalid account name')
+        raise ValueError(tr('Invalid account name'))
     return value
 
 
@@ -36,10 +39,10 @@ def read_regular(path, limit=LIMIT):
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd, 'rb') as stream:
         if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
-            raise ValueError('Expected a regular file')
+            raise ValueError(tr('Expected a regular file'))
         data = stream.read(limit + 1)
     if len(data) > limit:
-        raise ValueError('Enrollment input is too large')
+        raise ValueError(tr('Enrollment input is too large'))
     return data
 
 
@@ -51,37 +54,37 @@ def trusted_path(root, relative, missing=False):
         if not item.exists():
             if missing:
                 continue
-            raise ValueError('Required root-controlled file is missing')
+            raise ValueError(tr('Required root-controlled file is missing'))
         info = item.stat()
         if info.st_mode & 0o022 or (root == Path('/') and info.st_uid != 0):
-            raise ValueError('Sync trust, state and mapping paths must be root-controlled')
+            raise ValueError(tr('Sync trust, state and mapping paths must be root-controlled'))
     return path
 
 
 def validate_credentials(credentials):
     if not isinstance(credentials, list) or len(credentials) > 24:
-        raise ValueError('Expected at most 24 credentials')
+        raise ValueError(tr('Expected at most 24 credentials'))
     handles = set()
     for credential in credentials:
         if not isinstance(credential, str) or len(credential) > 16384:
-            raise ValueError('Invalid credential')
+            raise ValueError(tr('Invalid credential'))
         fields = credential.split(',')
         if len(fields) != 4:
-            raise ValueError('Sync requires modern four-field pamu2fcfg credentials')
+            raise ValueError(tr('Sync requires modern four-field pamu2fcfg credentials'))
         handle, public_key, algorithm, options = fields
         if algorithm not in ('es256', 'eddsa', 'rs256') or not re.fullmatch(r'(?:\+(?:presence|pin|verification))*', options):
-            raise ValueError('Unsupported credential algorithm/options')
+            raise ValueError(tr('Unsupported credential algorithm/options'))
         if '+presence' not in options:
-            raise ValueError('Synced credentials must require user presence')
+            raise ValueError(tr('Synced credentials must require user presence'))
         for encoded in (handle, public_key):
             try:
                 decoded = base64.b64decode(encoded, validate=True)
             except (ValueError, TypeError):
-                raise ValueError('Invalid credential encoding') from None
+                raise ValueError(tr('Invalid credential encoding')) from None
             if not decoded or base64.b64encode(decoded).decode() != encoded:
-                raise ValueError('Invalid credential encoding')
+                raise ValueError(tr('Invalid credential encoding'))
         if handle in handles:
-            raise ValueError('Duplicate credential handle')
+            raise ValueError(tr('Duplicate credential handle'))
         handles.add(handle)
     return credentials
 
@@ -91,18 +94,18 @@ def decode_bundle(raw, user):
         result = {}
         for key, value in pairs:
             if key in result:
-                raise ValueError('Duplicate export field')
+                raise ValueError(tr('Duplicate export field'))
             result[key] = value
         return result
     bundle = json.loads(raw, object_pairs_hook=unique)
     if not isinstance(bundle, dict) or set(bundle) != {'schema', 'origin', 'user', 'revision', 'credentials'}:
-        raise ValueError('Unexpected export schema')
+        raise ValueError(tr('Unexpected export schema'))
     if type(bundle['schema']) is not int or bundle['schema'] != 1 or bundle['origin'] != ORIGIN:
-        raise ValueError('Unsupported export version or relying party')
+        raise ValueError(tr('Unsupported export version or relying party'))
     if username(bundle['user']) != username(user):
-        raise ValueError('Signed export is for a different account')
+        raise ValueError(tr('Signed export is for a different account'))
     if type(bundle['revision']) is not int or not 1 <= bundle['revision'] <= 2**53 - 1:
-        raise ValueError('Revision must be a positive integer')
+        raise ValueError(tr('Revision must be a positive integer'))
     validate_credentials(bundle['credentials'])
     return bundle
 
@@ -110,7 +113,7 @@ def decode_bundle(raw, user):
 def credentials_for(mapping, user):
     matches = [line.split(':')[1:] for line in mapping.splitlines() if line.startswith(user + ':')]
     if len(matches) > 1:
-        raise ValueError('Duplicate account mapping')
+        raise ValueError(tr('Duplicate account mapping'))
     return matches[0] if matches else []
 
 
@@ -133,7 +136,7 @@ def verify(raw, signature, allowed, user):
                                  '-I', 'omarchy-yubikey:' + user, '-n', NAMESPACE, '-s', str(sig)],
                                 input=raw, capture_output=True)
     if result.returncode:
-        raise ValueError('Signature verification failed against locally pinned trust')
+        raise ValueError(tr('Signature verification failed against locally pinned trust'))
 
 
 def import_plan(root, raw, signature, user, minimum_revision=None):
@@ -144,15 +147,15 @@ def import_plan(root, raw, signature, user, minimum_revision=None):
     state_path = trusted_path(root, STATE, missing=True)
     state = json.loads(read_regular(state_path)) if state_path.exists() else {}
     if not isinstance(state, dict):
-        raise ValueError('Invalid local sync state')
+        raise ValueError(tr('Invalid local sync state'))
     previous = state.get(user)
     if previous is None and minimum_revision is None:
-        raise ValueError('First import requires --minimum-revision from a trusted source')
+        raise ValueError(tr('First import requires --minimum-revision from a trusted source'))
     floor = minimum_revision if minimum_revision is not None else 1
     if type(floor) is not int or floor < 1:
-        raise ValueError('Invalid minimum revision')
+        raise ValueError(tr('Invalid minimum revision'))
     if bundle['revision'] < floor or (previous is not None and bundle['revision'] <= previous['revision']):
-        raise ValueError('Old or already imported revision refused')
+        raise ValueError(tr('Old or already imported revision refused'))
     mapping_path = trusted_path(root, MAPPING, missing=True)
     mapping = read_regular(mapping_path).decode() if mapping_path.exists() else ''
     old = credentials_for(mapping, user)
@@ -170,16 +173,16 @@ def export_bundle(args):
     user = username(args.user)
     destination = args.repo.resolve()
     if os.geteuid() == 0:
-        raise ValueError('Export and Git operations must run as your normal user')
+        raise ValueError(tr('Export and Git operations must run as your normal user'))
     # No Git command, hooks, filters, credentials or network ever run as root.
     repository = subprocess.run(['git', '-C', str(destination), 'rev-parse', '--show-toplevel'],
                                 check=True, capture_output=True, text=True).stdout.strip()
     if Path(repository).resolve() != destination or destination == SOURCE or SOURCE in destination.parents:
-        raise ValueError('Use a separate, existing private Git checkout')
+        raise ValueError(tr('Use a separate, existing private Git checkout'))
     path = destination / FILENAME
     for target in (path, Path(str(path) + '.sig')):
         if target.exists() or target.is_symlink():
-            raise ValueError('Export exists; review and remove the previous export pair before replacing it')
+            raise ValueError(tr('Export exists; review and remove the previous export pair before replacing it'))
     mapping = read_regular(args.mapping).decode()
     bundle = {'schema': 1, 'origin': ORIGIN, 'user': user, 'revision': args.revision,
               'credentials': credentials_for(mapping, user)}
@@ -198,40 +201,41 @@ def export_bundle(args):
                 stream.write(data)
                 stream.flush()
                 os.fsync(stream.fileno())
-    print('Signed export created. Review, commit and push the two export files as your normal user.')
-    print('Repository privacy is your responsibility; exports are signed, not encrypted.')
+    print(tr('Signed export created. Review, commit and push the two export files as your normal user.'))
+    print(tr('Repository privacy is your responsibility; exports are signed, not encrypted.'))
 
 
 def import_bundle(args):
     if os.geteuid() != 0:
-        raise ValueError('Import needs sudo; Git fetch/pull must run separately as your normal user')
+        raise ValueError(tr('Import needs sudo; Git fetch/pull must run separately as your normal user'))
     root = Path('/')
     raw = read_regular(args.bundle)
     signature = read_regular(Path(str(args.bundle) + '.sig'))
     with pam.configuration_lock(root):
         bundle, old, changes = import_plan(root, raw, signature, args.user, args.minimum_revision)
-        print(f"Verified account: {bundle['user']}; revision: {bundle['revision']}")
-        print(f"Credentials: {len(old)} -> {len(bundle['credentials'])}")
+        print(tr('Verified account: %1; revision: %2', bundle['user'], bundle['revision']))
+        print(tr('Credentials: %1 -> %2', len(old), len(bundle['credentials'])))
         for label, items in (('Remove', set(old) - set(bundle['credentials'])),
                              ('Add', set(bundle['credentials']) - set(old))):
             for value in sorted(items):
-                print(f'  {label}: SHA256:{hashlib.sha256(value.encode()).hexdigest()}')
+                print(tr('  %1: SHA256:%2', tr(label), hashlib.sha256(value.encode()).hexdigest()))
         if not args.apply:
-            print('Preview only. Repeat with --apply for an interactive, backed-up import.')
+            print(tr('Preview only. Repeat with --apply for an interactive, backed-up import.'))
             return
         confirmation = f"IMPORT {bundle['user']} revision {bundle['revision']}"
         with open('/dev/tty', 'r+') as terminal:
-            terminal.write(f'This replaces all key mappings for this account. Type {confirmation}: ')
+            terminal.write(tr('This replaces all key mappings for this account. Type %1: ', confirmation))
             terminal.flush()
             if terminal.readline().strip() != confirmation:
-                raise ValueError('Import cancelled')
+                raise ValueError(tr('Import cancelled'))
         backup = pam.apply(root, changes)
-        print(f'Imported. Root-only backup: {backup}')
-        print('Test authentication before closing your recovery shell. See docs/enrollment-sync.md.')
+        print(tr('Imported. Root-only backup: %1', backup))
+        print(tr('Test authentication before closing your recovery shell. See docs/enrollment-sync.md.'))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--language', help='Override the Omarchy display language')
     commands = parser.add_subparsers(dest='command', required=True)
     export = commands.add_parser('export', help='Sign a snapshot into a separate Git checkout')
     export.add_argument('--repo', type=Path, required=True)
@@ -254,5 +258,5 @@ if __name__ == '__main__':
     except (ValueError, OSError, subprocess.CalledProcessError, KeyError, TypeError) as error:
         # Parsing/command output can contain credential data: print no payload.
         message = str(error) if isinstance(error, ValueError) and not isinstance(error, (json.JSONDecodeError, UnicodeError)) else type(error).__name__
-        print(f'Sync stopped: {message}', file=sys.stderr)
+        print(tr('Sync stopped: %1', message), file=sys.stderr)
         sys.exit(1)

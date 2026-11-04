@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Ověření se nezdařilo (%1)",
+  "Checking…": "Ověřování…",
+  "Enter password": "Zadejte heslo",
+  "Fingerprint": "Otisk prstu",
+  "Retry security key": "Zkuste bezpečnostní klíč znovu",
+  "Security key authentication failed — retry or use password": "Ověření bezpečnostního klíče se nezdařilo – zkuste to znovu nebo použijte heslo",
+  "Security key unavailable — retry or use password": "Bezpečnostní klíč není k dispozici – zkuste to znovu nebo použijte heslo",
+  "Touch the fingerprint reader": "Dotkněte se čtečky otisků prstů",
+  "Touch your security key": "Klepněte na svůj bezpečnostní klíč",
+  "Unlock": "Odemknout",
+  "Use password": "Použijte heslo",
+  "Use security key": "Použijte bezpečnostní klíč"
+}

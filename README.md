@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-93c5fd" alt="License: MIT"></a>
-  <a href="https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.2.1"><img src="https://img.shields.io/badge/version-0.2.1-c5f46b" alt="Version 0.2.1"></a>
+  <a href="https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/version-0.3.0-c5f46b" alt="Version 0.3.0"></a>
   <img src="https://img.shields.io/badge/made_for-Omarchy_4-a3e635" alt="Made for Omarchy 4">
   <a href="https://github.com/marselnenaj/omarchy-yubikey/actions/workflows/checks.yml"><img src="https://github.com/marselnenaj/omarchy-yubikey/actions/workflows/checks.yml/badge.svg" alt="Checks"></a>
 </p>
@@ -41,6 +41,8 @@ Choose the parts you need. The PAM route also works without the plugins.
 | **Polkit dialog** | Show the actual PAM PIN/password prompt and an explicit fallback choice | [Shell plugins](docs/plugins.md) |
 | **Screen unlock** | Select key/PIN, password or optional fingerprint without automatic method switching | [Shell plugins](docs/plugins.md) |
 | **Optional Git transfer** | Sign enrollment snapshots; verify pinned trust, review changes and reject old imports | [Enrollment sync](docs/enrollment-sync.md) |
+| **50 languages** | Follow the account's Omarchy language, with live shell updates and English fallback | [Languages](docs/languages.md) |
+| **Multiple accounts** | Keep enrollment and user data separate; review shared PAM changes | [Multiple users](docs/multi-user.md) |
 | **GNOME Keyring** | Decrypt a saved keyring password with the key's `hmac-secret`, then unlock over D-Bus | [Keyring helper](docs/keyring.md#gnome-keyring) |
 | **LUKS2 boot unlock** | Enroll disk-unlock keys with PIN plus touch; integrate boot separately with a manual guide | [LUKS setup](docs/luks.md) |
 
@@ -53,7 +55,7 @@ encrypted local store. It does not add native passkey login to GNOME Keyring.
 Run the guided installer from an interactive terminal:
 
 ```sh
-git clone --depth 1 --branch v0.2.1 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
+git clone --depth 1 --branch v0.3.0 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
 ```
 
 Already cloned? Run `./install.sh` from the checkout. The wizard lets you choose
@@ -66,9 +68,9 @@ LUKS enrollment is a separate opt-in command: `./install.sh --luks --device /dev
 It requests PIN plus touch and preserves the disk passphrase. Boot configuration
 is a manual step; read the [LUKS guide](docs/luks.md) first.
 
-**v0.2.1 is released**, with [source archives and checksums](https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.2.1).
-The [release notes](docs/releases/0.2.1.md) describe the English Keyring helper
-update, component versions and validation.
+**v0.3.0 is released**, with [source archives and checksums](https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.3.0).
+The [release notes](docs/releases/0.3.0.md) describe language support, multiple-account
+safeguards, component versions and validation.
 For manual setup or a custom PAM stack, see [PAM setup](docs/pam-setup.md).
 New PAM setup defaults to PIN plus touch and explicit password fallback.
 Touch-only and automatic fallback remain deliberate installer choices. Existing
@@ -128,6 +130,8 @@ authentication and session recovery require separate manual validation.
 - [Build, enroll and run the optional helper](docs/keyring.md)
 - [Optional LUKS2 enrollment, boot integration and recovery](docs/luks.md)
 - [Optional signed enrollment transfer through Git](docs/enrollment-sync.md)
+- [All 50 languages and translation maintenance](docs/languages.md)
+- [Multiple Linux accounts and shared PAM policy](docs/multi-user.md)
 - [Security properties, data locations and limitations](docs/security-model.md)
 - [Publication checklist](docs/publication.md)
 - [Contributing](CONTRIBUTING.md) · [Security reporting](SECURITY.md) · [Changelog](CHANGELOG.md)

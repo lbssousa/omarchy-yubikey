@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "인증 실패 (%1)",
+  "Checking…": "확인 중…",
+  "Enter password": "비밀번호 입력",
+  "Fingerprint": "지문",
+  "Retry security key": "보안 키 재시도",
+  "Security key authentication failed — retry or use password": "보안 키 인증 실패 - 다시 시도하거나 비밀번호를 사용하세요.",
+  "Security key unavailable — retry or use password": "보안 키를 사용할 수 없습니다. 다시 시도하거나 비밀번호를 사용하세요.",
+  "Touch the fingerprint reader": "지문 판독기를 터치하세요.",
+  "Touch your security key": "보안 키를 터치하세요.",
+  "Unlock": "잠금 해제",
+  "Use password": "비밀번호 사용",
+  "Use security key": "보안 키 사용"
+}

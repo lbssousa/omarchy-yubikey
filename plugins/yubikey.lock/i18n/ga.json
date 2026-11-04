@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Theip ar fhíordheimhniú (%1)",
+  "Checking…": "Ag seiceáil…",
+  "Enter password": "Iontráil pasfhocal",
+  "Fingerprint": "Méarloirg",
+  "Retry security key": "Bain triail eile as eochair shlándála",
+  "Security key authentication failed — retry or use password": "Theip ar fhíordheimhniú eochair shlándála - bain triail eile as nó úsáid pasfhocal",
+  "Security key unavailable — retry or use password": "Níl eochair shlándála ar fáil - bain triail eile as nó bain úsáid as pasfhocal",
+  "Touch the fingerprint reader": "Déan teagmháil leis an léitheoir méarloirg",
+  "Touch your security key": "Dteagmháil le d'eochair shlándála",
+  "Unlock": "Díghlasáil",
+  "Use password": "Úsáid pasfhocal",
+  "Use security key": "Úsáid eochair shlándála"
+}

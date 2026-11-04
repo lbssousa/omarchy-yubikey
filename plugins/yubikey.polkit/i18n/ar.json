@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "فشلت المصادقة",
+  "Authentication is needed...": "يلزم المصادقة...",
+  "Authorize running '%1'": "السماح بتشغيل '%1'",
+  "Checking...": "جارٍ التحقق...",
+  "Enter response": "أدخل الرد",
+  "Password available if the security key fails": "كلمة المرور متاحة في حالة فشل مفتاح الأمان",
+  "Touch your security key": "المس مفتاح الأمان الخاص بك",
+  "Use password": "استخدم كلمة المرور"
+}

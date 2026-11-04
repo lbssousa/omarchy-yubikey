@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Tapatybės patvirtinimas nepavyko (%1)",
+  "Checking…": "Tikrinama…",
+  "Enter password": "Įveskite slaptažodį",
+  "Fingerprint": "Pirštų atspaudas",
+  "Retry security key": "Bandykite dar kartą saugos raktą",
+  "Security key authentication failed — retry or use password": "Nepavyko autentifikuoti saugos rakto – bandykite dar kartą arba naudokite slaptažodį",
+  "Security key unavailable — retry or use password": "Saugos raktas nepasiekiamas – bandykite dar kartą arba naudokite slaptažodį",
+  "Touch the fingerprint reader": "Palieskite pirštų atspaudų skaitytuvą",
+  "Touch your security key": "Palieskite saugos raktą",
+  "Unlock": "Atrakinti",
+  "Use password": "Naudokite slaptažodį",
+  "Use security key": "Naudokite saugos raktą"
+}

@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "认证失败",
+  "Authentication is needed...": "需要身份验证...",
+  "Authorize running '%1'": "授权运行 '%1'",
+  "Checking...": "正在检查...",
+  "Enter response": "输入回复",
+  "Password available if the security key fails": "如果安全密钥失败，密码可用",
+  "Touch your security key": "触摸您的安全密钥",
+  "Use password": "使用密码"
+}

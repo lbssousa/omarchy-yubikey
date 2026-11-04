@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "Kimlik doğrulama başarısız oldu",
+  "Authentication is needed...": "Kimlik doğrulama gerekli...",
+  "Authorize running '%1'": "'%1' çalıştırmak için yetki ver",
+  "Checking...": "Kontrol ediliyor...",
+  "Enter response": "Yanıtı girin",
+  "Password available if the security key fails": "Güvenlik anahtarı başarısız olursa parola kullanılabilir",
+  "Touch your security key": "Güvenlik anahtarınıza dokunun",
+  "Use password": "Şifre kullan"
+}

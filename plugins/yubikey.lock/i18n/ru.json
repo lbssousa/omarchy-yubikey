@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "Ошибка аутентификации (%1)",
+  "Checking…": "Проверка…",
+  "Enter password": "Введите пароль",
+  "Fingerprint": "Отпечаток пальца",
+  "Retry security key": "Повторить попытку электронного ключа",
+  "Security key authentication failed — retry or use password": "Ошибка аутентификации с помощью электронного ключа — повторите попытку или используйте пароль.",
+  "Security key unavailable — retry or use password": "Ключ безопасности недоступен. Повторите попытку или используйте пароль.",
+  "Touch the fingerprint reader": "Коснитесь сканера отпечатков пальцев",
+  "Touch your security key": "Нажмите на свой электронный ключ",
+  "Unlock": "Разблокировать",
+  "Use password": "Использовать пароль",
+  "Use security key": "Использовать ключ безопасности"
+}

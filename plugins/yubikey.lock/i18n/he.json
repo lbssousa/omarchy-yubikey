@@ -1,0 +1,14 @@
+{
+  "Authentication failed (%1)": "האימות נכשל (%1)",
+  "Checking…": "בודק…",
+  "Enter password": "הזנת סיסמה",
+  "Fingerprint": "טביעת אצבע",
+  "Retry security key": "נסה שוב את מפתח האבטחה",
+  "Security key authentication failed — retry or use password": "אימות מפתח האבטחה נכשל - נסה שוב או השתמש בסיסמה",
+  "Security key unavailable — retry or use password": "מפתח אבטחה לא זמין - נסה שוב או השתמש בסיסמה",
+  "Touch the fingerprint reader": "גע בקורא טביעות האצבע",
+  "Touch your security key": "גע במפתח האבטחה שלך",
+  "Unlock": "פתח את הנעילה",
+  "Use password": "השתמש בסיסמה",
+  "Use security key": "השתמש במפתח אבטחה"
+}

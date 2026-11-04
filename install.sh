@@ -2,15 +2,24 @@
 # Interactive installer. No unattended changes to authentication policy.
 set -euo pipefail
 
+tr() {
+  if [[ -f ${source_root:-}/scripts/i18n.py ]] && command -v python3 >/dev/null; then
+    python3 "$source_root/scripts/i18n.py" "$@"
+  else
+    if [[ $1 == --language-code ]]; then printf en; else printf '%s' "$1"; fi
+  fi
+}
+
 confirm() {
   local reply prompt=$1 default=${2:-yes}
+  prompt=$(tr "$prompt")
   if [[ $default == yes ]]; then prompt+=' [Y/n] '; else prompt+=' [y/N] '; fi
   read -r -p "$prompt" reply </dev/tty || return 1
   reply=${reply:-$default}
   [[ $reply == [yY] || $reply == [yY][eE][sS] ]]
 }
-pause() { local reply; read -r -p "$1 Press Enter when ready. " reply </dev/tty; }
-fail() { printf '\nSetup stopped: %s\n' "$*" >&2; exit 1; }
+pause() { local reply; read -r -p "$(tr "$1") $(tr 'Press Enter when ready.') " reply </dev/tty; }
+fail() { printf '\n%s: %s\n' "$(tr 'Setup stopped')" "$(tr "$*")" >&2; exit 1; }
 
 # Also works when this script is fetched through a pipe after public release.
 installer_source=${BASH_SOURCE[0]:-}
@@ -24,38 +33,39 @@ if [[ -z $source_root || ! -f $source_root/scripts/configure-pam.py ]]; then
   command -v git >/dev/null || fail 'Install git first, then run this installer again.'
   bootstrap_dir=$(mktemp -d "${TMPDIR:-/tmp}/omarchy-yubikey-install.XXXXXX")
   trap 'rm -rf -- "$bootstrap_dir"' EXIT
-  git clone --depth 1 --branch v0.2.1 https://github.com/marselnenaj/omarchy-yubikey.git "$bootstrap_dir/source"
+  git clone --depth 1 --branch v0.3.0 https://github.com/marselnenaj/omarchy-yubikey.git "$bootstrap_dir/source"
   bash "$bootstrap_dir/source/install.sh" "$@" </dev/tty
   exit $?
 fi
 
+language=$(tr --language-code)
 case ${1:-} in
   --help|-h)
-    printf '%s\n' 'Usage: ./install.sh [--check | --rollback BACKUP_ID | --luks --device DEVICE [--check] | --sync export/import ...]' \
-      'Guided setup for sudo, desktop authentication and optional GNOME Keyring.' \
-      '--sync provides opt-in signed enrollment transfer through a separate private Git checkout; see docs/enrollment-sync.md.' \
-      '--luks starts separate opt-in LUKS2 enrollment (PIN + touch); boot setup is manual, see docs/luks.md.' \
-      '--check reports prerequisites without changing anything.' \
-      '--rollback restores a previous system PAM/enrollment backup; see docs/install.md.'
+    printf '%s\n' "$(tr 'Usage'): ./install.sh [--check | --rollback BACKUP_ID | --luks --device DEVICE [--check] | --sync export/import ...]" \
+      "$(tr 'Guided setup for sudo, desktop authentication and optional GNOME Keyring.')" \
+      "$(tr '--sync provides opt-in signed enrollment transfer through a separate private Git checkout; see docs/enrollment-sync.md.')" \
+      "$(tr '--luks starts separate opt-in LUKS2 enrollment (PIN + touch); boot setup is manual, see docs/luks.md.')" \
+      "$(tr '--check reports prerequisites without changing anything.')" \
+      "$(tr '--rollback restores a previous system PAM/enrollment backup; see docs/install.md.')"
     exit 0 ;;
   --luks)
     shift
-    exec sudo python3 "$source_root/scripts/enroll-luks.py" "$@" ;;
+    exec sudo python3 "$source_root/scripts/enroll-luks.py" --language "$language" "$@" ;;
   --sync)
     shift
     if [[ ${1:-} == import ]]; then
-      exec sudo python3 "$source_root/scripts/sync-enrollment.py" "$@"
+      exec sudo python3 "$source_root/scripts/sync-enrollment.py" --language "$language" "$@"
     fi
-    exec python3 "$source_root/scripts/sync-enrollment.py" "$@" ;;
+    exec python3 "$source_root/scripts/sync-enrollment.py" --language "$language" "$@" ;;
   --check)
-    printf '%s\n' 'Omarchy YubiKey — prerequisite check (no changes)'
+    printf '%s\n' "$(tr 'Omarchy YubiKey — prerequisite check (no changes)')"
     for program in bash git python3 sudo pacman pamu2fcfg omarchy omarchy-shell cargo cc ssh-keygen; do
-      if command -v "$program" >/dev/null; then printf '  OK       %s\n' "$program"; else printf '  MISSING  %s\n' "$program"; fi
+      if command -v "$program" >/dev/null; then printf '  ✓ %s\n' "$program"; else printf '  ✗ %s\n' "$program"; fi
     done
     exit 0 ;;
   --rollback)
     [[ $# == 2 && $2 =~ ^[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$ ]] || fail 'Provide the backup ID printed during setup.'
-    exec sudo python3 "$source_root/scripts/configure-pam.py" --rollback "/var/lib/omarchy-yubikey/backups/$2" ;;
+    exec sudo python3 "$source_root/scripts/configure-pam.py" --language "$language" --rollback "/var/lib/omarchy-yubikey/backups/$2" ;;
   '') ;;
   *) fail 'Unknown option. Run ./install.sh --help.' ;;
 esac
@@ -65,8 +75,9 @@ esac
 command -v pacman >/dev/null || fail 'Guided setup currently supports Arch Linux and Omarchy. See docs/pam-setup.md for manual setup.'
 command -v python3 >/dev/null || fail 'Install Python first: sudo pacman -S --needed python'
 
-printf '\n%s\n\n' 'Omarchy YubiKey — guided setup'
-printf '%s\n' 'Choose what to install. Existing password authentication stays available.'
+printf '\n%s\n\n' "$(tr 'Omarchy YubiKey — guided setup')"
+printf '%s\n' "$(tr 'Use y or n; press Enter to accept the displayed default.')"
+printf '%s\n' "$(tr 'Choose what to install. Existing password authentication stays available.')"
 services=()
 use_desktop=no
 use_keyring=no
@@ -79,10 +90,10 @@ if command -v omarchy >/dev/null && command -v omarchy-shell >/dev/null; then
     omarchy plugin validate "$source_root/plugins/yubikey.lock"
   fi
 else
-  printf '%s\n' 'Desktop integration is unavailable: a compatible Omarchy shell is required.'
+  printf '%s\n' "$(tr 'Desktop integration is unavailable: a compatible Omarchy shell is required.')"
 fi
 if confirm 'Also install the optional GNOME Keyring helper?' no; then use_keyring=yes; fi
-if [[ ${#services[@]} == 0 && $use_keyring == no ]]; then printf '%s\n' 'Nothing selected; no changes made.'; exit 0; fi
+if [[ ${#services[@]} == 0 && $use_keyring == no ]]; then printf '%s\n' "$(tr 'Nothing selected; no changes made.')"; exit 0; fi
 
 config_root=${XDG_CONFIG_HOME:-"$HOME/.config"}
 state_root=${XDG_STATE_HOME:-"$HOME/.local/state"}
@@ -101,14 +112,14 @@ if [[ ${#services[@]} != 0 ]]; then
   if ! confirm 'Require your security key FIDO2 PIN as well as touch?'; then
     auth_mode=touch
     enrollment_options=()
-    printf '%s\n' 'Touch-only mode: anyone holding your key may be able to authenticate.'
+    printf '%s\n' "$(tr 'Touch-only mode: anyone holding your key may be able to authenticate.')"
   fi
   fallback=explicit
   if ! confirm 'Require an explicit confirmation before password fallback?'; then fallback=automatic; fi
-  printf '\nKey policy: %s; password fallback: %s\n' "$auth_mode" "$fallback"
+  printf '\n%s\n' "$(tr 'Key policy: %1; password fallback: %2' "$auth_mode" "$fallback")"
   printf '%s\n' \
-    'PAM changes are backed up under /var/lib/omarchy-yubikey/backups.' \
-    'Open a second terminal, run sudo -s, and keep that recovery shell open until testing is complete.'
+    "$(tr 'PAM changes are backed up under /var/lib/omarchy-yubikey/backups.')" \
+    "$(tr 'Open a second terminal, run sudo -s, and keep that recovery shell open until testing is complete.')"
   confirm 'Continue with key enrollment and the selected PAM changes?' || exit 0
   sudo pacman -S --needed pam-u2f
   enroll_dir=$(mktemp -d "${TMPDIR:-/tmp}/omarchy-yubikey-enrollment.XXXXXX")
@@ -116,6 +127,12 @@ if [[ ${#services[@]} != 0 ]]; then
   chmod 700 "$enroll_dir"
   enrollment="$enroll_dir/enrollment"
   pam_options=(--auth-mode "$auth_mode" --fallback "$fallback")
+  if [[ -r /etc/fido2/fido2 ]] && awk -F: -v user="$(id -un)" '!/^[[:space:]]*(#|$)/ && $1 != user { found=1 } END { exit !found }' /etc/fido2/fido2; then
+    printf '%s\n' "$(tr 'Other accounts have enrolled keys. PAM policy is shared by all accounts; keep the existing policy unless all affected users agree to the change.')"
+    if confirm 'Allow the selected PAM policy to change for every account?' no; then
+      pam_options+=(--allow-shared-policy-change)
+    fi
+  fi
   if [[ $fallback == explicit && ( " ${services[*]} " == *' sudo '* || " ${services[*]} " == *' polkit-1 '* ) ]]; then
     sudo pacman -S --needed base-devel pam
     bash "$source_root/scripts/build-pam-gate.sh" "$enroll_dir/pam_omarchy_fallback.so"
@@ -128,9 +145,9 @@ if [[ ${#services[@]} != 0 ]]; then
     pause 'Unplug the previous key and plug in only the backup key.'
     pamu2fcfg "${enrollment_options[@]}" -n -o pam://omarchy -i pam://omarchy >> "$enrollment"
   done
-  sudo python3 "$source_root/scripts/configure-pam.py" "${pam_options[@]}" --user "$(id -un)" --enrollment "$enrollment" --services "${services[@]}"
+  sudo python3 "$source_root/scripts/configure-pam.py" --language "$language" "${pam_options[@]}" --user "$(id -un)" --enrollment "$enrollment" --services "${services[@]}"
   confirm 'Apply the listed changes? Existing user/key mappings will be preserved.' || exit 0
-  sudo python3 "$source_root/scripts/configure-pam.py" "${pam_options[@]}" --apply --user "$(id -un)" --enrollment "$enrollment" --services "${services[@]}"
+  sudo python3 "$source_root/scripts/configure-pam.py" --language "$language" "${pam_options[@]}" --apply --user "$(id -un)" --enrollment "$enrollment" --services "${services[@]}"
 
   if [[ " ${services[*]} " == *' sudo '* ]]; then
     pause 'Test password fallback: unplug all security keys now. In explicit mode, type the literal word password at the fallback choice, then enter your account password at its separate prompt.'
@@ -139,7 +156,7 @@ if [[ ${#services[@]} != 0 ]]; then
     pause 'Test the key: plug in an enrolled key and touch it when sudo asks.'
     sudo -k
     sudo true || fail 'Key test did not succeed. See docs/install.md; desktop plugins have not been enabled.'
-    printf '%s\n' 'sudo tests completed. Close the recovery shell only after desktop testing too.'
+    printf '%s\n' "$(tr 'sudo tests completed. Close the recovery shell only after desktop testing too.')"
   fi
   rm -rf -- "$enroll_dir"
   trap - EXIT
@@ -149,7 +166,7 @@ if [[ $use_desktop == yes || $use_keyring == yes ]]; then
   user_backup="$state_root/omarchy-yubikey/backups/$(date -u +%Y%m%d-%H%M%S)-$$"
   mkdir -p -m 0700 -- "$user_backup"
   chmod 700 "$state_root/omarchy-yubikey" "$state_root/omarchy-yubikey/backups"
-  printf '\nUser-file backup: %s\n' "$user_backup"
+  printf '\n%s\n' "$(tr 'User-file backup: %1' "$user_backup")"
 fi
 
 if [[ $use_desktop == yes ]]; then
@@ -184,13 +201,13 @@ PY
   omarchy-shell shell rescanPlugins
   omarchy plugin enable yubikey.polkit
   omarchy plugin enable yubikey.lock
-  printf '%s\n' 'Desktop plugins enabled. Test a benign Polkit action, then a real lock with key and password.' \
-    'Keep your recovery shell open until both unlock methods work. See docs/install.md for rollback.'
+  printf '%s\n' "$(tr 'Desktop plugins enabled. Test a benign Polkit action, then a real lock with key and password.')" \
+    "$(tr 'Keep your recovery shell open until both unlock methods work. See docs/install.md for rollback.')"
 fi
 
 if [[ $use_keyring == yes ]]; then
-  printf '%s\n' 'The optional Keyring helper is independent of PAM: it still decrypts with touch only, even when PAM requires a PIN.'
-  confirm 'Continue with touch-only Keyring enrollment?' no || { printf '%s\n' 'Keyring skipped. Selected PAM/desktop setup is complete.'; exit 0; }
+  printf '%s\n' "$(tr 'The optional Keyring helper is independent of PAM: it still decrypts with touch only, even when PAM requires a PIN.')"
+  confirm "$(tr 'Continue with touch-only Keyring enrollment?')" no || { printf '%s\n' "$(tr 'Keyring skipped. Selected PAM/desktop setup is complete.')"; exit 0; }
   sudo pacman -S --needed base-devel rust clang pkgconf libfido2 openssl systemd-libs gnome-keyring
   cargo build --manifest-path "$source_root/Cargo.toml" --target-dir "$source_root/target" --release --locked -p keyring-unlock
   mkdir -p -- "$HOME/.local/bin"
@@ -200,7 +217,7 @@ if [[ $use_keyring == yes ]]; then
   if [[ -f $binary ]]; then cp -p -- "$binary" "$user_backup/keyring-unlock"; fi
   if [[ -f $store ]]; then cp -- "$store" "$user_backup/password.json"; chmod 600 "$user_backup/password.json"; fi
   install -m 0755 "$source_root/target/release/keyring-unlock" "$binary"
-  printf '%s\n' 'Enter the existing default keyring password when asked. No new account password is created.'
+  printf '%s\n' "$(tr 'Enter the existing default keyring password when asked. No new account password is created.')"
   if ! "$binary" enroll || ! "$binary" check; then
     if [[ -f $user_backup/keyring-unlock ]]; then cp -p -- "$user_backup/keyring-unlock" "$binary"; else rm -f -- "$binary"; fi
     if [[ -f $user_backup/password.json ]]; then cp -- "$user_backup/password.json" "$store"; chmod 600 "$store"; else rm -f -- "$store"; fi
@@ -215,4 +232,4 @@ if [[ $use_keyring == yes ]]; then
     systemctl --user enable keyring-unlock.service
   fi
 fi
-printf '\n%s\n' 'Setup complete. Documentation: https://github.com/marselnenaj/omarchy-yubikey#documentation'
+printf '\n%s\n' "$(tr 'Setup complete. Documentation: https://github.com/marselnenaj/omarchy-yubikey#documentation')"

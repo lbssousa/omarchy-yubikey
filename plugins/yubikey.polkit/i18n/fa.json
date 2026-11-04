@@ -1,0 +1,10 @@
+{
+  "Authentication failed": "احراز هویت ناموفق بود",
+  "Authentication is needed...": "احراز هویت لازم است...",
+  "Authorize running '%1'": "مجوز اجرای '%1'",
+  "Checking...": "در حال بررسی...",
+  "Enter response": "پاسخ را وارد کنید",
+  "Password available if the security key fails": "در صورت خرابی کلید امنیتی، رمز عبور در دسترس است",
+  "Touch your security key": "کلید امنیتی خود را لمس کنید",
+  "Use password": "از رمز عبور استفاده کنید"
+}

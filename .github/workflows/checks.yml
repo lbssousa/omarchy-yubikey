@@ -21,6 +21,7 @@ jobs:
           cargo +stable fmt --all -- --check
           cargo +stable test --workspace --locked
           node --test tests/*.test.cjs
+          python3 scripts/sync-i18n.py --check
           python3 -m unittest discover -s tests -p 'test_*.py'
           for script in install.sh scripts/install-plugins.sh scripts/build-pam-gate.sh luks/zzzz-omarchy-yubikey-luks.conf; do
             bash -n "$script"
