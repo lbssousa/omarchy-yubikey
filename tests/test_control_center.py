@@ -117,6 +117,17 @@ class ControlTests(unittest.TestCase):
                 control.run('setup', 'b' * 32)
             execute.assert_not_called()
 
+    def test_restore_handles_a_single_standalone_authentication_plugin(self):
+        config = self.root / 'config'
+        manifest = config / 'omarchy/plugins/yubikey.polkit/manifest.json'
+        manifest.parent.mkdir(parents=True)
+        manifest.write_text('{"id":"yubikey.polkit"}')
+        with patch.object(control, 'paths', return_value=(self.root, config, self.root, self.root)):
+            self.assertEqual(control.command_plan('desktop-restore'), [['omarchy', 'plugin', 'disable', 'yubikey.polkit']])
+            manifest.unlink()
+            with self.assertRaisesRegex(ValueError, 'No included'):
+                control.command_plan('desktop-restore')
+
     def test_keyring_service_requires_exact_reviewed_unit(self):
         config = self.root / 'config'
         unit = config / 'systemd/user/keyring-unlock.service'

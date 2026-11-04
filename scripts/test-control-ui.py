@@ -50,6 +50,7 @@ ShellRoot {
     visible: true
     title: "YubiKey test fixture"
     Setup.ControlPanel { id: panel; anchors.fill: parent; snapshot: (FIXTURE) }
+    Setup.BarWidget { visible: false }
     ControlPanelTest { id: tests; panel: panel }
     Timer {
       id: steps

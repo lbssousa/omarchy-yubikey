@@ -8,5 +8,8 @@ BarIconButton {
   property var settings: ({})
   text: "󰌆"
   tooltipText: "Omarchy YubiKey"
-  onClicked: Quickshell.execDetached(["omarchy-shell", "shell", "summon", "yubikey.setup", "{}"])
+  onPressed: function(button) {
+    if (button === Qt.LeftButton)
+      Quickshell.execDetached(["omarchy-shell", "shell", "summon", "yubikey.setup", "{}"])
+  }
 }

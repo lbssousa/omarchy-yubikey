@@ -293,7 +293,12 @@ def command_plan(action, device='', backup=''):
     if action == 'test-sudo':
         return [['sudo', '-k'], ['sudo', 'true']]
     if action == 'desktop-restore':
-        return [['omarchy', 'plugin', 'disable', 'yubikey.lock'], ['omarchy', 'plugin', 'disable', 'yubikey.polkit']]
+        _, config, _, _ = paths()
+        commands = [['omarchy', 'plugin', 'disable', 'yubikey.' + role]
+                    for role in ('lock', 'polkit') if plugin_state(config, 'yubikey.' + role)]
+        if not commands:
+            raise ValueError('No included authentication plugins are installed')
+        return commands
     if action.startswith('keyring-') and action not in ('keyring-enable', 'keyring-disable'):
         binary = Path.home() / '.local/bin/keyring-unlock'
         if not binary.is_file() or binary.is_symlink() or binary.stat().st_uid != os.getuid() or binary.stat().st_mode & 0o022:

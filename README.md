@@ -97,7 +97,7 @@ change PAM. The optional Keyring helper remains touch-only. See the
 | Part | Requirements |
 | --- | --- |
 | PAM | Arch Linux, `pam-u2f`, Linux-PAM headers/C compiler for explicit fallback; FIDO2 key with a configured PIN for default PIN mode |
-| Control center | Compatible Omarchy 4 plugin host, Python 3 and `omarchy-launch-terminal`; feature dependencies are installed only after terminal confirmation |
+| Control center | Compatible Omarchy 4 plugin host, Python 3 and `omarchy-launch-terminal`; PAM/Keyring setup offers package installation after terminal confirmation; LUKS prerequisites are documented separately |
 | Shell plugins | Omarchy 4 with the Quickshell plugin host, `qs.Commons`, `qs.Ui`, authentication-clone support and the shell's PAM/Polkit modules |
 | Rust helper | Linux, Rust/Cargo, libfido2, OpenSSL, libudev, pkg-config and Clang build tools; a FIDO2 key with `hmac-secret` |
 | Keyring | GNOME Keyring on the user's session bus and an existing default collection |
