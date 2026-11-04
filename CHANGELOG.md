@@ -1,11 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 — 2026-11-04
 
 - Standardize Keyring helper help, prompts, notifications, errors and source
   comments in English.
 - Update the README and Keyring guide, clarify comments and document contribution
   writing conventions.
+- Release the Keyring helper as 0.1.1; existing enrollment stores remain
+  compatible. Standalone shell plugins remain at 0.2.0.
 
 ## 0.2.0 — 2026-11-04
 

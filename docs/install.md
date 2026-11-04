@@ -9,7 +9,7 @@ Desktop integration requires the existing password lock to work first.
 Clone the release and start setup:
 
 ```sh
-git clone --depth 1 --branch v0.2.0 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
+git clone --depth 1 --branch v0.2.1 https://github.com/marselnenaj/omarchy-yubikey.git && ./omarchy-yubikey/install.sh
 ```
 
 Already cloned? Run `./install.sh` from that checkout. To inspect prerequisites

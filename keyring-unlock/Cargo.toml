@@ -1,6 +1,6 @@
 [package]
 name = "keyring-unlock"
-version = "0.1.0"
+version = "0.1.1"
 description = "Unlock GNOME Keyring after autologin with a YubiKey touch"
 edition.workspace = true
 license.workspace = true
