@@ -18,8 +18,8 @@ function fingerprintConfiguredFromPamConfig(raw) {
 }
 
 function fido2ConfiguredFromPamConfig(raw) {
-  // A FIDO2 key (pam_u2f) in the auth stack: PAM waits for a touch before it
-  // ever asks for a password, so the dialog can show a key prompt meanwhile.
+  // Detect a configured key route before the PAM conversation starts.
+  // Subsequent prompts determine whether a PIN, touch or fallback is required.
   var lines = String(raw || "").split("\n")
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i].replace(/^\s+|\s+$/g, "")

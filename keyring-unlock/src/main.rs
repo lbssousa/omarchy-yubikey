@@ -1,8 +1,7 @@
-//! Autologin gibt PAM kein Passwort, also bleibt gnome-keyring nach dem Anmelden
-//! zu, und Chromium wartet auf die Passwortabfrage. keyring-unlock legt das
-//! Schlüsselbund-Passwort mit dem hmac-secret eines YubiKeys verschlüsselt ab und
-//! entsperrt nach einer Berührung des Keys über D-Bus. Ohne Key bleibt die
-//! normale Abfrage.
+//! Autologin provides no password to PAM, so GNOME Keyring remains locked.
+//! This helper encrypts the keyring password using a YubiKey hmac-secret and
+//! unlocks collections over D-Bus after a key touch. The normal password prompt
+//! remains available when the key is absent or the touch is cancelled.
 
 mod fido;
 mod keyring;
@@ -24,7 +23,7 @@ use zeroize::Zeroizing;
 const GLYPH: &str = "󰌆";
 
 #[derive(Parser)]
-#[command(version, about = "GNOME-Schlüsselbund per YubiKey-Berührung entsperren")]
+#[command(version, about = "Unlock GNOME Keyring with a YubiKey touch")]
 struct Cli {
     #[command(subcommand)]
     command: Option<Cmd>,
@@ -32,25 +31,25 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Cmd {
-    /// Key berühren und alle gesperrten Schlüsselbünde entsperren (Standard ohne Befehl)
+    /// Unlock keyrings that share the enrolled password (default command)
     Unlock,
-    /// Schlüsselbund-Passwort für alle gesteckten Keys verschlüsselt ablegen
+    /// Encrypt the keyring password for all connected supported keys
     Enroll {
-        /// Bestehende Einträge behalten und nur noch nicht eingerichtete Keys ergänzen
+        /// Keep existing entries and enroll only keys not already in the store
         #[arg(long)]
         add: bool,
-        /// Name für den Eintrag, etwa „5C Nano“
+        /// Label for the enrollment entry, such as "Primary key"
         #[arg(long)]
         label: Option<String>,
-        /// Passwort aus der ersten Zeile von stdin lesen statt nachzufragen
+        /// Read the password from the first line of stdin instead of prompting
         #[arg(long)]
         password_stdin: bool,
     },
-    /// Alle übrigen Schlüsselbünde in den Standard übernehmen und danach löschen
+    /// Copy items into the default keyring, then delete the source keyrings
     Merge,
-    /// Key berühren und nur prüfen, ob das Passwort sich entschlüsseln lässt
+    /// Verify password decryption with a key touch without unlocking keyrings
     Check,
-    /// Einträge, gesteckte Keys und Schlüsselbünde anzeigen (ohne Berühren)
+    /// Show enrollment entries, connected keys and keyrings without a key touch
     Status,
 }
 
@@ -75,21 +74,21 @@ fn unlock() -> Result<()> {
     let keyring = Keyring::connect()?;
     let default = keyring.default_collection()?;
     if !keyring.locked(&default)? {
-        eprintln!("„{}“ ist schon entsperrt", default.label);
+        eprintln!("Keyring '{}' is already unlocked", default.label);
         return Ok(());
     }
     let store = store::load(&store::path()?)?;
     let (dev, entry) = match enrolled_key(&store) {
         Ok(found) => found,
         Err(e) => {
-            // Kein Fehler für den Dienst: Dann kommt eben die normale Passwortabfrage.
-            eprintln!("{e:#}, bleibt bei der Passwortabfrage");
+            // A missing enrolled key is not a service failure; leave the password prompt available.
+            eprintln!("{e:#}; use the normal password prompt");
             return Ok(());
         }
     };
 
-    let toast = notify("YubiKey berühren", "zum Entsperren des Schlüsselbunds", "normal", 30_000);
-    // Tippt man das Passwort derweil selbst in die Abfrage, hört der Key auf zu blinken.
+    let toast = notify("Touch your YubiKey", "to unlock GNOME Keyring", "normal", 30_000);
+    // Cancel the pending key touch if the user unlocks the keyring through the password prompt.
     let password = decrypt_unless(&dev, entry, || keyring.locked(&default).map_or(false, |locked| !locked));
     if let Some(id) = toast {
         close_notification(id);
@@ -97,31 +96,31 @@ fn unlock() -> Result<()> {
     let password = match password {
         Ok(Some(password)) => password,
         Ok(None) => {
-            eprintln!("Schlüsselbund von Hand entsperrt, Key nicht mehr gebraucht");
+            eprintln!("Keyring unlocked through the password prompt; key touch cancelled");
             return Ok(());
         }
         Err(e) if e.downcast_ref::<fido::NotTouched>().is_some() => {
-            eprintln!("Key nicht berührt, bleibt bei der Passwortabfrage");
+            eprintln!("Key touch timed out or was cancelled; use the normal password prompt");
             return Ok(());
         }
         Err(e) => {
-            notify("Schlüsselbund nicht entsperrt", &format!("{e:#}"), "normal", 8000);
+            notify("Could not unlock keyring", &format!("{e:#}"), "normal", 8000);
             return Err(e);
         }
     };
 
     if let Err(e) = keyring.unlock(&default, &password) {
-        notify("Schlüsselbund nicht entsperrt", &format!("{e:#}"), "normal", 8000);
+        notify("Could not unlock keyring", &format!("{e:#}"), "normal", 8000);
         return Err(e);
     }
-    eprintln!("„{}“ entsperrt", default.label);
-    // Weitere Schlüsselbünde mit demselben Passwort gleich mit; andere bleiben zu.
+    eprintln!("Keyring '{}' unlocked", default.label);
+    // Also attempt other locked keyrings with the same password.
     for other in keyring.collections()? {
         if other.path == default.path || !keyring.locked(&other)? {
             continue;
         }
         match keyring.unlock(&other, &password) {
-            Ok(()) => eprintln!("„{}“ ({}) entsperrt", other.label, other.path.as_str()),
+            Ok(()) => eprintln!("Keyring '{}' ({}) unlocked", other.label, other.path.as_str()),
             Err(e) => eprintln!("{e:#}"),
         }
     }
@@ -131,14 +130,14 @@ fn unlock() -> Result<()> {
 fn check() -> Result<()> {
     let store = store::load(&store::path()?)?;
     let (dev, entry) = enrolled_key(&store)?;
-    eprintln!("YubiKey berühren …");
+    eprintln!("Touch your YubiKey...");
     let secret = fido::hmac_secret(&dev, &entry.credential_id, &entry.salt)?;
     let password = store::open(entry, &secret)?;
-    println!("Ok: Passwort mit {} Zeichen entschlüsselt, nichts entsperrt.", password.len());
+    println!("OK: Decrypted a {}-byte password; no keyrings were unlocked.", password.len());
     Ok(())
 }
 
-/// Sucht den gesteckten Key, der einen Eintrag kennt (ohne Berühren).
+/// Find a connected key that recognizes a stored credential without requiring a touch.
 fn enrolled_key(store: &Store) -> Result<(fido2_rs::device::Device, &Entry)> {
     let ids = store.credential_ids();
     let mut last_error = None;
@@ -152,17 +151,17 @@ fn enrolled_key(store: &Store) -> Result<(fido2_rs::device::Device, &Entry)> {
             }
         };
         let entry =
-            store.entries.iter().find(|e| e.credential_id == id).context("Key meldet ein unbekanntes Credential")?;
+            store.entries.iter().find(|e| e.credential_id == id).context("Key returned an unknown credential")?;
         return Ok((dev, entry));
     }
     match last_error {
         Some(e) => Err(e),
-        None => bail!("Kein eingerichteter YubiKey gesteckt"),
+        None => bail!("No enrolled YubiKey is connected"),
     }
 }
 
-/// Wartet auf die Berührung, gibt aber auf, sobald `give_up` wahr wird (alle
-/// 300 ms gefragt). Dann None.
+/// Wait for a key touch, polling `give_up` every 300 ms.
+/// Return `None` if the pending request is cancelled by `give_up`.
 fn decrypt_unless(
     dev: &fido2_rs::device::Device,
     entry: &Entry,
@@ -197,33 +196,33 @@ fn enroll(add: bool, label: Option<String>, password_stdin: bool) -> Result<()> 
     let mut store = if add { store::load(&path)? } else { Store::new() };
     let password = read_password(password_stdin)?;
 
-    // Sperren und mit der Eingabe wieder entsperren prüft das Passwort; ein
-    // Tippfehler landete sonst verschlüsselt in der Ablage.
+    // Validate the password by locking and unlocking the default keyring before
+    // storing it, so an incorrect password cannot be enrolled.
     let keyring = Keyring::connect()?;
     let default = keyring.default_collection()?;
     keyring.lock(&default)?;
-    keyring
-        .unlock(&default, password.as_bytes())
-        .context("Passwort falsch, der Schlüsselbund bleibt gesperrt (entsperren über die normale Abfrage)")?;
-    eprintln!("Passwort stimmt, „{}“ ist entsperrt", default.label);
+    keyring.unlock(&default, password.as_bytes()).context(
+        "Password validation failed; the keyring remains locked (use the normal password prompt to unlock it)",
+    )?;
+    eprintln!("Password verified; keyring '{}' is unlocked", default.label);
 
     let entries = seal_for_keys(&store, add, label.as_deref(), password.as_bytes())?;
     let added = entries.len();
     store.entries.extend(entries);
     if added == 0 {
-        bail!("Nichts Neues eingerichtet");
+        bail!("No new keys were enrolled");
     }
     store::save(&path, &store)?;
-    println!("{} Key(s) eingerichtet, gespeichert in {}", added, path.display());
+    println!("Enrolled {} key(s); store saved to {}", added, path.display());
     Ok(())
 }
 
-/// Verschlüsselt das Passwort für jeden gesteckten Key (je zweimal berühren). Mit
-/// `skip_known` bleiben Keys aus `store` außen vor.
+/// Encrypt the password for each connected key, requiring two touches per key.
+/// When `skip_known` is set, skip keys already enrolled in `store`.
 fn seal_for_keys(store: &Store, skip_known: bool, label: Option<&str>, password: &[u8]) -> Result<Vec<Entry>> {
     let devices = fido::devices()?;
     if devices.is_empty() {
-        bail!("Kein FIDO2-Key gesteckt");
+        bail!("No FIDO2 key is connected");
     }
     let known: Vec<Vec<u8>> = store.credential_ids().into_iter().map(<[u8]>::to_vec).collect();
     let known: Vec<&[u8]> = known.iter().map(Vec::as_slice).collect();
@@ -233,22 +232,22 @@ fn seal_for_keys(store: &Store, skip_known: bool, label: Option<&str>, password:
     for (n, (info, dev)) in devices.iter().enumerate() {
         let name = format!("{} ({})", info.product.to_string_lossy(), info.path.to_string_lossy());
         if skip_known && fido::probe(dev, &known)?.is_some() {
-            eprintln!("{name}: schon eingerichtet, übersprungen");
+            eprintln!("{name}: already enrolled; skipping");
             continue;
         }
-        eprintln!("{name}: Key berühren (1/2) …");
+        eprintln!("{name}: touch the key (1/2)...");
         let credential_id = match fido::make_credential(dev, None) {
             Ok(id) => id,
             Err(e) if fido::needs_pin(&e) => {
                 let key_pin = Zeroizing::new(rpassword::prompt_password(
-                    "Der Key verlangt seine FIDO2-PIN (nicht das Schlüsselbund-Passwort): ",
+                    "Enter the key's FIDO2 PIN (not the keyring password): ",
                 )?);
-                eprintln!("{name}: Key berühren (1/2) …");
+                eprintln!("{name}: touch the key (1/2)...");
                 fido::make_credential(dev, Some(&key_pin)).map_err(|e| anyhow::anyhow!(fido::describe(&e)))?
             }
             Err(e) => bail!("{name}: {}", fido::describe(&e)),
         };
-        eprintln!("{name}: noch einmal berühren (2/2) …");
+        eprintln!("{name}: touch the key again (2/2)...");
         let salt = fido::random::<32>().to_vec();
         let secret = fido::hmac_secret(dev, &credential_id, &salt)?;
         let (nonce, ciphertext) = store::seal(&secret, &credential_id, password)?;
@@ -258,28 +257,29 @@ fn seal_for_keys(store: &Store, skip_known: bool, label: Option<&str>, password:
             (None, _) => name.clone(),
         };
         entries.push(Entry { label, created: created.clone(), credential_id, salt, nonce, ciphertext });
-        eprintln!("{name}: eingerichtet");
+        eprintln!("{name}: enrolled");
     }
     Ok(entries)
 }
 
-/// Kopiert die Einträge der anderen Schlüsselbünde in den Standard; bei gleichen
-/// Attributen bleibt der des Standards. Gelöscht wird erst, wenn alles drüben ist.
+/// Copy items from other keyrings into the default collection, preserving
+/// existing items with identical attributes. Delete source collections only
+/// after copying succeeds and items with nonempty attributes are verified.
 fn merge() -> Result<()> {
     let keyring = Keyring::connect()?;
     let target = keyring.default_collection()?;
     let sources: Vec<_> = keyring.collections()?.into_iter().filter(|c| c.path != target.path).collect();
     if sources.is_empty() {
-        println!("Nur „{}“ vorhanden, nichts zusammenzulegen", target.label);
+        println!("Only keyring '{}' exists; nothing to merge", target.label);
         return Ok(());
     }
     let locked: Vec<String> = std::iter::once(&target)
         .chain(&sources)
         .filter(|c| keyring.locked(c).unwrap_or(true))
-        .map(|c| format!("„{}“ ({})", c.label, c.path.as_str()))
+        .map(|c| format!("'{}' ({})", c.label, c.path.as_str()))
         .collect();
     if !locked.is_empty() {
-        bail!("Erst entsperren: {}", locked.join(", "));
+        bail!("Unlock these keyrings first: {}", locked.join(", "));
     }
 
     for source in &sources {
@@ -287,22 +287,27 @@ fn merge() -> Result<()> {
         let items = keyring.items(source)?;
         for item in &items {
             if keyring.contains(&target, &item.attributes)? {
-                eprintln!("„{}“: im Standard schon vorhanden, übersprungen", item.label);
+                eprintln!("Item '{}': already present in the default keyring; skipping", item.label);
                 skipped += 1;
                 continue;
             }
             keyring.add(&target, item)?;
             copied += 1;
         }
-        // Nur löschen, was nachweislich drüben ist.
+        // Verify items with nonempty attributes before deleting the source collection.
         for item in &items {
             if !item.attributes.is_empty() && !keyring.contains(&target, &item.attributes)? {
-                bail!("„{}“ fehlt in „{}“, {} bleibt", item.label, target.label, source.path.as_str());
+                bail!(
+                    "Item '{}' is missing from keyring '{}'; keeping {}",
+                    item.label,
+                    target.label,
+                    source.path.as_str()
+                );
             }
         }
         keyring.delete(source)?;
         println!(
-            "{} → {}: {copied} übernommen, {skipped} doppelt, alter Schlüsselbund gelöscht",
+            "{} -> {}: {copied} copied, {skipped} duplicates skipped; source keyring deleted",
             source.path.as_str(),
             target.path.as_str()
         );
@@ -313,31 +318,31 @@ fn merge() -> Result<()> {
 fn status() -> Result<()> {
     let path = store::path()?;
     let store = store::load(&path)?;
-    println!("Ablage: {}", path.display());
+    println!("Store: {}", path.display());
     for entry in &store.entries {
-        println!("  {}  (eingerichtet {})", entry.label, entry.created);
+        println!("  {}  (enrolled {})", entry.label, entry.created);
     }
     let ids = store.credential_ids();
     let devices = fido::devices()?;
     if devices.is_empty() {
-        println!("Gesteckt: kein FIDO2-Key");
+        println!("Connected: no FIDO2 key");
     }
     for (info, dev) in devices {
         let state = match fido::probe(&dev, &ids)? {
             Some(id) => match store.entries.iter().find(|e| e.credential_id == id) {
-                Some(entry) => format!("eingerichtet als „{}“", entry.label),
-                None => "kennt ein unbekanntes Credential".into(),
+                Some(entry) => format!("enrolled as '{}'", entry.label),
+                None => "returned an unknown credential".into(),
             },
-            None => "nicht eingerichtet".into(),
+            None => "not enrolled".into(),
         };
-        println!("Gesteckt: {} ({}): {state}", info.product.to_string_lossy(), info.path.to_string_lossy());
+        println!("Connected: {} ({}): {state}", info.product.to_string_lossy(), info.path.to_string_lossy());
     }
     let keyring = Keyring::connect()?;
     let default = keyring.default_collection()?;
     for collection in keyring.collections()? {
-        let state = if keyring.locked(&collection)? { "gesperrt" } else { "entsperrt" };
-        let mark = if collection.path == default.path { " (Standard)" } else { "" };
-        println!("Schlüsselbund: „{}“{mark} {}: {state}", collection.label, collection.path.as_str());
+        let state = if keyring.locked(&collection)? { "locked" } else { "unlocked" };
+        let mark = if collection.path == default.path { " (default)" } else { "" };
+        println!("Keyring: '{}'{mark} {}: {state}", collection.label, collection.path.as_str());
     }
     Ok(())
 }
@@ -348,21 +353,21 @@ fn read_password(from_stdin: bool) -> Result<Zeroizing<String>> {
         std::io::stdin().lock().read_line(&mut line)?;
         Zeroizing::new(line.trim_end_matches(['\r', '\n']).to_string())
     } else {
-        let first = Zeroizing::new(rpassword::prompt_password("Schlüsselbund-Passwort: ")?);
-        let second = Zeroizing::new(rpassword::prompt_password("Noch einmal: ")?);
+        let first = Zeroizing::new(rpassword::prompt_password("Keyring password: ")?);
+        let second = Zeroizing::new(rpassword::prompt_password("Confirm password: ")?);
         if *first != *second {
-            bail!("Die beiden Eingaben stimmen nicht überein");
+            bail!("Passwords do not match");
         }
         first
     };
     if password.is_empty() {
-        bail!("Leeres Passwort: Dann braucht es keinen Key");
+        bail!("The keyring password is empty; key-based unlock is unnecessary");
     }
     Ok(password)
 }
 
 fn single_instance() -> Result<Option<File>> {
-    let dir = std::env::var_os("XDG_RUNTIME_DIR").context("XDG_RUNTIME_DIR ist nicht gesetzt")?;
+    let dir = std::env::var_os("XDG_RUNTIME_DIR").context("XDG_RUNTIME_DIR is not set")?;
     let file = File::create(Path::new(&dir).join("keyring-unlock.lock"))?;
     match file.try_lock() {
         Ok(()) => Ok(Some(file)),
@@ -371,7 +376,7 @@ fn single_instance() -> Result<Option<File>> {
     }
 }
 
-/// omarchy-notification-send umgeht „Nicht stören“; gibt die ID zum Schließen zurück.
+/// Send an Omarchy notification, bypassing Do Not Disturb, and return its ID for dismissal.
 fn notify(headline: &str, body: &str, urgency: &str, timeout_ms: u32) -> Option<u32> {
     let out = Command::new("omarchy-notification-send")
         .args(["-g", GLYPH, "-u", urgency, "-t", &timeout_ms.to_string(), "-p", headline, body])

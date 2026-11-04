@@ -1,5 +1,5 @@
-//! Verschlüsselte Ablage des Schlüsselbund-Passworts: ein Eintrag pro YubiKey, der Schlüssel kommt aus
-//! dessen hmac-secret und liegt nie auf der Platte.
+//! Encrypted keyring password storage with one entry per YubiKey.
+//! Encryption keys are derived from hmac-secret and never written to disk.
 
 use anyhow::{bail, Context, Result};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
@@ -47,14 +47,14 @@ impl Store {
     }
 }
 
-/// `KEYRING_UNLOCK_STORE` oder `$XDG_CONFIG_HOME/keyring-unlock/password.json`.
+/// Resolve `KEYRING_UNLOCK_STORE` or the default path under the XDG config directory.
 pub fn path() -> Result<PathBuf> {
     if let Some(p) = std::env::var_os("KEYRING_UNLOCK_STORE") {
         return Ok(PathBuf::from(p));
     }
     let base = match std::env::var_os("XDG_CONFIG_HOME") {
         Some(dir) if !dir.is_empty() => PathBuf::from(dir),
-        _ => PathBuf::from(std::env::var_os("HOME").context("HOME ist nicht gesetzt")?).join(".config"),
+        _ => PathBuf::from(std::env::var_os("HOME").context("HOME is not set")?).join(".config"),
     };
     Ok(base.join("keyring-unlock").join("password.json"))
 }
@@ -63,20 +63,21 @@ pub fn load(path: &Path) -> Result<Store> {
     let raw = match fs::read(path) {
         Ok(raw) => raw,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            bail!("Noch nicht eingerichtet ({} fehlt). Zuerst: keyring-unlock enroll", path.display())
+            bail!("No enrollment store found at {}. Run: keyring-unlock enroll", path.display())
         }
-        Err(e) => return Err(e).with_context(|| format!("{} nicht lesbar", path.display())),
+        Err(e) => return Err(e).with_context(|| format!("Could not read {}", path.display())),
     };
-    let store: Store = serde_json::from_slice(&raw).with_context(|| format!("{} ist kaputt", path.display()))?;
+    let store: Store =
+        serde_json::from_slice(&raw).with_context(|| format!("Invalid enrollment store JSON in {}", path.display()))?;
     if store.version != VERSION {
-        bail!("{}: unbekannte Version {}", path.display(), store.version);
+        bail!("{}: unsupported store version {}", path.display(), store.version);
     }
     Ok(store)
 }
 
-/// Schreibt atomar mit 0600 in einen 0700-Ordner.
+/// Save atomically, creating the file with mode 0600 and new directories with mode 0700.
 pub fn save(path: &Path, store: &Store) -> Result<()> {
-    let dir = path.parent().context("Ablagepfad ohne Ordner")?;
+    let dir = path.parent().context("Store path has no parent directory")?;
     fs::DirBuilder::new().recursive(true).mode(0o700).create(dir)?;
     let tmp = path.with_extension("json.tmp");
     let mut file = fs::OpenOptions::new()
@@ -85,7 +86,7 @@ pub fn save(path: &Path, store: &Store) -> Result<()> {
         .truncate(true)
         .mode(0o600)
         .open(&tmp)
-        .with_context(|| format!("{} nicht schreibbar", tmp.display()))?;
+        .with_context(|| format!("Could not write {}", tmp.display()))?;
     file.write_all(&serde_json::to_vec_pretty(store)?)?;
     file.write_all(b"\n")?;
     file.sync_all()?;
@@ -95,32 +96,32 @@ pub fn save(path: &Path, store: &Store) -> Result<()> {
 
 fn cipher(hmac_secret: &[u8]) -> Result<ChaCha20Poly1305> {
     if hmac_secret.len() != 32 {
-        bail!("hmac-secret hat {} statt 32 Bytes", hmac_secret.len());
+        bail!("Invalid hmac-secret length: {} bytes; expected 32", hmac_secret.len());
     }
     let mut key = Zeroizing::new([0u8; 32]);
     Hkdf::<Sha256>::new(None, hmac_secret)
         .expand(HKDF_INFO, key.as_mut())
-        .map_err(|_| anyhow::anyhow!("HKDF fehlgeschlagen"))?;
+        .map_err(|_| anyhow::anyhow!("HKDF key derivation failed"))?;
     Ok(ChaCha20Poly1305::new(Key::from_slice(key.as_ref())))
 }
 
-/// Verschlüsselt das Passwort; die Credential-ID ist als AAD an den Eintrag gebunden.
+/// Encrypt the password, binding the credential ID as authenticated associated data.
 pub fn seal(hmac_secret: &[u8], credential_id: &[u8], password: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
     let mut nonce = [0u8; 12];
-    getrandom::fill(&mut nonce).map_err(|e| anyhow::anyhow!("Zufall: {e}"))?;
+    getrandom::fill(&mut nonce).map_err(|e| anyhow::anyhow!("Could not generate random bytes: {e}"))?;
     let ciphertext = cipher(hmac_secret)?
         .encrypt(Nonce::from_slice(&nonce), Payload { msg: password, aad: credential_id })
-        .map_err(|_| anyhow::anyhow!("Verschlüsseln fehlgeschlagen"))?;
+        .map_err(|_| anyhow::anyhow!("Password encryption failed"))?;
     Ok((nonce.to_vec(), ciphertext))
 }
 
 pub fn open(entry: &Entry, hmac_secret: &[u8]) -> Result<Zeroizing<Vec<u8>>> {
     if entry.nonce.len() != 12 {
-        bail!("Eintrag „{}“: Nonce hat falsche Länge", entry.label);
+        bail!("Entry '{}': invalid nonce length", entry.label);
     }
     let password = cipher(hmac_secret)?
         .decrypt(Nonce::from_slice(&entry.nonce), Payload { msg: &entry.ciphertext, aad: &entry.credential_id })
-        .map_err(|_| anyhow::anyhow!("Passwort ließ sich nicht entschlüsseln (falscher Key oder Ablage verändert)"))?;
+        .map_err(|_| anyhow::anyhow!("Could not decrypt password (wrong key or modified enrollment store)"))?;
     Ok(Zeroizing::new(password))
 }
 
@@ -142,11 +143,11 @@ mod b64 {
 mod tests {
     use super::*;
 
-    fn entry(secret: &[u8], cred: &[u8], pin: &[u8]) -> Entry {
-        let (nonce, ciphertext) = seal(secret, cred, pin).unwrap();
+    fn entry(secret: &[u8], cred: &[u8], password: &[u8]) -> Entry {
+        let (nonce, ciphertext) = seal(secret, cred, password).unwrap();
         Entry {
             label: "test".into(),
-            created: "heute".into(),
+            created: "2026-01-01 00:00".into(),
             credential_id: cred.to_vec(),
             salt: vec![7; 32],
             nonce,

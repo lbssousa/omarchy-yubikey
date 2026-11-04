@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Standardize Keyring helper help, prompts, notifications, errors and source
+  comments in English.
+- Update the README and Keyring guide, clarify comments and document contribution
+  writing conventions.
+
 ## 0.2.0 — 2026-11-04
 
 - Default new PAM setup to PIN plus touch and explicit password fallback.
@@ -37,8 +44,7 @@
   PAM changes, backups, rollback and optional Keyring startup integration.
 - Add setup, rollback, security, contribution and publication documentation.
 - Add automated software checks and synthetic regression coverage.
-
-The validation scope and remaining hardware checks are documented in the release notes.
-
 - Publish standalone distribution repositories for the lock and Polkit plugins.
 - Include source archives and SHA-256 checksums; no prebuilt executables.
+
+The validation scope and remaining hardware checks are documented in the release notes.

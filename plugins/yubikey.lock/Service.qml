@@ -47,9 +47,8 @@ Item {
 
   readonly property bool locked: lockRequested || sessionLock.locked || sessionLock.secure
 
-  // Decisions read the lock state afresh. A property binding that missed a change
-  // notification once reported locked after an unlock, and a lock request before
-  // suspend then took that for done and never locked the session.
+  // Read the current lock state for each decision. A stale property binding
+  // can report an unlocked session as locked and skip a lock before suspend.
   function currentlyLocked() {
     return lockRequested || sessionLock.locked || sessionLock.secure
   }
@@ -103,7 +102,7 @@ Item {
   function checkStrandedLock() {
     if (strandedLockResolved || strandedLockCheckProc.running) return
 
-    // A lock this shell took is nobody's orphan.
+    // A lock acquired by this shell does not require orphan recovery.
     if (currentlyLocked()) {
       strandedLockResolved = true
       return
@@ -561,7 +560,7 @@ Item {
     // $PPID is this shell: a crash re-execs in place, so its pid is the one to skip.
     command: ["bash", "-c", "omarchy-hyprland-session-lock-stranded \"$PPID\""]
     onExited: function(exitCode) {
-      // No output to read the lock off yet.
+      // Lock state cannot be queried until an output is available.
       if (exitCode === 2) return
 
       root.strandedLockResolved = true
@@ -663,8 +662,8 @@ Item {
     onFileChanged: reload()
   }
 
-  // No lock before PAM is known good. An answer from before then may be stale --
-  // the failsafe can be cleared from a TTY -- so re-ask rather than act on it.
+  // Wait for PAM validation before locking. Refresh the lock state afterward,
+  // since the compositor failsafe may have been cleared from a TTY meanwhile.
   onPasswordPamConfiguredChanged: {
     if (!passwordPamConfigured) return
 

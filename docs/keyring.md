@@ -21,9 +21,11 @@ install -m 0755 target/release/keyring-unlock "$HOME/.local/bin/"
 ```
 
 The commands below assume `~/.local/bin` is on `PATH`. There are no prebuilt
-binaries. CLI messages are currently German. Plug in only the key you intend to
-enroll; enrollment considers all connected supported keys. Keep your original
-password and recovery method.
+binaries. Use `keyring-unlock --help` for the command list and
+`keyring-unlock enroll --help` for enrollment options.
+
+Plug in only the key you intend to enroll; enrollment considers all connected
+supported keys. Keep your original password and recovery method.
 
 The exported project uses a new, project-owned FIDO relying-party identifier.
 Encrypted stores from the earlier local prototype are not compatible: back them

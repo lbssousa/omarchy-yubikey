@@ -111,8 +111,8 @@ Item {
   function refocus() {
     if (!dialogVisible) return
     if (fallbackChoice) { fallbackButton.forceActiveFocus(); return }
-    // In fingerprint mode there is no field to type into — park focus on the
-    // key catcher so Escape still cancels; otherwise focus the password field.
+    // Focus the key handler in fingerprint mode so Escape can cancel.
+    // Otherwise, focus the response field.
     if (fingerprintMode || fido2Square) keyCatcher.forceActiveFocus()
     else passwordInput.forceActiveFocus()
   }
@@ -393,8 +393,7 @@ Item {
         }
       }
 
-      // Fingerprint mode shows just the sensor icon, centered and alone \u2014 no
-      // padlock, no field, no prompt text.
+      // Fingerprint mode shows a centered sensor icon without an input field.
       OpticalGlyph {
         anchors.centerIn: parent
         width: Math.round(root.fieldHeight * 0.7)

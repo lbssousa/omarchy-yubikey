@@ -25,12 +25,13 @@ omarchy plugin validate plugins/yubikey.lock
 omarchy plugin validate plugins/yubikey.polkit
 ```
 
-The Rust tests cover encrypted-store round trips, tamper/wrong-key rejection,
-and file permissions. JavaScript tests cover the
-Polkit prompt model. Python tests cover PAM planning, mapping merges, backups,
-rollback, interrupted writes and plugin-copy behavior. CI cannot establish real hardware authentication or safe
-session-lock recovery. Describe manual checks separately and do not claim a
-hardware route was tested when only a mock or static check ran.
+The Rust tests cover encrypted-store round trips, tamper/wrong-key rejection
+and file permissions. JavaScript tests cover the Polkit prompt model and lock
+authentication routing. Python tests cover PAM planning, mapping merges,
+backups, rollback, interrupted writes and plugin-copy behavior. CI cannot
+establish real hardware authentication or safe session-lock recovery. Describe
+manual checks separately and do not claim a hardware route was tested when
+only a mock or static check ran.
 
 Native PAM tests need Linux-PAM headers and a C compiler (Arch: `base-devel pam`;
 Debian/Ubuntu: `build-essential libpam0g-dev`). They load the actual fallback gate
@@ -47,6 +48,13 @@ password access available. Do not replace the active lock implementation during
 a locked session. Changes to relying-party IDs or crypto contexts require an
 explicit enrollment migration plan.
 
-The Rust CLI text and comments are currently German; English contributions to
-documentation are welcome. Preserve the MIT license and Omarchy attribution.
-Security findings belong in the private reporting channel, not a public issue.
+## Writing conventions
+
+Use English for source comments, CLI help, prompts, notifications, error
+messages and documentation. Keep wording concise and consistent: use
+"security key" for generic FIDO2 devices, "YubiKey" for the product, and
+"keyring password" and "FIDO2 PIN" for the two distinct secrets. Comments should
+explain intent, constraints or non-obvious behavior, and match the implementation.
+
+Preserve the MIT license and Omarchy attribution. Security findings belong in
+the private reporting channel, not a public issue.

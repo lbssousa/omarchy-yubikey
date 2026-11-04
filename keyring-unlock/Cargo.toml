@@ -1,7 +1,7 @@
 [package]
 name = "keyring-unlock"
 version = "0.1.0"
-description = "GNOME-Schlüsselbund nach dem Autologin per YubiKey-Berührung entsperren"
+description = "Unlock GNOME Keyring after autologin with a YubiKey touch"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true

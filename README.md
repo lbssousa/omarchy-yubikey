@@ -115,8 +115,9 @@ python3 -m unittest discover -s tests -p 'test_*.py'
 python3 scripts/check-publication.py
 ```
 
-The helper interface and source comments currently use German. The shell
-prompts use English. See [development](CONTRIBUTING.md) for validation details.
+See [Contributing](CONTRIBUTING.md) for the full development checks. Automated
+tests use synthetic credentials and isolated authentication stacks; hardware
+authentication and session recovery require separate manual validation.
 
 ## Documentation
 
