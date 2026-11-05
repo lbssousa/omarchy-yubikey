@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Copy the resident SSH keys of the security key into `~/.ssh` (`ssh-keygen -K`
+  in a private directory, never over an existing file) and remove a copy again,
+  from the Security keys page. The window receives only a file count.
+
 ## 0.4.0 — 2026-11-04
 
 - Add the root `yubikey.setup` marketplace plugin: bar entry and native window

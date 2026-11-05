@@ -22,3 +22,8 @@ test('untrusted status cannot enable operations or inject text', () => {
   assert.equal(value.sudo.state,'not-configured');
   assert.deepEqual(value.operation,{action:'',phase:''});
 });
+test('SSH status keeps only a bounded count', () => {
+  assert.deepEqual(model.cleanSnapshot({schema:1,ok:true,ssh:{count:2,names:['private-value']}}).ssh, {count:2});
+  assert.deepEqual(model.cleanSnapshot({schema:1,ok:true,ssh:{count:-1}}).ssh, {count:0});
+  assert.deepEqual(model.parameters('ssh-import','',''), []);
+});

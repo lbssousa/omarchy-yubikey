@@ -40,6 +40,19 @@ class ControlTests(unittest.TestCase):
             self.assertNotIn(value, rendered)
         self.assertFalse(state.exists())
 
+    def test_ssh_actions_are_fixed_commands_and_status_is_a_count(self):
+        for action in ('ssh-import', 'ssh-remove'):
+            self.assertEqual(control.command_plan(action), [[control.sys.executable, str(control.SOURCE / 'scripts/manage-ssh.py'), action.removeprefix('ssh-')]])
+            with self.assertRaises(ValueError):
+                control.command_plan(action, backup='20261104-120000-abcdef01')
+        home = self.root / 'home'
+        (home / '.ssh').mkdir(parents=True)
+        (home / '.ssh/id_ed25519_sk_rk_private-name').write_text('synthetic')
+        with patch.dict(os.environ, {'HOME': str(home)}):
+            result = control.status(self.root, self.root / 'config', self.root / 'state', self.root / 'store', 'user', query=False)
+        self.assertEqual(result['ssh'], {'count': 1})
+        self.assertNotIn('private-name', json.dumps(result))
+
     def test_status_rejects_duplicate_account_and_invalid_stores(self):
         with self.assertRaises(ValueError):
             control.enrolled_count('user:one\nuser:two\n', 'user')

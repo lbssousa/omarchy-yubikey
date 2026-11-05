@@ -19,6 +19,7 @@ Item {
   readonly property bool busy: launching || !!snapshot && ["starting", "running"].indexOf(snapshot.operation.phase) >= 0
   readonly property bool canAct: !!snapshot && snapshot.supported && !busy
   readonly property int keyCount: snapshot ? snapshot.enrollment.count : 0
+  readonly property int sshCount: snapshot && snapshot.ssh ? snapshot.ssh.count : 0
   property string pendingAction: ""
   property string pendingTitle: ""
   property var pendingParameters: []
@@ -212,6 +213,15 @@ Item {
                 ActionButton { text: strings.t("Add key / backup key"); primary: true; enabled: root.canAct && root.keyCount > 0; onClicked: root.ask("add-key", text) }
                 ActionButton { text: strings.t("First-time setup"); enabled: root.canAct; onClicked: root.ask("setup", text) }
                 ActionButton { text: strings.t("Remove a registration"); enabled: root.canAct && root.keyCount > 1; onClicked: root.ask("remove-key", text) }
+              }
+              FeatureCard {
+                objectName: "sshCard"
+                title: strings.t("Resident SSH keys")
+                badge: strings.t("%1 in ~/.ssh", [strings.number(root.sshCount)])
+                ready: root.sshCount > 0
+                description: strings.t("Copy the SSH keys stored on your security key into ~/.ssh, for example on a new computer. Existing files are never overwritten. Removing a copy leaves the key on the security key.")
+                ActionButton { text: strings.t("Import SSH keys"); primary: root.sshCount === 0; enabled: root.canAct && root.snapshot.connected > 0; onClicked: root.ask("ssh-import", text) }
+                ActionButton { text: strings.t("Remove a copy"); enabled: root.canAct && root.sshCount > 0; onClicked: root.ask("ssh-remove", text) }
               }
               FeatureCard {
                 title: strings.t("A backup for every feature")

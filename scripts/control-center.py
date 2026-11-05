@@ -8,6 +8,7 @@ import argparse
 from contextlib import contextmanager
 import fcntl
 import getpass
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -38,9 +39,23 @@ ACTIONS = {
     'keyring-disable': 'Disable GNOME Keyring unlock at graphical login',
     'luks-check': 'Check the selected LUKS2 device',
     'luks-enroll': 'Enroll a key for the selected LUKS2 device',
+    'ssh-import': 'Copy the resident SSH keys of the security key into ~/.ssh',
+    'ssh-remove': 'Remove one copied resident SSH key from ~/.ssh',
     'backups': 'List system PAM backup IDs',
     'rollback': 'Restore the selected PAM backup',
 }
+
+
+def ssh_status():
+    """How many resident SSH key files ~/.ssh holds; never their names."""
+    try:
+        spec = importlib.util.spec_from_file_location('manage_ssh', SOURCE / 'scripts/manage-ssh.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        count = module.status().get('count')
+    except (OSError, ValueError, ImportError):
+        return {'count': 0}
+    return {'count': count if isinstance(count, int) and 0 <= count <= 1000 else 0}
 
 
 def bounded_text(path, limit=262144):
@@ -267,7 +282,7 @@ def status(root=Path('/'), config=None, state=None, store=None, username=None, q
     return {'schema': 1, 'ok': True, 'supported': tools['pacman'] and tools['omarchy'] and tools['omarchy-shell'],
             'tools': tools, 'connected': connected, 'enrollment': enrollment, 'sudo': sudo,
             'polkit': pam_state(polkit), 'lock': pam_state(root / 'etc/pam.d/omarchy-lock-fido2'),
-            'plugins': plugins, 'keyring': keyring, 'operation': operation_status(state)}
+            'plugins': plugins, 'keyring': keyring, 'ssh': ssh_status(), 'operation': operation_status(state)}
 
 
 def command_plan(action, device='', backup=''):
@@ -288,6 +303,8 @@ def command_plan(action, device='', backup=''):
         return [install]
     if action.startswith('setup-'):
         return [install + ['--components', action.removeprefix('setup-')]]
+    if action in ('ssh-import', 'ssh-remove'):
+        return [[sys.executable, str(SOURCE / 'scripts/manage-ssh.py'), action.removeprefix('ssh-')]]
     if action in ('add-key', 'remove-key'):
         return [[sys.executable, str(SOURCE / 'scripts/manage-keys.py'), 'add' if action == 'add-key' else 'remove']]
     if action == 'test-sudo':
