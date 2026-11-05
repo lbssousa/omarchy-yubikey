@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Fix translations of the standalone lock and Polkit plugins on Omarchy 4.5,
+  whose `qs.Commons` exports its own `Translations` type. Their unqualified
+  `Translations` resolved to it instead of the bundled loader, as the setup
+  window's did before 0.5.0, so they stayed in English, lost right-to-left layout
+  and failed on `strings.number`. They now import the bundled loader by a
+  qualified local import.
+
 ## 0.5.1 — 2026-11-06
 
 - Update the locked `libz-sys` dependency from 1.1.30 to 1.1.31 for

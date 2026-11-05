@@ -5,13 +5,16 @@ import Quickshell.Services.Polkit
 import Quickshell.Wayland
 import qs.Commons
 import qs.Commons as Commons
+// Omarchy 4.5 exports its own Commons.Translations, which an unqualified
+// "Translations" would resolve to; this directory's loader must win.
+import "." as Local
 import qs.Ui
 import "PolkitModel.js" as PolkitModel
 
 Item {
   id: root
 
-  Translations { id: strings }
+  Local.Translations { id: strings }
 
   property string fontFamily: Style.font.menuFamily
   // Bound to the central [polkit] section in shell.toml via Commons.Color.qml.
