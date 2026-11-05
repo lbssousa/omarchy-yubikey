@@ -66,6 +66,10 @@ boundary against another process already running as the same account.
 account's mapping without changing shared PAM policy. It prints an opaque key
 reference; save that reference privately to identify the registration later.
 It is not the key's serial number. Account mappings for other users are preserved.
+Before enrolling, it asks the connected key, without a touch, whether it
+created one of your registrations (`fido2-assert` with `up=false`); a key that
+is already enrolled is refused instead of being added a second time. Connect
+only the new key: with several keys connected, nothing is enrolled.
 
 **Remove a registration** lists references in the terminal. Match the saved
 reference, select it, review the preview and type the requested confirmation.

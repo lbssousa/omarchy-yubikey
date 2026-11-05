@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Interactive per-account PAM key management; never changes shared PAM policy."""
 import argparse
+import base64
 import getpass
 import importlib.util
 import os
@@ -14,9 +15,61 @@ spec = importlib.util.spec_from_file_location('managed_pam', SOURCE / 'configure
 pam = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(pam)
 
+MAPPING = Path('/etc/fido2/fido2')
+ORIGIN = 'pam://omarchy'
+PROBE_TIMEOUT = 5
+
 
 def configure(*arguments):
     return ['sudo', sys.executable, str(SOURCE / 'configure-pam.py'), *arguments]
+
+
+def credentials(mapping, username):
+    """The account's credentials, validated like the references printed for them."""
+    pam.key_references(mapping, username)
+    rows = [line for line in mapping.splitlines() if line.startswith(username + ':')]
+    return rows[0].split(':')[1:] if rows else []
+
+
+def connected_devices():
+    result = subprocess.run(['fido2-token', '-L'], capture_output=True, text=True, timeout=PROBE_TIMEOUT, check=False)
+    if result.returncode != 0:
+        raise ValueError('Could not list security keys')
+    return [line.split(': ', 1)[0] for line in result.stdout.splitlines() if line.strip()]
+
+
+def already_enrolled(device, enrolled):
+    """Whether the connected key created one of the account's credentials.
+
+    A non-resident credential only produces an assertion on the key that created
+    it, and up=false asks for no touch, so this neither blinks nor consumes a PIN
+    retry. Any failure (another key, another origin, a key refusing silent
+    assertions) counts as no match; enrollment then proceeds as before.
+    """
+    for credential in enrolled:
+        handle = credential.split(',', 1)[0]
+        challenge = base64.b64encode(os.urandom(32)).decode()
+        try:
+            result = subprocess.run(['fido2-assert', '-G', '-t', 'up=false', device],
+                                    input='\n'.join((challenge, ORIGIN, handle)) + '\n',
+                                    capture_output=True, text=True, timeout=PROBE_TIMEOUT, check=False)
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        if result.returncode == 0:
+            return True
+    return False
+
+
+def check_new_key(username):
+    """Refuse a second enrollment of a key the account already uses."""
+    enrolled = credentials(MAPPING.read_text() if MAPPING.exists() else '', username)
+    devices = connected_devices()
+    if len(devices) != 1:
+        raise ValueError('Connect exactly one security key: the new or backup key')
+    if enrolled and already_enrolled(devices[0], enrolled):
+        print('This security key is already enrolled for your account; nothing changed.')
+        print('Connect the backup key you want to add instead.')
+        raise SystemExit(1)
 
 
 def main():
@@ -30,6 +83,7 @@ def main():
         print('This adds a key for your account without changing sudo, desktop or other users’ policies.')
         print('The new credential requires a configured FIDO2 PIN and touch.')
         input('Connect only the new/backup key, then press Enter. ')
+        check_new_key(username)
         with tempfile.TemporaryDirectory(prefix='omarchy-yubikey-enroll-') as directory:
             path = Path(directory) / 'enrollment'
             fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -46,7 +100,7 @@ def main():
             subprocess.run(command + ['--apply'], check=True)
         print('Key enrolled. Test it with sudo and every desktop method you use.')
     else:
-        mapping = Path('/etc/fido2/fido2').read_text()
+        mapping = MAPPING.read_text()
         references = pam.key_references(mapping, username)
         if len(references) <= 1:
             raise ValueError('Keep at least one enrolled key; the last key cannot be removed here')

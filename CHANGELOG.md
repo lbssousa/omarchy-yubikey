@@ -13,6 +13,9 @@
   tests already do. They matched English messages that `tr()` translated into
   the developer's own Omarchy language, so four of them failed on any non-English
   desktop.
+- Refuse to enroll a key the account already uses: **Add key / backup key**
+  first asks the connected key, without a touch, whether it created one of the
+  account's registrations. It also requires exactly one connected key.
 
 ## 0.5.2 — 2026-11-06
 
