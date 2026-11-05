@@ -35,6 +35,27 @@ reviewed administrator change, the setup CLI has
 `--allow-shared-policy-change`; this permission does not bypass account binding
 or key verification. Coordinate the change with all affected users.
 
+## Accounts without sudo
+
+By default, adding or removing a key runs `configure-pam.py` through `sudo`, so
+only administrators can manage their keys. Setup offers to install a small
+helper for everyone else (`./install.sh --key-helper` installs it later,
+`./install.sh --remove-key-helper` removes it):
+
+- a root-owned copy of `scripts/key-mapping-helper`, `configure-pam.py` and
+  `i18n.py` in `/usr/local/libexec/omarchy-yubikey`, so pkexec never runs
+  code from a user-writable checkout;
+- the polkit action `org.omarchy-yubikey.key-mapping`, which asks the account
+  for **its own** password (`auth_self`), not an administrator's.
+
+The helper takes the account from `PKEXEC_UID` only, never from its arguments
+or input, and changes only that account's line of `/etc/fido2/fido2`, through
+the same transaction lock, backups and rollback as setup. It never changes PAM
+policy, and it keeps the last key. Registering a key this way grants no
+administrator rights: the key authenticates the same account, for whatever
+that account could already do. Rerun `--key-helper` after updating the
+checkout to refresh the installed copy.
+
 ## Rollback and concurrent changes
 
 Setup, imports and rollback use one root-controlled transaction lock. Backups

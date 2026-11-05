@@ -24,6 +24,20 @@ fail() { printf '\n%s: %s\n' "$(tr 'Setup stopped')" "$(tr "$*")" >&2; exit 1; }
 # Setup requires a complete local checkout.
 source_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 [[ -f $source_root/scripts/configure-pam.py ]] || fail 'Run from a complete source checkout.'
+helper_dir=/usr/local/libexec/omarchy-yubikey
+helper_policy=/usr/share/polkit-1/actions/org.omarchy-yubikey.key-mapping.policy
+
+# Root-owned copy of the per-account key helper and the PAM planner it reuses,
+# so that pkexec never runs code from this user-writable checkout.
+install_key_helper() {
+  command -v pkexec >/dev/null || fail 'pkexec is unavailable: install polkit first.'
+  sudo install -d -m 0755 -o root -g root "$helper_dir"
+  sudo install -m 0644 -o root -g root "$source_root/scripts/configure-pam.py" "$source_root/scripts/i18n.py" "$helper_dir/"
+  sudo install -m 0755 -o root -g root "$source_root/scripts/key-mapping-helper" "$helper_dir/key-mapping-helper"
+  sudo install -D -m 0644 -o root -g root "$source_root/polkit/org.omarchy-yubikey.key-mapping.policy" "$helper_policy"
+  printf '%s\n' "$(tr 'Every account can now add and remove its own keys, authenticating as itself.')"
+}
+
 components=all
 if [[ ${1:-} == --components ]]; then
   [[ $# == 2 && $2 =~ ^(sudo|desktop|keyring)$ ]] || fail 'Choose sudo, desktop or keyring.'
@@ -34,12 +48,23 @@ fi
 language=$(tr --language-code)
 case ${1:-} in
   --help|-h)
-    printf '%s\n' "$(tr 'Usage'): ./install.sh [--components sudo|desktop|keyring | --check | --rollback BACKUP_ID | --luks --device DEVICE [--check] | --sync export/import ...]" \
+    printf '%s\n' "$(tr 'Usage'): ./install.sh [--components sudo|desktop|keyring | --check | --rollback BACKUP_ID | --key-helper | --remove-key-helper | --luks --device DEVICE [--check] | --sync export/import ...]" \
       "$(tr 'Guided setup for sudo, desktop authentication and optional GNOME Keyring.')" \
       "$(tr '--sync provides opt-in signed enrollment transfer through a separate private Git checkout; see docs/enrollment-sync.md.')" \
       "$(tr '--luks starts separate opt-in LUKS2 enrollment (PIN + touch); boot setup is manual, see docs/luks.md.')" \
       "$(tr '--check reports prerequisites without changing anything.')" \
-      "$(tr '--rollback restores a previous system PAM/enrollment backup; see docs/install.md.')"
+      "$(tr '--rollback restores a previous system PAM/enrollment backup; see docs/install.md.')" \
+      "$(tr '--key-helper lets every account manage its own keys through pkexec; --remove-key-helper removes it. See docs/multi-user.md.')"
+    exit 0 ;;
+  --key-helper)
+    [[ $# == 1 ]] || fail 'Unexpected arguments. Run ./install.sh --help.'
+    [[ $EUID != 0 ]] || fail 'Run as your normal desktop user; the installer uses sudo only when needed.'
+    install_key_helper
+    exit 0 ;;
+  --remove-key-helper)
+    [[ $# == 1 ]] || fail 'Unexpected arguments. Run ./install.sh --help.'
+    sudo rm -f -- "$helper_policy" "$helper_dir/key-mapping-helper" "$helper_dir/configure-pam.py" "$helper_dir/i18n.py"
+    sudo rmdir --ignore-fail-on-non-empty -- "$helper_dir" 2>/dev/null || true
     exit 0 ;;
   --luks)
     shift
@@ -154,6 +179,9 @@ PYREF
   sudo python3 "$source_root/scripts/configure-pam.py" --language "$language" "${pam_options[@]}" --user "$(id -un)" --enrollment "$enrollment" --services "${services[@]}"
   confirm 'Apply the listed changes? Existing user/key mappings will be preserved.' || exit 0
   sudo python3 "$source_root/scripts/configure-pam.py" --language "$language" "${pam_options[@]}" --apply --user "$(id -un)" --enrollment "$enrollment" --services "${services[@]}"
+  if confirm 'Let every account add and remove its own keys with its own password (pkexec), without sudo?'; then
+    install_key_helper
+  fi
 
   if [[ " ${services[*]} " == *' sudo '* ]]; then
     pause 'Test password fallback: unplug all security keys now. In explicit mode, type the literal word password at the fallback choice, then enter your account password at its separate prompt.'

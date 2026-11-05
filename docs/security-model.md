@@ -30,7 +30,9 @@ reuses it as an account password. A failed key attempt stays in key mode until a
 user selects a retry or another method. Fingerprint is also an explicit selection.
 
 The central mapping is root-owned, readable by local users and contains public
-credential information. Changing it requires root. The shell plugins themselves
+credential information. Changing it requires root, or the optional per-account
+pkexec helper, which changes only the calling account's own line (see
+[multiple users](multi-user.md#accounts-without-sudo)). The shell plugins themselves
 run inside the authentication-capable Omarchy host and must be trusted.
 
 Optional [enrollment transfer](enrollment-sync.md) signs per-account snapshots with

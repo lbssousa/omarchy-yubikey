@@ -13,6 +13,11 @@
   tests already do. They matched English messages that `tr()` translated into
   the developer's own Omarchy language, so four of them failed on any non-English
   desktop.
+- Add an optional per-account key helper (`./install.sh --key-helper`): a
+  root-owned copy run through pkexec with the polkit action
+  `org.omarchy-yubikey.key-mapping`, so accounts without sudo can add and remove
+  their own keys with their own password. It takes the account from
+  `PKEXEC_UID` only and reuses the setup transaction lock, backups and rollback.
 
 ## 0.5.2 — 2026-11-06
 

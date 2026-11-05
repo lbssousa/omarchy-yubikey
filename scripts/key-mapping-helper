@@ -1,0 +1,95 @@
+#!/usr/bin/python3 -I
+"""Add or remove the calling account's own PAM key registrations, through pkexec.
+
+Installed root-owned by install.sh, with the polkit action
+org.omarchy-yubikey.key-mapping, so that every account can manage its own keys
+with its own password (or key) instead of an administrator's sudo:
+
+    pkexec /usr/local/libexec/omarchy-yubikey/key-mapping-helper add < enrollment
+    pkexec /usr/local/libexec/omarchy-yubikey/key-mapping-helper remove REFERENCE
+
+The account is the one pkexec reports in PKEXEC_UID, never a name from the
+arguments or the input. Only that account's line of /etc/fido2/fido2 changes;
+PAM policy and other accounts are left alone. Changes reuse configure-pam.py's
+transaction lock, versioned backups and conflict-aware rollback, so a backup ID
+is printed exactly as for setup. This grants no administrator rights: a key
+registered here authenticates the same account it already belongs to.
+"""
+import os
+from pathlib import Path
+import pwd
+import re
+import stat
+import sys
+
+HERE = Path(__file__).resolve().parent
+MAX_INPUT = 65536
+
+
+def trusted_directory(directory):
+    """Refuse to import code a non-root account could have written."""
+    for path in (directory, directory / 'configure-pam.py', directory / 'i18n.py'):
+        info = path.lstat()
+        if stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise ValueError('Helper files must be root-owned and not writable by others')
+
+
+def load_pam(directory):
+    sys.path.insert(0, str(directory))
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('managed_pam', directory / 'configure-pam.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def account(environ):
+    value = environ.get('PKEXEC_UID', '')
+    if not value.isdecimal():
+        raise ValueError('Run through pkexec')
+    uid = int(value)
+    if uid == 0:
+        raise ValueError('Root manages enrollments with configure-pam.py')
+    return pwd.getpwuid(uid).pw_name
+
+
+def run(pam, root, username, argv, stdin):
+    if argv[:1] == ['add'] and len(argv) == 1:
+        enrollment = stdin.read(MAX_INPUT + 1)
+        if len(enrollment) > MAX_INPUT:
+            raise ValueError('Enrollment input is too large')
+        def make_plan():
+            return pam.plan(root, [], enrollment, username)
+    elif argv[:1] == ['remove'] and len(argv) == 2 and re.fullmatch(r'[0-9a-f]{64}', argv[1]):
+        def make_plan():
+            return pam.remove_key_plan(root, username, argv[1])
+    else:
+        raise ValueError('Usage: key-mapping-helper add < enrollment | remove REFERENCE')
+    with pam.configuration_lock(root):
+        backup = pam.apply(root, make_plan())
+    if backup is None:
+        print('Key enrollment is already up to date.')
+    else:
+        print('Key enrollment updated. Backup: ' + backup.name)
+        print('Rollback: ./install.sh --rollback ' + backup.name)
+    return 0
+
+
+def main():
+    if os.geteuid() != 0:
+        raise ValueError('Run through pkexec')
+    username = account(os.environ)
+    # pkexec already resets the environment; keep nothing from the caller.
+    os.environ.clear()
+    os.environ.update(PATH='/usr/local/sbin:/usr/local/bin:/usr/bin', LANG='C.UTF-8')
+    os.umask(0o022)
+    trusted_directory(HERE)
+    return run(load_pam(HERE), Path('/'), username, sys.argv[1:], sys.stdin)
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main())
+    except (ValueError, OSError, KeyError) as error:
+        print('Key management stopped: ' + str(error), file=sys.stderr)
+        sys.exit(1)

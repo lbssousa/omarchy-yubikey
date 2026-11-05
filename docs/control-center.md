@@ -63,7 +63,10 @@ boundary against another process already running as the same account.
 ## Backup keys and removal
 
 **Add key / backup key** merges a new PIN-protected credential into the current
-account's mapping without changing shared PAM policy. It prints an opaque key
+account's mapping without changing shared PAM policy. With the optional
+[per-account helper](multi-user.md#accounts-without-sudo) installed, it asks
+for your own password through pkexec instead of sudo, so accounts without
+administrator rights can manage their keys too. It prints an opaque key
 reference; save that reference privately to identify the registration later.
 It is not the key's serial number. Account mappings for other users are preserved.
 

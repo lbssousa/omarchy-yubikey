@@ -5,6 +5,8 @@ import getpass
 import importlib.util
 import os
 from pathlib import Path
+import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -17,6 +19,20 @@ spec.loader.exec_module(pam)
 
 def configure(*arguments):
     return ['sudo', sys.executable, str(SOURCE / 'configure-pam.py'), *arguments]
+
+
+HELPER = Path('/usr/local/libexec/omarchy-yubikey/key-mapping-helper')
+MAPPING = Path('/etc/fido2/fido2')
+
+
+def helper_installed():
+    """The root-owned per-account helper from install.sh, if any (see docs/multi-user.md)."""
+    try:
+        info = HELPER.lstat()
+    except OSError:
+        return False
+    return (stat.S_ISREG(info.st_mode) and info.st_uid == 0 and not info.st_mode & 0o022
+            and shutil.which('pkexec') is not None)
 
 
 def main():
@@ -39,14 +55,25 @@ def main():
             if len(references) != 1:
                 raise ValueError('Enrollment did not produce exactly one key; nothing installed')
             print('Key reference (save it to identify this enrollment later): ' + references[0])
-            command = configure('--user', username, '--enrollment-only', '--enrollment', str(path))
-            subprocess.run(command, check=True)
-            if input('Apply this enrollment? [y/N] ').strip().lower() not in ('y', 'yes'):
-                return
-            subprocess.run(command + ['--apply'], check=True)
+            if helper_installed():
+                # Preview without privileges: the mapping is public, and the helper
+                # recomputes the same plan under the transaction lock.
+                pam.plan(Path('/'), [], path.read_text(), username)
+                print('Planned change: /etc/fido2/fido2 (your account only; values hidden)')
+                if input('Apply this enrollment? [y/N] ').strip().lower() not in ('y', 'yes'):
+                    return
+                print('Authenticate as yourself to save the key.')
+                with path.open() as stream:
+                    subprocess.run(['pkexec', str(HELPER), 'add'], stdin=stream, check=True)
+            else:
+                command = configure('--user', username, '--enrollment-only', '--enrollment', str(path))
+                subprocess.run(command, check=True)
+                if input('Apply this enrollment? [y/N] ').strip().lower() not in ('y', 'yes'):
+                    return
+                subprocess.run(command + ['--apply'], check=True)
         print('Key enrolled. Test it with sudo and every desktop method you use.')
     else:
-        mapping = Path('/etc/fido2/fido2').read_text()
+        mapping = MAPPING.read_text()
         references = pam.key_references(mapping, username)
         if len(references) <= 1:
             raise ValueError('Keep at least one enrolled key; the last key cannot be removed here')
@@ -60,12 +87,18 @@ def main():
         if not selected.isdecimal() or not 1 <= int(selected) <= len(references):
             raise ValueError('Invalid selection')
         reference = references[int(selected) - 1]
-        command = configure('--user', username, '--remove-key', reference)
-        subprocess.run(command, check=True)
+        if helper_installed():
+            pam.remove_key_plan(Path('/'), username, reference)
+            print('Planned change: /etc/fido2/fido2 (your account only; values hidden)')
+            command = ['pkexec', str(HELPER), 'remove', reference]
+        else:
+            command = configure('--user', username, '--remove-key', reference)
+            subprocess.run(command, check=True)
+            command = command + ['--apply']
         if input('Type REMOVE ' + reference[-8:] + ' to confirm: ').strip() != 'REMOVE ' + reference[-8:]:
             print('Cancelled; nothing changed.')
             return
-        subprocess.run(command + ['--apply'], check=True)
+        subprocess.run(command, check=True)
         print('Registration removed. This does not erase credentials on the physical key or remove Keyring/LUKS enrollments.')
 
 
