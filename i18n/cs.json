@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Odmítnutí cíle symbolického odkazu: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Již existuje: %1. Aktualizace viz docs/plugins.md.",
   "Previous copy backed up: %1": "Předchozí zálohovaná kopie: %1",
-  "Copied %1": "Zkopírováno %1"
+  "Copied %1": "Zkopírováno %1",
+  "Suspend": "Uspat",
+  "Reboot": "Restartovat",
+  "Shutdown": "Vypnout",
+  "Confirm": "Potvrdit",
+  "Cancel": "Zrušit"
 }

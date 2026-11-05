@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Symlink rendeltetési hely elutasítása: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Már létezik: %1. A frissítésekért lásd: docs/plugins.md.",
   "Previous copy backed up: %1": "Az előző másolat mentve: %1",
-  "Copied %1": "Másolt %1"
+  "Copied %1": "Másolt %1",
+  "Suspend": "Felfüggesztés",
+  "Reboot": "Újraindítás",
+  "Shutdown": "Kikapcsolás",
+  "Confirm": "Megerősítés",
+  "Cancel": "Mégse"
 }

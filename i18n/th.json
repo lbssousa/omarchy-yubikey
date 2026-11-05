@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "การปฏิเสธปลายทาง symlink: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "มีอยู่แล้ว: %1 ดู docs/plugins.md สำหรับการอัปเดต",
   "Previous copy backed up: %1": "สำเนาสำรองก่อนหน้านี้: %1",
-  "Copied %1": "คัดลอก %1 แล้ว"
+  "Copied %1": "คัดลอก %1 แล้ว",
+  "Suspend": "พักเครื่อง",
+  "Reboot": "รีสตาร์ต",
+  "Shutdown": "ปิดเครื่อง",
+  "Confirm": "ยืนยัน",
+  "Cancel": "ยกเลิก"
 }

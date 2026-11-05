@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "সিমলিংক গন্তব্য প্রত্যাখ্যান: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "ইতিমধ্যেই বিদ্যমান: %1। আপডেটের জন্য docs/plugins.md দেখুন।",
   "Previous copy backed up: %1": "পূর্ববর্তী অনুলিপি ব্যাক আপ করা হয়েছে: %1",
-  "Copied %1": "%1 কপি করা হয়েছে"
+  "Copied %1": "%1 কপি করা হয়েছে",
+  "Suspend": "সাসপেন্ড",
+  "Reboot": "রিবুট",
+  "Shutdown": "শাটডাউন",
+  "Confirm": "নিশ্চিত করুন",
+  "Cancel": "বাতিল করুন"
 }

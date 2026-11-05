@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Se refuză destinația link-ului simbolic: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Există deja: %1. Consultați docs/plugins.md pentru actualizări.",
   "Previous copy backed up: %1": "Copierea anterioară a făcut backup: %1",
-  "Copied %1": "S-a copiat %1"
+  "Copied %1": "S-a copiat %1",
+  "Suspend": "Suspendă",
+  "Reboot": "Repornește",
+  "Shutdown": "Oprește",
+  "Confirm": "Confirmă",
+  "Cancel": "Anulează"
 }

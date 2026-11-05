@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Отказ от назначения символической ссылки: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Уже существует: %1. Обновления см. в docs/plugins.md.",
   "Previous copy backed up: %1": "Предыдущая резервная копия: %1.",
-  "Copied %1": "Скопировано %1"
+  "Copied %1": "Скопировано %1",
+  "Suspend": "Сон",
+  "Reboot": "Перезагрузка",
+  "Shutdown": "Выключение",
+  "Confirm": "Подтвердить",
+  "Cancel": "Отмена"
 }

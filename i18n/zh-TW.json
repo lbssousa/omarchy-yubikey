@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "拒絕符號連結目標：%1",
   "Already exists: %1. See docs/plugins.md for updates.": "已存在：%1。請參閱 docs/plugins.md 以了解更新。",
   "Previous copy backed up: %1": "備份的上一個副本：%1",
-  "Copied %1": "已複製 %1"
+  "Copied %1": "已複製 %1",
+  "Suspend": "睡眠",
+  "Reboot": "重新開機",
+  "Shutdown": "關機",
+  "Confirm": "確認",
+  "Cancel": "取消"
 }

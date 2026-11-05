@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "رفض وجهة الارتباط الرمزي: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "موجود بالفعل: %1. راجع docs/plugins.md للحصول على التحديثات.",
   "Previous copy backed up: %1": "النسخة السابقة التي تم نسخها احتياطيًا: %1",
-  "Copied %1": "تم نسخ %1"
+  "Copied %1": "تم نسخ %1",
+  "Suspend": "تعليق",
+  "Reboot": "إعادة التشغيل",
+  "Shutdown": "إيقاف التشغيل",
+  "Confirm": "تأكيد",
+  "Cancel": "إلغاء"
 }

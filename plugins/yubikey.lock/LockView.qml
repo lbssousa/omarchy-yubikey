@@ -5,6 +5,7 @@ import qs.Commons as Commons
 // "Translations" would resolve to; this directory's loader must win.
 import "." as Local
 import qs.Ui
+import "LockActions.js" as LockActions
 
 Item {
   id: root
@@ -28,6 +29,12 @@ Item {
   property string inputPrompt: strings.t("Enter password")
   property bool keyResponseRequired: false
   readonly property bool acceptsInput: authMethod === "password" || keyResponseRequired
+  // Power actions offered without unlocking (LockActions.js), and the one
+  // waiting for confirmation.
+  property var lockActions: []
+  property var pendingLockAction: null
+  property bool displayBlanked: false
+  readonly property bool lockActionsEnabled: inputEnabled && !authenticatingPassword
 
   readonly property string placeholderText: inputPrompt
   readonly property int fieldWidth: Math.min(481, Math.max(240, root.width - 48))
@@ -55,6 +62,39 @@ Item {
   signal clearFailureRequested()
   signal wakeRequested()
   signal chooseMethod(string method)
+  signal lockActionRequested(var action)
+  signal lockActionConfirmed()
+  signal lockActionCancelled()
+
+  function actionLabel(action) {
+    if (!action) return ""
+    if (action.id === "suspend") return strings.t("Suspend")
+    if (action.id === "reboot") return strings.t("Reboot")
+    return strings.t("Shutdown")
+  }
+
+  // Enter, Esc and the F keys, before the field or the method buttons see them.
+  // Returns true when the key was this. `wasBlank` is read before the wake: a
+  // key that lit the screen hasn't seen what it would be answering.
+  function handleLockActionKey(event, wasBlank) {
+    if (root.pendingLockAction !== null) {
+      if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+        root.lockActionConfirmed()
+        return true
+      }
+      if (event.key === Qt.Key_Escape) {
+        root.lockActionCancelled()
+        return true
+      }
+      // Anything else is someone typing: it goes on as usual.
+      if (event.key < Qt.Key_F1 || event.key > Qt.Key_F12) root.lockActionCancelled()
+    }
+    if (event.key < Qt.Key_F1 || event.key > Qt.Key_F12) return false
+    var action = LockActions.forFKey(root.lockActions, event.key - Qt.Key_F1 + 1)
+    if (!action) return false
+    if (!wasBlank && root.lockActionsEnabled) root.lockActionRequested(action)
+    return true
+  }
 
   // Cache-busts the lock background by appending `?v=`. Adding a query
   // string keeps Image's loader happy while forcing it to reload when the
@@ -204,7 +244,12 @@ Item {
         }
 
         Keys.onPressed: function(event) {
+          var wasBlank = root.displayBlanked
           root.wakeRequested()
+          if (root.handleLockActionKey(event, wasBlank)) {
+            event.accepted = true
+            return
+          }
           if (event.key === Qt.Key_Escape || (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_U)) {
             root.passwordTextEdited("")
             event.accepted = true
@@ -274,6 +319,9 @@ Item {
       anchors.right: inputField.right
       spacing: 10
       Keys.onPressed: function(event) {
+        var wasBlank = root.displayBlanked
+        root.wakeRequested()
+        if (root.handleLockActionKey(event, wasBlank)) { event.accepted = true; return }
         if (event.key === Qt.Key_P) { root.chooseMethod("password"); event.accepted = true }
         else if (event.key === Qt.Key_K) { root.chooseMethod("key"); event.accepted = true }
         else if (event.key === Qt.Key_F) { root.chooseMethod("fingerprint"); event.accepted = true }
@@ -302,6 +350,96 @@ Item {
         focusable: true
         foreground: Commons.Color.lock.text
         onClicked: root.chooseMethod("password")
+      }
+    }
+
+    // On a card of the field's color: the wallpaper can be anything.
+    Rectangle {
+      // From the state, not from the rows' `visible`, which is also false while
+      // this is hidden: it would never come back.
+      readonly property bool asking: root.pendingLockAction !== null
+      visible: asking || root.lockActions.length > 0
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.bottom: parent.bottom
+      anchors.bottomMargin: 32
+      width: Math.min(parent.width - 32, (asking ? questionRow.implicitWidth : actionRow.implicitWidth) + 48)
+      height: (asking ? questionRow.implicitHeight : actionRow.implicitHeight) + 24
+      color: Commons.Color.lock.background
+      radius: Style.cornerRadius
+
+      Row {
+        id: actionRow
+        objectName: "lockActions"
+        anchors.centerIn: parent
+        spacing: 32
+        visible: root.pendingLockAction === null && root.lockActions.length > 0
+
+        Repeater {
+          model: root.lockActions
+          delegate: LockLink {
+            required property var modelData
+            text: modelData.icon + " " + root.actionLabel(modelData) + " [F" + modelData.fkey + "]"
+            onClicked: root.lockActionRequested(modelData)
+          }
+        }
+      }
+
+      Row {
+        id: questionRow
+        objectName: "lockActionQuestion"
+        anchors.centerIn: parent
+        spacing: 32
+        visible: root.pendingLockAction !== null
+
+        Text {
+          textFormat: Text.PlainText
+          text: root.pendingLockAction !== null ? root.pendingLockAction.icon + " " + root.actionLabel(root.pendingLockAction) : ""
+          color: Commons.Color.lock.text
+          font.family: Style.font.family
+          font.pixelSize: Style.font.heading
+          font.bold: true
+        }
+        LockLink {
+          text: strings.t("Confirm") + " [Enter]"
+          onClicked: root.lockActionConfirmed()
+        }
+        LockLink {
+          text: strings.t("Cancel") + " [Esc]"
+          onClicked: root.lockActionCancelled()
+        }
+      }
+    }
+  }
+
+  // A text link in the action bar. A click that wakes a dark screen only wakes it.
+  component LockLink: Item {
+    id: link
+    property string text
+    signal clicked()
+    implicitWidth: linkLabel.implicitWidth
+    implicitHeight: linkLabel.implicitHeight
+
+    Text {
+      id: linkLabel
+      textFormat: Text.PlainText
+      text: link.text
+      color: Commons.Color.lock.text
+      opacity: linkMouse.containsMouse ? 1.0 : 0.65
+      font.family: Style.font.family
+      font.pixelSize: Style.font.heading
+    }
+
+    MouseArea {
+      id: linkMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      enabled: root.lockActionsEnabled
+      onPositionChanged: root.wakeRequested()
+      onClicked: {
+        var wasBlank = root.displayBlanked
+        root.wakeRequested()
+        if (!wasBlank) link.clicked()
       }
     }
   }

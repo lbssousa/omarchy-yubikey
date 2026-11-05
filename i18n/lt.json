@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Atsisakoma nuorodos paskirties vietos: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Jau egzistuoja: %1. Žr. docs/plugins.md atnaujinimus.",
   "Previous copy backed up: %1": "Sukurta atsarginė ankstesnės kopijos kopija: %1",
-  "Copied %1": "Nukopijuotas %1"
+  "Copied %1": "Nukopijuotas %1",
+  "Suspend": "Pristabdyti",
+  "Reboot": "Paleisti iš naujo",
+  "Shutdown": "Išjungti",
+  "Confirm": "Patvirtinti",
+  "Cancel": "Atšaukti"
 }

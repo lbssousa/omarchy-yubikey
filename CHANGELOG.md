@@ -14,6 +14,12 @@
   the developer's own Omarchy language, so four of them failed on any non-English
   desktop.
 
+- Lock screen: Suspend (F1), Reboot (F3) and Shutdown (F4) without unlocking,
+  as on the greeter. Offered only when logind allows them without a password;
+  reboot and shutdown ask for confirmation (Enter, or Esc/typing/10 s to
+  cancel), and a key that wakes a blanked screen only wakes it. Labels use
+  Omarchy's own translations in all 50 languages.
+
 ## 0.5.2 — 2026-11-06
 
 - Integrate the reviewed Dependabot batch in PRs #5–#15: pinned checkout 7.0.1,

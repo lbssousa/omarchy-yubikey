@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Tinatanggihan ang patutunguhan ng symlink: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Umiiral na: %1. Tingnan ang docs/plugins.md para sa mga update.",
   "Previous copy backed up: %1": "Nakaraang kopyang na-back up: %1",
-  "Copied %1": "Kinopya ang %1"
+  "Copied %1": "Kinopya ang %1",
+  "Suspend": "I-suspend",
+  "Reboot": "I-reboot",
+  "Shutdown": "I-shutdown",
+  "Confirm": "Kumpirmahin",
+  "Cancel": "Kanselahin"
 }

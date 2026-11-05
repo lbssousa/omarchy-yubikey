@@ -8,7 +8,7 @@ import shutil
 
 ROOT = Path(__file__).resolve().parent.parent
 SUITE = 'https://github.com/marselnenaj/omarchy-yubikey'
-FILES = {'lock': ['Service.qml', 'LockView.qml', 'Translations.qml', 'Locale.js'],
+FILES = {'lock': ['Service.qml', 'LockView.qml', 'LockActions.js', 'Translations.qml', 'Locale.js'],
          'polkit': ['PolkitAgent.qml', 'PolkitModel.js', 'Translations.qml', 'Locale.js']}
 
 

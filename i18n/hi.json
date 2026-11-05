@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "सिम्लिंक गंतव्य को अस्वीकार करना: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "पहले से मौजूद है: %1. अपडेट के लिए docs/plugins.md देखें।",
   "Previous copy backed up: %1": "पिछली प्रति का बैकअप: %1",
-  "Copied %1": "%1 की प्रतिलिपि बनाई गई"
+  "Copied %1": "%1 की प्रतिलिपि बनाई गई",
+  "Suspend": "सस्पेंड",
+  "Reboot": "रीबूट",
+  "Shutdown": "बंद करें",
+  "Confirm": "पुष्टि करें",
+  "Cancel": "रद्द करें"
 }

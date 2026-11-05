@@ -8,7 +8,7 @@ The repository also ships two independent authentication plugins:
 | ID | Replaces | Files |
 | --- | --- | --- |
 | `yubikey.polkit` | `omarchy.polkit` | `PolkitAgent.qml`, `PolkitModel.js` |
-| `yubikey.lock` | `omarchy.lock` | `Service.qml`, `LockView.qml` |
+| `yubikey.lock` | `omarchy.lock` | `Service.qml`, `LockView.qml`, `LockActions.js` |
 
 They import shared Omarchy QML modules. They are not standalone Quickshell
 applications. The lock follows the current theme and background; no personal
@@ -27,6 +27,27 @@ plugins grants them access to authentication input; review their source.
 The lock calls the shell's existing wake, display-blanking and stranded-lock
 helpers. Fingerprint is optional and detected separately. An incompatible shell
 can reject or fail to load these plugins; use the stock services in that case.
+
+## Power actions on the lock screen
+
+The lock shows **Suspend** (F1), **Reboot** (F3) and **Shutdown** (F4) at the
+bottom of the screen, the same keys as the SDDM greeter, so the machine can be
+suspended or turned off without unlocking it, as from the login screen.
+
+- Each action appears only when logind answers `yes` to `CanSuspend`,
+  `CanReboot` or `CanPowerOff`: a `challenge` would need a polkit password in a
+  prompt the lock covers. Suspend also follows Omarchy's `suspend-off` toggle
+  and `omarchy-sleep-disabled`, like the system menu.
+- Reboot and Shutdown ask first: Enter or a click confirms; Esc, typing or
+  10 seconds cancel. Suspend runs at once.
+- A key or click that wakes a blanked screen only wakes it.
+- Actions run only the fixed `systemctl suspend`, `reboot` or `poweroff`, and
+  clear anything typed in the field first. They don't unlock the session.
+
+Anyone at the keyboard can reboot or shut down from here, as from the greeter;
+other users' sessions close with it. logind refuses (and the lock hides the
+action) while other users are logged in, unless polkit allows it without a
+password.
 
 ## Guided setup
 

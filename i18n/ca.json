@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "S'està refusant la destinació de l'enllaç simbòlic: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Ja existeix: %1. Consulteu docs/plugins.md per obtenir actualitzacions.",
   "Previous copy backed up: %1": "Còpia de seguretat de la còpia anterior: %1",
-  "Copied %1": "S'ha copiat %1"
+  "Copied %1": "S'ha copiat %1",
+  "Suspend": "Suspèn",
+  "Reboot": "Reinicia",
+  "Shutdown": "Apaga",
+  "Confirm": "Confirma",
+  "Cancel": "Cancel·la"
 }

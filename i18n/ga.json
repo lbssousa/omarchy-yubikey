@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Ceann scríbe symlink a dhiúltú: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Ann cheana: %1. Féach docs/plugins.md le haghaidh nuashonruithe.",
   "Previous copy backed up: %1": "Cóip tacaithe roimhe seo: %1",
-  "Copied %1": "Cóipeáladh %1"
+  "Copied %1": "Cóipeáladh %1",
+  "Suspend": "Cuir ar fionraí",
+  "Reboot": "Atosaigh",
+  "Shutdown": "Múch",
+  "Confirm": "Deimhnigh",
+  "Cancel": "Cealaigh"
 }

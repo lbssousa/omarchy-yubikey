@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Menolak destinasi symlink: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Sudah wujud: %1. Lihat docs/plugins.md untuk kemas kini.",
   "Previous copy backed up: %1": "Salinan sebelumnya disandarkan: %1",
-  "Copied %1": "%1 disalin"
+  "Copied %1": "%1 disalin",
+  "Suspend": "Tidur",
+  "Reboot": "But Semula",
+  "Shutdown": "Matikan",
+  "Confirm": "Sahkan",
+  "Cancel": "Batal"
 }

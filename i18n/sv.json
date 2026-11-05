@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Vägra symlink destination: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Finns redan: %1. Se docs/plugins.md för uppdateringar.",
   "Previous copy backed up: %1": "Tidigare kopia säkerhetskopierad: %1",
-  "Copied %1": "Kopierade %1"
+  "Copied %1": "Kopierade %1",
+  "Suspend": "Viloläge",
+  "Reboot": "Starta om",
+  "Shutdown": "Stäng av",
+  "Confirm": "Bekräfta",
+  "Cancel": "Avbryt"
 }

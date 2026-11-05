@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Symlink-kohteen hylkääminen: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Jo olemassa: %1. Katso päivitykset kohdasta docs/plugins.md.",
   "Previous copy backed up: %1": "Edellinen kopio varmuuskopioitu: %1",
-  "Copied %1": "Kopioitu %1"
+  "Copied %1": "Kopioitu %1",
+  "Suspend": "Lepotila",
+  "Reboot": "Käynnistä uudelleen",
+  "Shutdown": "Sammuta",
+  "Confirm": "Vahvista",
+  "Cancel": "Peruuta"
 }

@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Sembolik bağlantı hedefi reddediliyor: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Zaten mevcut: %1. Güncellemeler için docs/plugins.md'ye bakın.",
   "Previous copy backed up: %1": "Önceki kopya yedeklendi: %1",
-  "Copied %1": "%1 kopyalandı"
+  "Copied %1": "%1 kopyalandı",
+  "Suspend": "Uyku",
+  "Reboot": "Yeniden Başlat",
+  "Shutdown": "Kapat",
+  "Confirm": "Onayla",
+  "Cancel": "İptal"
 }

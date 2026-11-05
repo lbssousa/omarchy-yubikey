@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Zavrnitev cilja simbolne povezave: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Že obstaja: %1. Glej docs/plugins.md za posodobitve.",
   "Previous copy backed up: %1": "Varnostno kopirana prejšnja kopija: %1",
-  "Copied %1": "Kopirano %1"
+  "Copied %1": "Kopirano %1",
+  "Suspend": "Spanje",
+  "Reboot": "Ponovni zagon",
+  "Shutdown": "Izklop",
+  "Confirm": "Potrdi",
+  "Cancel": "Prekliči"
 }

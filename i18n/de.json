@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Symlink-Ziel wird abgelehnt: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Existiert bereits: %1. Aktualisierungen finden Sie unter docs/plugins.md.",
   "Previous copy backed up: %1": "Vorherige gesicherte Kopie: %1",
-  "Copied %1": "Kopiert %1"
+  "Copied %1": "Kopiert %1",
+  "Suspend": "Standby",
+  "Reboot": "Neustart",
+  "Shutdown": "Ausschalten",
+  "Confirm": "Bestätigen",
+  "Cancel": "Abbrechen"
 }

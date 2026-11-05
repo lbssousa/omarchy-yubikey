@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Neita tákntengil áfangastað: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Er þegar til: %1. Sjá docs/plugins.md fyrir uppfærslur.",
   "Previous copy backed up: %1": "Fyrra afrit afritað: %1",
-  "Copied %1": "Afritaði %1"
+  "Copied %1": "Afritaði %1",
+  "Suspend": "Svefn",
+  "Reboot": "Endurræsa",
+  "Shutdown": "Slökkva",
+  "Confirm": "Staðfesta",
+  "Cancel": "Hætta við"
 }

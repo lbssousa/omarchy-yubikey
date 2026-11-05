@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Inakataa marudio ya ulinganifu: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Tayari ipo: %1. Tazama docs/plugins.md kwa sasisho.",
   "Previous copy backed up: %1": "Nakala ya awali ilichelezwa: %1",
-  "Copied %1": "Imenakiliwa %1"
+  "Copied %1": "Imenakiliwa %1",
+  "Suspend": "Sitisha",
+  "Reboot": "Anzisha upya",
+  "Shutdown": "Zima",
+  "Confirm": "Thibitisha",
+  "Cancel": "Ghairi"
 }

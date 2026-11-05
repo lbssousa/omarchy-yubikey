@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Sümbollingi sihtkohast keeldumine: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Juba olemas: %1. Värskenduste saamiseks vaadake jaotist docs/plugins.md.",
   "Previous copy backed up: %1": "Eelmine koopia varundatud: %1",
-  "Copied %1": "Kopeeritud %1"
+  "Copied %1": "Kopeeritud %1",
+  "Suspend": "Uinak",
+  "Reboot": "Taaskäivita",
+  "Shutdown": "Lülita välja",
+  "Confirm": "Kinnita",
+  "Cancel": "Loobu"
 }

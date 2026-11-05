@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Rifiutare la destinazione del collegamento simbolico: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Esiste già: %1. Vedi docs/plugins.md per gli aggiornamenti.",
   "Previous copy backed up: %1": "Copia precedente di cui è stato eseguito il backup: %1",
-  "Copied %1": "Copiato %1"
+  "Copied %1": "Copiato %1",
+  "Suspend": "Sospendi",
+  "Reboot": "Riavvia",
+  "Shutdown": "Spegni",
+  "Confirm": "Conferma",
+  "Cancel": "Annulla"
 }

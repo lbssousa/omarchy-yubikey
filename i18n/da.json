@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Afvisning af symbollink-destination: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Eksisterer allerede: %1. Se docs/plugins.md for opdateringer.",
   "Previous copy backed up: %1": "Tidligere kopi sikkerhedskopieret: %1",
-  "Copied %1": "Kopieret %1"
+  "Copied %1": "Kopieret %1",
+  "Suspend": "Hvile",
+  "Reboot": "Genstart",
+  "Shutdown": "Sluk",
+  "Confirm": "Bekræft",
+  "Cancel": "Annuller"
 }

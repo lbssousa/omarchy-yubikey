@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Noraidot simboliskās saites galamērķi: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Jau pastāv: %1. Atjauninājumus skatiet sadaļā docs/plugins.md.",
   "Previous copy backed up: %1": "Iepriekšējā kopija dublēta: %1",
-  "Copied %1": "Kopēts %1"
+  "Copied %1": "Kopēts %1",
+  "Suspend": "Iemidzināt",
+  "Reboot": "Restartēt",
+  "Shutdown": "Izslēgt",
+  "Confirm": "Apstiprināt",
+  "Cancel": "Atcelt"
 }

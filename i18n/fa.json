@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "رد کردن مقصد پیوند نمادین: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "از قبل وجود دارد: %1. برای به روز رسانی به docs/plugins.md مراجعه کنید.",
   "Previous copy backed up: %1": "نسخه پشتیبان‌گیری شده قبلی: %1",
-  "Copied %1": "%1 کپی شد"
+  "Copied %1": "%1 کپی شد",
+  "Suspend": "تعلیق",
+  "Reboot": "راه‌اندازی مجدد",
+  "Shutdown": "خاموش",
+  "Confirm": "تأیید",
+  "Cancel": "لغو"
 }

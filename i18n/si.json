@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "සිම්ලින්ක් ගමනාන්තය ප්‍රතික්ෂේප කිරීම: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "දැනටමත් පවතී: %1. යාවත්කාලීන සඳහා docs/plugins.md බලන්න.",
   "Previous copy backed up: %1": "පෙර පිටපත උපස්ථ කර ඇත: %1",
-  "Copied %1": "%1 පිටපත් කරන ලදී"
+  "Copied %1": "%1 පිටපත් කරන ලදී",
+  "Suspend": "අත්හිටුවන්න",
+  "Reboot": "නැවත අරඹන්න",
+  "Shutdown": "වසන්න",
+  "Confirm": "තහවුරු කරන්න",
+  "Cancel": "අවලංගු කරන්න"
 }

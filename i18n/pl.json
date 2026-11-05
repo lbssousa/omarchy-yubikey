@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Odrzucanie miejsca docelowego dowiązania symbolicznego: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Już istnieje: %1. Aktualizacje można znaleźć w docs/plugins.md.",
   "Previous copy backed up: %1": "Kopia zapasowa poprzedniej kopii: %1",
-  "Copied %1": "Skopiowano %1"
+  "Copied %1": "Skopiowano %1",
+  "Suspend": "Uśpij",
+  "Reboot": "Restart",
+  "Shutdown": "Wyłącz",
+  "Confirm": "Potwierdź",
+  "Cancel": "Anuluj"
 }

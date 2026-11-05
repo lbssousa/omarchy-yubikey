@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Weigeren symlinkbestemming: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Bestaat al: %1. Zie docs/plugins.md voor updates.",
   "Previous copy backed up: %1": "Back-up van vorig exemplaar: %1",
-  "Copied %1": "%1 gekopieerd"
+  "Copied %1": "%1 gekopieerd",
+  "Suspend": "Slaapstand",
+  "Reboot": "Herstarten",
+  "Shutdown": "Afsluiten",
+  "Confirm": "Bevestigen",
+  "Cancel": "Annuleren"
 }

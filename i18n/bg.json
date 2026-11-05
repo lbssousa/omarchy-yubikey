@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Отказ на дестинация на символна връзка: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Вече съществува: %1. Вижте docs/plugins.md за актуализации.",
   "Previous copy backed up: %1": "Предишно архивирано копие: %1",
-  "Copied %1": "Копиран %1"
+  "Copied %1": "Копиран %1",
+  "Suspend": "Приспиване",
+  "Reboot": "Рестартирай",
+  "Shutdown": "Изключи",
+  "Confirm": "Потвърди",
+  "Cancel": "Отказ"
 }

@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "சிம்லிங்க் இலக்கை மறுக்கிறது: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "ஏற்கனவே உள்ளது: %1. புதுப்பிப்புகளுக்கு docs/plugins.md ஐப் பார்க்கவும்.",
   "Previous copy backed up: %1": "முந்தைய நகல் காப்புப் பிரதி எடுக்கப்பட்டது: %1",
-  "Copied %1": "%1 நகலெடுக்கப்பட்டது"
+  "Copied %1": "%1 நகலெடுக்கப்பட்டது",
+  "Suspend": "இடைநிறுத்து",
+  "Reboot": "மறுதொடக்கம்",
+  "Shutdown": "அணை",
+  "Confirm": "உறுதிப்படுத்து",
+  "Cancel": "ரத்து செய்"
 }

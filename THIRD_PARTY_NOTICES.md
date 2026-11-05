@@ -2,7 +2,9 @@
 
 The QML plugins are derived from the Omarchy shell lock and Polkit plugins.
 The language registry and matching shared UI translations also derive from
-Omarchy, at commit 5f2fb785562b2b6cd9a58787a3bfd673568fe9dd.
+Omarchy, at commit 5f2fb785562b2b6cd9a58787a3bfd673568fe9dd. The lock's power-action
+labels (Suspend, Reboot, Shutdown, Confirm, Cancel) reuse the translations of
+Omarchy's system menu and shell catalogs.
 Omarchy is available at <https://github.com/basecamp/omarchy> under the MIT license.
 
 Copyright (c) David Heinemeier Hansson

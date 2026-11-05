@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "سیملنک کی منزل سے انکار: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "پہلے سے موجود ہے: %1۔ اپ ڈیٹس کے لیے docs/plugins.md دیکھیں۔",
   "Previous copy backed up: %1": "پچھلی کاپی کا بیک اپ لیا گیا: %1",
-  "Copied %1": "%1 کاپی کیا گیا۔"
+  "Copied %1": "%1 کاپی کیا گیا۔",
+  "Suspend": "معطل کریں",
+  "Reboot": "ری بوٹ کریں",
+  "Shutdown": "بند کریں",
+  "Confirm": "تصدیق کریں",
+  "Cancel": "منسوخ کریں"
 }

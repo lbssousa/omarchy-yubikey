@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "심볼릭 링크 거부 대상: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "이미 존재합니다: %1. 업데이트는 docs/plugins.md를 참조하세요.",
   "Previous copy backed up: %1": "백업된 이전 사본: %1",
-  "Copied %1": "%1 복사됨"
+  "Copied %1": "%1 복사됨",
+  "Suspend": "절전",
+  "Reboot": "재시작",
+  "Shutdown": "종료",
+  "Confirm": "확인",
+  "Cancel": "취소"
 }

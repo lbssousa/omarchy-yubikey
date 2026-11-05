@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Từ chối đích liên kết tượng trưng: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Đã tồn tại: %1. Xem docs/plugins.md để biết thông tin cập nhật.",
   "Previous copy backed up: %1": "Bản sao trước được sao lưu: %1",
-  "Copied %1": "Đã sao chép %1"
+  "Copied %1": "Đã sao chép %1",
+  "Suspend": "Tạm dừng",
+  "Reboot": "Khởi động lại",
+  "Shutdown": "Tắt máy",
+  "Confirm": "Xác nhận",
+  "Cancel": "Hủy"
 }

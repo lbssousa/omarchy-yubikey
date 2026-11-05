@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "コピー先がシンボリックリンクのため中止しました: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "%1 は既に存在します。更新方法は docs/plugins.md を参照してください。",
   "Previous copy backed up: %1": "以前のコピーをバックアップしました: %1",
-  "Copied %1": "コピーしました: %1"
+  "Copied %1": "コピーしました: %1",
+  "Suspend": "サスペンド",
+  "Reboot": "再起動",
+  "Shutdown": "シャットダウン",
+  "Confirm": "確認",
+  "Cancel": "キャンセル"
 }

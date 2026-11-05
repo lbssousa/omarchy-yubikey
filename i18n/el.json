@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Απόρριψη προορισμού συμβολικού συνδέσμου: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Υπάρχει ήδη: %1. Ανατρέξτε στο docs/plugins.md για ενημερώσεις.",
   "Previous copy backed up: %1": "Προηγούμενο αντίγραφο με αντίγραφο ασφαλείας: %1",
-  "Copied %1": "Αντιγράφηκε το %1"
+  "Copied %1": "Αντιγράφηκε το %1",
+  "Suspend": "Αναστολή",
+  "Reboot": "Επανεκκίνηση",
+  "Shutdown": "Απενεργοποίηση",
+  "Confirm": "Επιβεβαίωση",
+  "Cancel": "Άκυρο"
 }

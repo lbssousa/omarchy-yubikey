@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "יעד סרבן סימלינק: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "כבר קיים: %1. ראה docs/plugins.md לעדכונים.",
   "Previous copy backed up: %1": "עותק קודם מגובה: %1",
-  "Copied %1": "הועתק %1"
+  "Copied %1": "הועתק %1",
+  "Suspend": "השהיה",
+  "Reboot": "הפעלה מחדש",
+  "Shutdown": "כיבוי",
+  "Confirm": "אישור",
+  "Cancel": "ביטול"
 }

@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Відмова призначення символічного посилання: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Вже існує: %1. Перегляньте docs/plugins.md для оновлень.",
   "Previous copy backed up: %1": "Резервна копія попередньої копії: %1",
-  "Copied %1": "Скопійовано %1"
+  "Copied %1": "Скопійовано %1",
+  "Suspend": "Сон",
+  "Reboot": "Перезавантажити",
+  "Shutdown": "Вимкнути",
+  "Confirm": "Підтвердити",
+  "Cancel": "Скасувати"
 }

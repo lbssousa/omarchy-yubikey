@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Refusing symlink destination: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Already exists: %1. See docs/plugins.md for updates.",
   "Previous copy backed up: %1": "Previous copy backed up: %1",
-  "Copied %1": "Copied %1"
+  "Copied %1": "Copied %1",
+  "Suspend": "Suspend",
+  "Reboot": "Reboot",
+  "Shutdown": "Shutdown",
+  "Confirm": "Confirm",
+  "Cancel": "Cancel"
 }

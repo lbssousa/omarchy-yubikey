@@ -9,6 +9,7 @@ import qs.Commons as Commons
 // Omarchy 4.5 exports its own Commons.Translations, which an unqualified
 // "Translations" would resolve to; this directory's loader must win.
 import "." as Local
+import "LockActions.js" as LockActions
 
 Item {
   id: root
@@ -49,6 +50,11 @@ Item {
   property bool strandedLock: false
   property bool strandedLockResolved: false
   property var mediaPausedByLock: []
+  // Power actions offered without unlocking (LockActions.js), the one asking
+  // for confirmation, and whether this blanked the displays.
+  property var lockActions: []
+  property var pendingLockAction: null
+  property bool displayBlanked: false
 
   readonly property bool locked: lockRequested || sessionLock.locked || sessionLock.secure
 
@@ -212,6 +218,7 @@ Item {
     }
 
     resetAuthenticationState()
+    cancelLockAction()
     authMethod = fido2Configured || !fido2StatusKnown ? "key" : "password"
     lockRequested = true
     pauseMediaForLock()
@@ -223,6 +230,7 @@ Item {
       root.refreshBackground()
       root.refreshFingerprintStatus()
       root.refreshFido2Status()
+      root.refreshLockActions()
     })
 
     return true
@@ -236,6 +244,7 @@ Item {
     sessionLockStabilizeTimer.stop()
     pendingSessionLockTimer.stop()
     resetAuthenticationState()
+    cancelLockAction()
     idleBlankTimer.stop()
     sessionLock.locked = false
     logEvent("unlocked")
@@ -249,12 +258,48 @@ Item {
   }
 
   function runWake() {
+    displayBlanked = false
     if (!wakeProcess.running) wakeProcess.running = true
     if (lockRequested) armBlankTimer()
   }
 
   function runBlank() {
+    displayBlanked = true
     if (!blankProcess.running) blankProcess.running = true
+  }
+
+  function refreshLockActions() {
+    if (!lockActionsProc.running) lockActionsProc.running = true
+  }
+
+  function requestLockAction(action) {
+    if (!lockRequested || authenticatingPassword || !action) return
+    runWake()
+    if (action.confirm) {
+      pendingLockAction = action
+      lockActionTimeout.restart()
+    } else {
+      runLockAction(action)
+    }
+  }
+
+  function cancelLockAction() {
+    pendingLockAction = null
+    lockActionTimeout.stop()
+  }
+
+  // Only actions the probe offered, through their fixed commands. Nothing
+  // typed stays in the field while the machine suspends or shuts down.
+  function runLockAction(action) {
+    cancelLockAction()
+    var command = LockActions.command(action)
+    if (!lockRequested || lockActionProc.running || command === null) return
+    if (LockActions.forFKey(lockActions, action.fkey) === null) return
+    enteredPassword = ""
+    failureMessage = ""
+    logEvent("lock-action: " + action.id)
+    lockActionProc.command = command
+    lockActionProc.running = true
   }
 
   function submitPassword(value) {
@@ -419,6 +464,12 @@ Item {
         onSubmitPassword: function(password) { root.submitPassword(password) }
         onClearFailureRequested: root.failureMessage = ""
         onWakeRequested: root.runWake()
+        lockActions: root.lockActions
+        pendingLockAction: root.pendingLockAction
+        displayBlanked: root.displayBlanked
+        onLockActionRequested: function(action) { root.requestLockAction(action) }
+        onLockActionConfirmed: root.runLockAction(root.pendingLockAction)
+        onLockActionCancelled: root.cancelLockAction()
       }
 
     }
@@ -582,6 +633,34 @@ Item {
   }
 
   Process {
+    id: lockActionsProc
+    // logind's "yes" only: "challenge" would ask polkit for a password, in a
+    // prompt the lock screen covers. Suspend follows the same switches as
+    // Omarchy's system menu; a missing switch command leaves it allowed.
+    command: ["bash", "-c", "can() { [[ $(busctl call org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager \"$1\" 2>/dev/null) == 's \"yes\"' ]] && echo true || echo false; }; suspend=false; if ! omarchy-toggle-enabled suspend-off 2>/dev/null && ! omarchy-sleep-disabled 2>/dev/null; then suspend=$(can CanSuspend); fi; printf '{\"suspend\":%s,\"reboot\":%s,\"powerOff\":%s}\\n' \"$suspend\" \"$(can CanReboot)\" \"$(can CanPowerOff)\""]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.lockActions = LockActions.available(LockActions.parseCapabilities(text))
+    }
+  }
+
+  Process {
+    id: lockActionProc
+    onExited: function(exitCode) {
+      if (exitCode !== 0) root.logEvent("lock-action-failed: " + command[1] + " exit=" + exitCode)
+      if (root.lockRequested) root.runWake()
+    }
+  }
+
+  // A question nobody answered doesn't wait for the next Enter.
+  Timer {
+    id: lockActionTimeout
+    interval: LockActions.CONFIRM_TIMEOUT_MS
+    repeat: false
+    onTriggered: root.cancelLockAction()
+  }
+
+  Process {
     id: blankProcess
     command: ["bash", "-c", "omarchy-brightness-keyboard off; omarchy-brightness-display off"]
   }
@@ -604,6 +683,11 @@ Item {
       // Only a password check in flight should hold the display up. The
       // fingerprint PAM stays armed for the whole lock, so gating on
       // `authenticating` here would keep the panel lit until unlock.
+      // Nor should a question go dark before its own timeout.
+      if (root.pendingLockAction !== null) {
+        root.armBlankTimer()
+        return
+      }
       if (root.lockRequested && !root.authenticatingPassword) root.runBlank()
     }
   }

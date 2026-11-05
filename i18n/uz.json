@@ -294,5 +294,10 @@
   "Refusing symlink destination: %1": "Belgilangan manzilni rad etish: %1",
   "Already exists: %1. See docs/plugins.md for updates.": "Allaqachon mavjud: %1. Yangilanishlar uchun docs/plugins.md ga qarang.",
   "Previous copy backed up: %1": "Oldingi nusxa zaxiralangan: %1",
-  "Copied %1": "Nusxa olindi %1"
+  "Copied %1": "Nusxa olindi %1",
+  "Suspend": "Kutish",
+  "Reboot": "Qayta yuklash",
+  "Shutdown": "Oʻchirish",
+  "Confirm": "Tasdiqlash",
+  "Cancel": "Bekor qilish"
 }
