@@ -38,6 +38,13 @@ TestCase {
     panel.focusFirst()
     keyClick(Qt.Key_Escape)
     compare(closed,1)
+    panel.page = 1
+    var openpgpCard = findChild(panel,"openpgpCard")
+    verify(openpgpCard.visible)
+    panel.snapshot = Object.assign({}, panel.snapshot, {openpgp:{card:false}})
+    verify(!openpgpCard.visible)
+    panel.snapshot = Object.assign({}, panel.snapshot, {openpgp:{card:true,imported:true,linked:true,trusted:false}})
+    panel.page = 0
     panel.snapshot = Object.assign({}, panel.snapshot, {operation:{phase:"running"}})
     panel.ask("setup", "Guided setup")
     compare(dialog.opened,false)

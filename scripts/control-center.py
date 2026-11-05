@@ -8,6 +8,7 @@ import argparse
 from contextlib import contextmanager
 import fcntl
 import getpass
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -38,9 +39,31 @@ ACTIONS = {
     'keyring-disable': 'Disable GNOME Keyring unlock at graphical login',
     'luks-check': 'Check the selected LUKS2 device',
     'luks-enroll': 'Enroll a key for the selected LUKS2 device',
+    'openpgp-import': 'Import the OpenPGP key stored on the security key',
+    'openpgp-trust': 'Trust the OpenPGP key of the security key ultimately',
+    'openpgp-remove': 'Remove the OpenPGP key of the security key from the keyring',
     'backups': 'List system PAM backup IDs',
     'rollback': 'Restore the selected PAM backup',
 }
+
+
+def openpgp_module():
+    spec = importlib.util.spec_from_file_location('manage_openpgp', SOURCE / 'scripts/manage-openpgp.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def openpgp_status(query, available):
+    """Card presence and keyring state as flags only; no fingerprints or names."""
+    empty = {'card': False, 'imported': False, 'linked': False, 'trusted': False}
+    if not query or not available:
+        return empty
+    try:
+        value = openpgp_module().status()
+    except (OSError, ValueError, ImportError):
+        return empty
+    return {name: value.get(name) is True for name in empty}
 
 
 def bounded_text(path, limit=262144):
@@ -223,7 +246,7 @@ def status(root=Path('/'), config=None, state=None, store=None, username=None, q
     username = username or getpass.getuser()
     tools = {name: shutil.which(name) is not None for name in
              ('python3', 'pacman', 'pamu2fcfg', 'fido2-token', 'omarchy', 'omarchy-shell', 'cargo', 'cc',
-              'cryptsetup', 'systemd-cryptenroll', 'ssh-keygen', 'gnome-keyring-daemon', 'omarchy-launch-terminal')}
+              'cryptsetup', 'systemd-cryptenroll', 'ssh-keygen', 'gnome-keyring-daemon', 'omarchy-launch-terminal', 'gpg')}
     try:
         count = enrolled_count(optional_text(root / 'etc/fido2/fido2'), username)
         enrollment = {'state': 'enrolled' if count else 'not-enrolled', 'count': count}
@@ -267,7 +290,8 @@ def status(root=Path('/'), config=None, state=None, store=None, username=None, q
     return {'schema': 1, 'ok': True, 'supported': tools['pacman'] and tools['omarchy'] and tools['omarchy-shell'],
             'tools': tools, 'connected': connected, 'enrollment': enrollment, 'sudo': sudo,
             'polkit': pam_state(polkit), 'lock': pam_state(root / 'etc/pam.d/omarchy-lock-fido2'),
-            'plugins': plugins, 'keyring': keyring, 'operation': operation_status(state)}
+            'plugins': plugins, 'keyring': keyring, 'openpgp': openpgp_status(query, tools['gpg']),
+            'operation': operation_status(state)}
 
 
 def command_plan(action, device='', backup=''):
@@ -288,6 +312,8 @@ def command_plan(action, device='', backup=''):
         return [install]
     if action.startswith('setup-'):
         return [install + ['--components', action.removeprefix('setup-')]]
+    if action.startswith('openpgp-'):
+        return [[sys.executable, str(SOURCE / 'scripts/manage-openpgp.py'), action.removeprefix('openpgp-')]]
     if action in ('add-key', 'remove-key'):
         return [[sys.executable, str(SOURCE / 'scripts/manage-keys.py'), 'add' if action == 'add-key' else 'remove']]
     if action == 'test-sudo':

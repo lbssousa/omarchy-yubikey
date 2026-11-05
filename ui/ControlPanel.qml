@@ -57,6 +57,12 @@ Item {
     if (!snapshot || !snapshot.keyring.installed) return strings.t("Not installed")
     return snapshot.keyring.state === "enrolled" ? strings.t("Ready") : strings.t("Needs enrollment")
   }
+  readonly property var openpgp: snapshot && snapshot.openpgp ? snapshot.openpgp : {card: false, imported: false, linked: false, trusted: false}
+  function openpgpState() {
+    if (!openpgp.imported) return strings.t("Not imported")
+    if (!openpgp.linked) return strings.t("Not linked to the card")
+    return openpgp.trusted ? strings.t("Ready") : strings.t("Not trusted yet")
+  }
   function showNotice(source, error) { notice = strings.t(source); failed = error }
   Keys.onPressed: function(event) {
     if (confirmation.handleKey(event)) { event.accepted = true; return }
@@ -212,6 +218,17 @@ Item {
                 ActionButton { text: strings.t("Add key / backup key"); primary: true; enabled: root.canAct && root.keyCount > 0; onClicked: root.ask("add-key", text) }
                 ActionButton { text: strings.t("First-time setup"); enabled: root.canAct; onClicked: root.ask("setup", text) }
                 ActionButton { text: strings.t("Remove a registration"); enabled: root.canAct && root.keyCount > 1; onClicked: root.ask("remove-key", text) }
+              }
+              FeatureCard {
+                objectName: "openpgpCard"
+                visible: root.openpgp.card
+                title: strings.t("OpenPGP key on the card")
+                badge: root.openpgpState()
+                ready: root.openpgp.linked && root.openpgp.trusted
+                description: strings.t("Import the public key from the URL stored on the card or from the keyservers, so GnuPG signs and decrypts with the card. Removing it from the keyring leaves the key on the card.")
+                ActionButton { text: strings.t("Import key"); primary: !root.openpgp.linked; enabled: root.canAct; onClicked: root.ask("openpgp-import", text) }
+                ActionButton { text: strings.t("Trust as my key"); enabled: root.canAct && root.openpgp.imported && !root.openpgp.trusted; onClicked: root.ask("openpgp-trust", text) }
+                ActionButton { text: strings.t("Remove from keyring"); enabled: root.canAct && root.openpgp.imported; onClicked: root.ask("openpgp-remove", text) }
               }
               FeatureCard {
                 title: strings.t("A backup for every feature")

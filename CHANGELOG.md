@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Import the OpenPGP key stored on a connected card into the account's GnuPG
+  keyring (card URL, then keyservers), link it to the card, trust it, or remove
+  it again; removal refuses while gpg keeps a secret part on disk. The window
+  receives only status flags.
+
 ## 0.4.0 — 2026-11-04
 
 - Add the root `yubikey.setup` marketplace plugin: bar entry and native window

@@ -14,6 +14,7 @@ FIXTURE = {'supported': True, 'connected': 1, 'enrollment': {'count': 2, 'state'
            'polkit': {'state': 'configured', 'pin': True}, 'lock': {'state': 'configured', 'pin': True},
            'plugins': {'lock': {'installed': True, 'enabled': True}, 'polkit': {'installed': True, 'enabled': True}},
            'keyring': {'installed': True, 'state': 'enrolled', 'count': 2, 'unit': True, 'autostart': 'enabled'},
+           'openpgp': {'card': True, 'imported': True, 'linked': True, 'trusted': False},
            'operation': {}, 'diskReady': True}
 
 

@@ -22,3 +22,10 @@ test('untrusted status cannot enable operations or inject text', () => {
   assert.equal(value.sudo.state,'not-configured');
   assert.deepEqual(value.operation,{action:'',phase:''});
 });
+test('OpenPGP status keeps only its four flags', () => {
+  const result = model.cleanSnapshot({schema:1,ok:true,openpgp:{card:true,imported:'true',linked:true,trusted:false,fingerprint:'private-value'}});
+  assert.deepEqual(result.openpgp, {card:true,imported:false,linked:true,trusted:false});
+  assert.equal(JSON.stringify(result).includes('private-value'), false);
+  assert.deepEqual(model.cleanSnapshot({schema:1,ok:true}).openpgp, {card:false,imported:false,linked:false,trusted:false});
+  assert.deepEqual(model.parameters('openpgp-import','',''), []);
+});

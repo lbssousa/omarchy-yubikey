@@ -40,6 +40,20 @@ class ControlTests(unittest.TestCase):
             self.assertNotIn(value, rendered)
         self.assertFalse(state.exists())
 
+    def test_openpgp_actions_are_fixed_commands_and_status_is_flags_only(self):
+        for action in ('openpgp-import', 'openpgp-trust', 'openpgp-remove'):
+            plan = control.command_plan(action)
+            self.assertEqual(plan, [[control.sys.executable, str(control.SOURCE / 'scripts/manage-openpgp.py'), action.removeprefix('openpgp-')]])
+            with self.assertRaises(ValueError):
+                control.command_plan(action, device='/dev/example')
+        self.assertEqual(control.openpgp_status(False, True), {'card': False, 'imported': False, 'linked': False, 'trusted': False})
+        fake = type('Module', (), {'status': staticmethod(lambda: {'card': True, 'imported': True, 'linked': 'yes', 'fingerprint': 'private-value'})})
+        with patch.object(control, 'openpgp_module', return_value=fake):
+            value = control.openpgp_status(True, True)
+        self.assertEqual(value, {'card': True, 'imported': True, 'linked': False, 'trusted': False})
+        result = control.status(self.root, self.root / 'config', self.root / 'state', self.root / 'store', 'user', query=False)
+        self.assertEqual(result['openpgp']['card'], False)
+
     def test_status_rejects_duplicate_account_and_invalid_stores(self):
         with self.assertRaises(ValueError):
             control.enrolled_count('user:one\nuser:two\n', 'user')
