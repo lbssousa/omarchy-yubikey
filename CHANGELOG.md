@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- OpenPGP card: one button imports a missing key or removes an imported one,
-  instead of always showing both. A separate **Update key** button appears only
-  when the imported key is not linked, expired, revoked or disabled.
+- OpenPGP card: the import button reads **Update key** once the key is imported,
+  since importing again refreshes the certificate and card links, and is
+  highlighted when the key is not linked, expired, revoked or disabled.
 
 - Fix translations of the standalone lock and Polkit plugins on Omarchy 4.5,
   whose `qs.Commons` exports its own `Translations` type. Their unqualified

@@ -79,7 +79,7 @@ Item {
     return strings.t("Unavailable")
   }
   // An imported key that is not ready (unlinked, expired, revoked or disabled)
-  // may be fixed by fetching it again, which also refreshes the card links.
+  // may be fixed by fetching it again; the Update button is highlighted then.
   function openpgpNeedsUpdate() {
     var key = openpgp.key || {}
     return openpgp.imported === true && (openpgp.ready !== true || key.expired === true || key.revoked === true || key.disabled === true)
@@ -300,11 +300,11 @@ Item {
                     }
                   }
                 }
-                // One button imports a missing key or removes an imported one; "Update
-                // key" fetches an imported key again only when it needs attention.
-                ActionButton { objectName: "openpgpUpdate"; text: strings.t("Update key"); primary: true; visible: root.openpgpNeedsUpdate(); enabled: root.canAct; onClicked: root.ask("openpgp-import", text) }
-                ActionButton { objectName: "openpgpPrimary"; text: root.openpgp.imported ? strings.t("Remove from keyring") : strings.t("Import key"); primary: !root.openpgp.imported; enabled: root.canAct; onClicked: root.ask(root.openpgp.imported ? "openpgp-remove" : "openpgp-import", text) }
+                // Importing again refreshes an imported key and its card links, so the
+                // same button reads "Update key" once the key is in the keyring.
+                ActionButton { objectName: "openpgpImport"; text: root.openpgp.imported ? strings.t("Update key") : strings.t("Import key"); primary: !root.openpgp.imported || root.openpgpNeedsUpdate(); enabled: root.canAct; onClicked: root.ask("openpgp-import", text) }
                 ActionButton { text: strings.t("Trust as my key"); enabled: root.canAct && root.openpgp.imported && !root.openpgp.trusted; onClicked: root.ask("openpgp-trust", text) }
+                ActionButton { objectName: "openpgpRemove"; text: strings.t("Remove from keyring"); enabled: root.canAct && root.openpgp.imported; onClicked: root.ask("openpgp-remove", text) }
                 ActionButton { objectName: "openpgpIdentityToggle"; text: root.showOpenpgpIdentity ? strings.t("Hide name and email") : strings.t("Show name and email"); visible: !!root.openpgp.key && !!root.openpgp.key.uid; onClicked: root.showOpenpgpIdentity = !root.showOpenpgpIdentity }
               }
               FeatureCard {
