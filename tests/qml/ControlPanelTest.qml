@@ -116,6 +116,7 @@ TestCase {
       var corner = button.mapToItem(panel, 0, 0)
       verify(corner.x >= 0 && corner.x + button.width <= panel.width + 1, "Row buttons must fit the window")
     }
+    if (!panel.compact) verify(Math.abs(remove.mapToItem(panel, 0, 0).y - deleteKey.mapToItem(panel, 0, 0).y) < 1, "Row buttons sit side by side")
     verify(deleteKey.foreground.toString() !== remove.foreground.toString(), "The permanent action must stand out from removing a copy")
     remove.clicked()
     verify(dialog.opened)

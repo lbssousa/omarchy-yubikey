@@ -16,9 +16,9 @@ credential handles are not sent to the window.
 | Action | What happens |
 | --- | --- |
 | **Create SSH key** | Asks for each option in the terminal (see [Create a resident key](#create-a-resident-key)), shows the `ssh-keygen` command and asks before running it. The key is generated on the security key; its handle file is installed like an imported one. |
-| **Delete from security key** (on a key's row, in the urgent colour) | **Permanently** deletes that key from the security key itself, then removes its copy (see [Delete a resident key](#delete-a-resident-key-from-the-security-key)). It cannot be recovered or imported again. |
+| **Delete from security key** (under a key, next to **Remove copy**, in the urgent colour) | **Permanently** deletes that key from the security key itself, then removes its copy (see [Delete a resident key](#delete-a-resident-key-from-the-security-key)). It cannot be recovered or imported again. |
 | **Import SSH keys** | Runs `ssh-keygen -K` in a private temporary directory, then installs complete pairs at 0600/0644. Existing files, including either half of a pair, are never overwritten. An incomplete/failed download installs nothing. Failed pair copies roll back files created for that pair. |
-| **Remove copy** (on a key's row) | Passes a stable reference to the exact filename and public identity, rather than a row number. The terminal identifies the public fingerprint and filename before confirmation. A disappeared/replaced public key cannot redirect removal to another row, and both file contents are rechecked after confirmation. Only the copy in `~/.ssh` is removed; the key stays on the security key and can be imported again. |
+| **Remove copy** (under a key) | Passes a stable reference to the exact filename and public identity, rather than a row number. The terminal identifies the public fingerprint and filename before confirmation. A disappeared/replaced public key cannot redirect removal to another row, and both file contents are rechecked after confirmation. Only the copy in `~/.ssh` is removed; the key stays on the security key and can be imported again. |
 
 SSH management directories must be owned by the account and private (0700).
 Symlinks, nonregular files, oversized input and concurrent tool operations are

@@ -325,27 +325,23 @@ Item {
                   objectName: "sshKeys"
                   width: parent.width
                   visible: root.sshKeys.length > 0
-                  spacing: Style.space(8)
+                  spacing: Style.space(16)
                   Repeater {
                     model: root.sshKeys
-                    RowLayout {
+                    Column {
                       required property var modelData
                       required property int index
                       width: parent.width
-                      spacing: Style.space(12)
-                      Column {
-                        Layout.fillWidth: true
-                        Text { width: parent.width; text: root.sshKeyTitle(modelData); color: Commons.Color.foreground; font { family: Style.font.family; pixelSize: Style.font.body } textFormat: Text.PlainText; elide: Text.ElideRight }
-                        Text { width: parent.width; text: root.sshKeyDetails(modelData); color: Util.alpha(Commons.Color.foreground, 0.73); font { family: Style.font.family; pixelSize: Style.font.caption } textFormat: Text.PlainText; wrapMode: Text.WrapAtWordBoundaryOrAnywhere }
-                        TextEdit { width: parent.width; text: modelData.fingerprint; readOnly: true; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere; color: Commons.Color.accent; font { family: Style.font.family; pixelSize: Style.font.caption } textFormat: TextEdit.PlainText }
-                      }
-                      // One action per button: the copy, or the key on the security key.
-                      Column {
-                        // Both buttons share the width of the wider one.
-                        Layout.preferredWidth: Math.max(removeCopy.implicitWidth, deleteKey.implicitWidth)
-                        spacing: Style.space(6)
-                        ActionButton { id: removeCopy; objectName: "sshRemove" + index; width: parent.width; text: strings.t("Remove copy"); enabled: root.canAct && !!modelData.id; onClicked: root.ask("ssh-remove", strings.t("Remove SSH key %1", [modelData.fingerprint.slice(0, 19)]), "", "", modelData.id) }
-                        ActionButton { id: deleteKey; objectName: "sshDelete" + index; width: parent.width; text: strings.t("Delete from security key"); foreground: Commons.Color.urgent; accent: Commons.Color.urgent; enabled: root.canAct && !!modelData.id && root.snapshot.connected > 0; onClicked: root.ask("ssh-delete", strings.t("Delete SSH key %1 from the security key", [modelData.fingerprint.slice(0, 19)]), "", "", modelData.id) }
+                      spacing: Style.space(6)
+                      Text { width: parent.width; text: root.sshKeyTitle(modelData); color: Commons.Color.foreground; font { family: Style.font.family; pixelSize: Style.font.body } textFormat: Text.PlainText; elide: Text.ElideRight }
+                      Text { width: parent.width; text: root.sshKeyDetails(modelData); color: Util.alpha(Commons.Color.foreground, 0.73); font { family: Style.font.family; pixelSize: Style.font.caption } textFormat: Text.PlainText; wrapMode: Text.WrapAtWordBoundaryOrAnywhere }
+                      TextEdit { width: parent.width; text: modelData.fingerprint; readOnly: true; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere; color: Commons.Color.accent; font { family: Style.font.family; pixelSize: Style.font.caption } textFormat: TextEdit.PlainText }
+                      // One action per button, side by side: the copy, or the key on the security key.
+                      Flow {
+                        width: parent.width
+                        spacing: Style.space(8)
+                        ActionButton { objectName: "sshRemove" + index; text: strings.t("Remove copy"); enabled: root.canAct && !!modelData.id; onClicked: root.ask("ssh-remove", strings.t("Remove SSH key %1", [modelData.fingerprint.slice(0, 19)]), "", "", modelData.id) }
+                        ActionButton { objectName: "sshDelete" + index; text: strings.t("Delete from security key"); foreground: Commons.Color.urgent; accent: Commons.Color.urgent; enabled: root.canAct && !!modelData.id && root.snapshot.connected > 0; onClicked: root.ask("ssh-delete", strings.t("Delete SSH key %1 from the security key", [modelData.fingerprint.slice(0, 19)]), "", "", modelData.id) }
                       }
                     }
                   }
