@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create or import resident SSH key handles and manage explicitly selected Git hosts.
+"""Create, import or delete resident SSH keys and manage explicitly selected Git hosts.
 
 Runs as the desktop user. PINs and passphrases belong to ssh-keygen's terminal.
 Public applications/fingerprints may enter the GUI; filenames and credential
@@ -44,6 +44,12 @@ KEY_TYPES = {'sk-ssh-ed25519' + '@' + 'openssh.com': 'ed25519-sk',
              'sk-ecdsa-sha2-nistp256' + '@' + 'openssh.com': 'ecdsa-sk'}
 PRIVATE_BEGIN = '-----BEGIN OPENSSH ' + 'PRIVATE KEY-----'
 CREATE_TIMEOUT = 180
+TOKEN_TIMEOUT = 120
+# fido2-token -L -k prints "NN: <credential id> <display name...> <user id> <type> <prot> <...>pay".
+CREDENTIAL_ID = re.compile(r'[A-Za-z0-9+/]{16,1024}={0,2}')
+COSE_TYPES = {'eddsa': 'ed25519-sk', 'es256': 'ecdsa-sk'}
+DELETE_WARNING = ('PERMANENT: this deletes the SSH key from the security key itself. It cannot be'
+                  ' recovered or imported again; servers and Git hosts that trust it will need a new key.')
 ALGORITHMS = {'ed25519-sk': 'ed25519_sk', 'ecdsa-sk': 'ecdsa_sk'}
 # What follows "ssh:" in a new key's application: a simple name, a host or
 # login@host:port. No slashes or "..", so the name stays a plain filename.
@@ -674,13 +680,126 @@ def do_create():
     print('Public key, to add to the server or Git host:')
     print(read_file(directory / (name + '.pub')).decode('ascii').strip())
     print('Removing the copy later keeps the credential on the security key;'
-          ' "ykman fido credentials delete" removes it there.')
+          ' "Delete from security key" in the control center removes it there, permanently.')
     offer_drop_ins(directory, installed)
+
+
+def fido_device():
+    """The path of the only connected FIDO2 device."""
+    result = subprocess.run(['fido2-token', '-L'], capture_output=True, text=True, timeout=TOKEN_TIMEOUT)
+    devices = [line.split(':', 1)[0] for line in result.stdout.splitlines() if line.startswith('/dev/')]
+    if result.returncode or len(devices) != 1:
+        raise ValueError('Connect exactly one security key')
+    return devices[0]
+
+
+def token_list(arguments):
+    """Run a fido2-token listing; it asks for the PIN on the terminal itself."""
+    result = subprocess.run(['fido2-token', *arguments], stdout=subprocess.PIPE, text=True, timeout=TOKEN_TIMEOUT)
+    if result.returncode:
+        raise ValueError('fido2-token could not list the credentials (wrong PIN or no resident keys)')
+    return result.stdout
+
+
+def ssh_applications(text):
+    """Relying parties of resident SSH keys in a fido2-token -L -r listing."""
+    found = []
+    for line in text.splitlines():
+        fields = line.split()
+        app = fields[-1] if len(fields) >= 3 else ''
+        if app.startswith('ssh:') and len(app) <= 256 and app.isprintable() and app.isascii():
+            found.append(app)
+    return sorted(set(found))
+
+
+def token_credentials(text):
+    """Credentials of a fido2-token -L -k listing: id, user ID and key type."""
+    found = []
+    for line in text.splitlines():
+        fields = line.split()
+        if len(fields) < 7 or not fields[0].endswith(':') or not CREDENTIAL_ID.fullmatch(fields[1]):
+            continue
+        try:
+            user = base64.b64decode(fields[-4], validate=True).rstrip(b'\0').decode('utf-8')
+        except (ValueError, UnicodeError):
+            user = '(binary user ID)'
+        if not user.isprintable():
+            user = '(binary user ID)'
+        found.append({'id': fields[1], 'user': user, 'type': COSE_TYPES.get(fields[-3], 'other')})
+    return found
+
+
+def choose(items, label):
+    for i, item in enumerate(items, 1):
+        print('  ' + str(i) + '. ' + label(item))
+    selected = input('Number, or Enter to cancel: ').strip()
+    if not selected:
+        return None
+    if not selected.isdecimal() or not 1 <= int(selected) <= len(items):
+        raise ValueError('Invalid selection')
+    return items[int(selected) - 1]
+
+
+def warn_permanent():
+    line = '!' * 78
+    print(line)
+    print(DELETE_WARNING)
+    print(line)
+
+
+def do_delete_token():
+    warn_permanent()
+    print('fido2-token asks for the FIDO2 PIN up to three times: to list applications,'
+          ' to list their keys and to delete the one you choose.')
+    device = fido_device()
+    applications = ssh_applications(token_list(['-L', '-r', device]))
+    if not applications:
+        print('The security key holds no resident SSH keys.')
+        return
+    print('Applications with resident SSH keys:')
+    app = choose(applications, lambda value: value)
+    if app is None:
+        print('Cancelled; nothing changed.')
+        return
+    credentials = token_credentials(token_list(['-L', '-k', app, device]))
+    if not credentials:
+        raise ValueError('No resident keys were listed for ' + app)
+    print('Resident keys for ' + app + ':')
+    credential = choose(credentials, lambda item: (item['user'] or '(no user ID)') + ' · ' + item['type'])
+    if credential is None:
+        print('Cancelled; nothing changed.')
+        return
+    warn_permanent()
+    phrase = 'DELETE ' + app
+    print('Selected: ' + app + ' · ' + (credential['user'] or '(no user ID)') + ' · ' + credential['type'])
+    if input('Type "' + phrase + '" to delete this key from the security key: ').strip() != phrase:
+        print('Cancelled; nothing changed.')
+        return
+    if subprocess.call(['fido2-token', '-D', '-i', credential['id'], device], timeout=TOKEN_TIMEOUT):
+        raise ValueError('fido2-token did not delete the key; it is still on the security key')
+    print('Deleted the key from the security key.')
+    offer_copy_removal(app, credential)
+
+
+def offer_copy_removal(app, credential):
+    """The copied handle in ~/.ssh is useless now; offer to remove it too."""
+    if credential['type'] not in ALGORITHMS or credential['user'].startswith('('):
+        return
+    name = handle_name(credential['type'], app[len('ssh:'):], credential['user'])
+    directory = ssh_directory()
+    if not (directory / name).is_file():
+        return
+    try:
+        reference = key_reference(directory, name)
+    except (OSError, ValueError):
+        return
+    print('~/.ssh/' + name + ' was the copy of that key and no longer works.')
+    do_remove(reference)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=['create', 'import', 'remove'])
+    parser.add_argument('operation', choices=['create', 'import', 'remove', 'delete-token'])
     parser.add_argument('--key-id', help='stable opaque reference returned by status')
     args = parser.parse_args()
     if args.key_id and (args.operation != 'remove' or not KEY_ID.fullmatch(args.key_id)):
@@ -690,6 +809,8 @@ def main():
     with operation_lock(ssh_directory()):
         if args.operation == 'create':
             do_create()
+        elif args.operation == 'delete-token':
+            do_delete_token()
         elif args.operation == 'import':
             do_import()
         else:

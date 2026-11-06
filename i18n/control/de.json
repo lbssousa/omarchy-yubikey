@@ -31,6 +31,8 @@
   "Create SSH key": "SSH-Schlüssel erzeugen",
   "Create SSH keys on your security key, or copy the ones it stores into ~/.ssh, for example on a new computer. Existing files are never overwritten. Removing a copy leaves the key on the security key.": "Erzeugt SSH-Schlüssel auf dem Sicherheitsschlüssel oder kopiert die dort gespeicherten nach ~/.ssh, etwa auf einem neuen Rechner. Bestehende Dateien werden nie überschrieben. Das Entfernen einer Kopie lässt den Schlüssel auf dem Sicherheitsschlüssel.",
   "Custom configuration": "Eigene Konfiguration",
+  "Delete from security key": "Vom Sicherheitsschlüssel löschen",
+  "Delete from security key removes a key from the security key itself, permanently. It cannot be recovered or imported again.": "„Vom Sicherheitsschlüssel löschen“ entfernt einen Schlüssel dauerhaft vom Sicherheitsschlüssel selbst. Er lässt sich weder wiederherstellen noch erneut importieren.",
   "Desktop": "Desktop",
   "Desktop plugins": "Desktop-Plugins",
   "Disable at login": "Bei Anmeldung deaktivieren",

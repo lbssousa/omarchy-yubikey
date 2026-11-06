@@ -5,6 +5,12 @@
 - OpenPGP card: one button imports a missing key or removes an imported one,
   instead of always showing both. A separate **Update key** button appears only
   when the imported key is not linked, expired, revoked or disabled.
+- Permanently delete a resident SSH key from the security key. **Delete from
+  security key** carries a highlighted warning in the card and the confirmation
+  dialog; the terminal lists applications and keys with `fido2-token`, repeats
+  the warning, requires typing `DELETE <application>`, deletes the credential and
+  offers to remove its now useless copy in `~/.ssh`.
+
 - Create resident SSH keys from the control center. **Create SSH key** opens a
   terminal wizard for the algorithm, application, user ID, PIN and touch
   requirements and comment, shows the `ssh-keygen` command before running it,

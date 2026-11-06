@@ -31,6 +31,8 @@
   "Create SSH key": "Create SSH key",
   "Create SSH keys on your security key, or copy the ones it stores into ~/.ssh, for example on a new computer. Existing files are never overwritten. Removing a copy leaves the key on the security key.": "Create SSH keys on your security key, or copy the ones it stores into ~/.ssh, for example on a new computer. Existing files are never overwritten. Removing a copy leaves the key on the security key.",
   "Custom configuration": "Custom configuration",
+  "Delete from security key": "Delete from security key",
+  "Delete from security key removes a key from the security key itself, permanently. It cannot be recovered or imported again.": "Delete from security key removes a key from the security key itself, permanently. It cannot be recovered or imported again.",
   "Desktop": "Desktop",
   "Desktop plugins": "Desktop plugins",
   "Disable at login": "Disable at login",
