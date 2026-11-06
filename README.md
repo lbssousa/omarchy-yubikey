@@ -71,7 +71,7 @@ operations for setup and management. PINs and passwords stay in the terminal.
 <p align="center"><img src="preview.png" alt="Omarchy YubiKey control center with synthetic example status." width="100%"></p>
 
 The control center is **0.5.2**, with OpenPGP-card and resident SSH-key management.
-Its interface is English/German with English
+Its interface is in English, German and Brazilian Portuguese, with English
 fallback; the existing authentication components retain their 50-language support.
 The standalone lock/Polkit plugins remain 0.3.0 and the Rust helper remains 0.2.0.
 

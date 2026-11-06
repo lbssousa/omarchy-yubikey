@@ -32,6 +32,10 @@
   tests already do. They matched English messages that `tr()` translated into
   the developer's own Omarchy language, so four of them failed on any non-English
   desktop.
+- Translate the setup window into Brazilian Portuguese. The window now loads
+  `i18n/control/<language>.json` for any language that has a catalog, then the
+  base language's, instead of only German; other languages still fall back to
+  English.
 
 ## 0.5.2 — 2026-11-06
 

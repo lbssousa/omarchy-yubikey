@@ -19,7 +19,7 @@ The host can offer to enable the plugin during installation. Once enabled, use
 its key button in the bar. Adding/enabling the control center reads status; it
 does not enroll keys, install packages, edit PAM or enable login helpers.
 Review the source and [dependencies](../README.md#requirements-and-compatibility).
-The interface is available in English and German, follows the account's Omarchy
+The interface is available in English, German and Brazilian Portuguese, follows the account's Omarchy
 language live, and falls back to English for other languages. Existing lock,
 Polkit and helper catalogs still support all 50 Omarchy languages.
 
