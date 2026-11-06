@@ -198,6 +198,11 @@ class ControlTests(unittest.TestCase):
 
 class EnrollmentManagementTests(unittest.TestCase):
     def setUp(self):
+        # Assertions match the canonical English messages; tr() would otherwise
+        # follow the developer's own Omarchy language.
+        language = patch.dict(os.environ, OMARCHY_YUBIKEY_LANGUAGE='en')
+        language.start()
+        self.addCleanup(language.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
