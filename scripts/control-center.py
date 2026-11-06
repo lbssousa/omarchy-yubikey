@@ -48,7 +48,7 @@ ACTIONS = {
     'openpgp-remove': 'Remove the OpenPGP key of the security key from the keyring',
     'ssh-create': 'Create a resident SSH key on the security key',
     'ssh-import': 'Copy the resident SSH keys of the security key into ~/.ssh',
-    'ssh-delete-token': 'Permanently delete a resident SSH key from the security key',
+    'ssh-delete': 'Permanently delete one resident SSH key from the security key',
     'ssh-remove': 'Remove one copied resident SSH key from ~/.ssh',
     'backups': 'List system PAM backup IDs',
     'rollback': 'Restore the selected PAM backup',
@@ -368,7 +368,7 @@ def command_plan(action, device='', backup='', key_id=''):
             raise ValueError('Enter the backup ID printed by setup')
     elif backup:
         raise ValueError('Backup ID is only valid for rollback')
-    if action == 'ssh-remove':
+    if action in ('ssh-remove', 'ssh-delete'):
         if not re.fullmatch(r'[0-9a-f]{64}', key_id):
             raise ValueError('Select a resident SSH key')
     elif key_id:
@@ -380,10 +380,10 @@ def command_plan(action, device='', backup='', key_id=''):
         return [install + ['--components', action.removeprefix('setup-')]]
     if action.startswith('openpgp-'):
         return [[sys.executable, str(SOURCE / 'scripts/manage-openpgp.py'), action.removeprefix('openpgp-')]]
-    if action in ('ssh-create', 'ssh-import', 'ssh-delete-token'):
+    if action in ('ssh-create', 'ssh-import'):
         return [[sys.executable, str(SOURCE / 'scripts/manage-ssh.py'), action.removeprefix('ssh-')]]
-    if action == 'ssh-remove':
-        return [[sys.executable, str(SOURCE / 'scripts/manage-ssh.py'), 'remove', '--key-id', key_id]]
+    if action in ('ssh-remove', 'ssh-delete'):
+        return [[sys.executable, str(SOURCE / 'scripts/manage-ssh.py'), action.removeprefix('ssh-'), '--key-id', key_id]]
     if action in ('add-key', 'remove-key'):
         return [[sys.executable, str(SOURCE / 'scripts/manage-keys.py'), 'add' if action == 'add-key' else 'remove']]
     if action == 'test-sudo':

@@ -13,9 +13,9 @@ Filenames and FIDO2 user IDs/credential handles are not sent to the window.
 | Action | What happens |
 | --- | --- |
 | **Create SSH key** | Asks for each option in the terminal (see [Create a resident key](#create-a-resident-key)), shows the `ssh-keygen` command and asks before running it. The key is generated on the security key; its handle file is installed like an imported one. |
-| **Delete from security key** | **Permanently** deletes one resident SSH key from the security key itself (see [Delete a resident key](#delete-a-resident-key-from-the-security-key)). It cannot be recovered or imported again. |
+| **Delete from security key** (on a key's row, in the urgent colour) | **Permanently** deletes that key from the security key itself, then removes its copy (see [Delete a resident key](#delete-a-resident-key-from-the-security-key)). It cannot be recovered or imported again. |
 | **Import SSH keys** | Runs `ssh-keygen -K` in a private temporary directory, then installs complete pairs at 0600/0644. Existing files, including either half of a pair, are never overwritten. An incomplete/failed download installs nothing. Failed pair copies roll back files created for that pair. |
-| **Remove** | Passes a stable reference to the exact filename and public identity, rather than a row number. The terminal identifies the public fingerprint and filename before confirmation. A disappeared/replaced public key cannot redirect removal to another row, and both file contents are rechecked after confirmation. The terminal then asks how to remove it: **1** removes only the copy in `~/.ssh`, keeping the key on the security key; **2** deletes the key **permanently** from the security key, as described below, and then removes the copy. |
+| **Remove copy** (on a key's row) | Passes a stable reference to the exact filename and public identity, rather than a row number. The terminal identifies the public fingerprint and filename before confirmation. A disappeared/replaced public key cannot redirect removal to another row, and both file contents are rechecked after confirmation. Only the copy in `~/.ssh` is removed; the key stays on the security key and can be imported again. |
 
 SSH management directories must be owned by the account and private (0700).
 Symlinks, nonregular files, oversized input and concurrent tool operations are
@@ -47,7 +47,7 @@ stays only on the security key, ready to import later. After creating the key, t
 wizard prints the public key and fingerprint to add to the server or Git host, and
 offers the Git-host configuration below when the application names one.
 Removing the copy keeps the credential on the security key;
-**Delete from security key** removes it there, permanently.
+the row's **Delete from security key** removes it there, permanently.
 
 ## Delete a resident key from the security key
 
@@ -56,22 +56,20 @@ Removing the copy keeps the credential on the security key;
 > recovered or imported again, and every server or Git host that trusts it needs a
 > new key.
 
-Two ways lead here: option **2** of a key's **Remove** button, which looks up the
-key matching that copy (same application and user ID, including user IDs that
-`ssh-keygen -K` wrote as hexadecimal), and **Delete from security key**, which also
-reaches keys without a copy in `~/.ssh`. The card and the confirmation dialog of
-both carry this warning. **Delete from security key** then:
+Each key's row has its own **Delete from security key** button, next to **Remove
+copy**. Its confirmation dialog carries this warning, and the terminal:
 
-1. prints the warning, and runs `fido2-token -L -r` to list the applications with
-   resident SSH keys (`ssh:…`), then `fido2-token -L -k` for the chosen application.
-   Each asks for the FIDO2 PIN, so the PIN is entered up to three times;
-2. lists that application's keys by user ID and type, and asks for one;
-3. prints the warning again and requires typing `DELETE <application>`;
-4. runs `fido2-token -D -i <credential id>`, which asks for the PIN once more.
+1. prints the warning again, and names the selected copy's fingerprint and application;
+2. runs `fido2-token -L -k <application>` and picks the key whose user ID matches the
+   copy's filename (including user IDs that `ssh-keygen -K` wrote as hexadecimal). If
+   no single key matches, it lists the application's keys by user ID and type;
+3. requires typing `DELETE <application>`;
+4. runs `fido2-token -D -i <credential id>`, then removes the copy, which no longer
+   works, and its Git-host entry.
 
-If `~/.ssh` holds the copy of the deleted key, which no longer works, the wizard
-offers to remove it as **Remove** would, including its Git-host entry. Only one
-security key may be connected.
+`fido2-token` asks for the FIDO2 PIN in steps 2 and 4. Only one security key may be
+connected. A key that is only on the security key, without a copy in `~/.ssh`, is
+imported first and then deleted from its row.
 
 ## Git hosts
 
