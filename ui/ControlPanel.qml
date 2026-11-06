@@ -5,6 +5,7 @@ import qs.Commons
 import qs.Commons as Commons
 import qs.Ui as Ui
 import "ControlModel.js" as Model
+import "." as Local
 
 Item {
   id: root
@@ -26,7 +27,7 @@ Item {
   signal operationRequested(string action, var parameters)
   signal closeRequested()
   signal guideRequested(string name)
-  Translations { id: strings }
+  Local.Translations { id: strings; objectName: "setupTranslations" }
   LayoutMirroring.enabled: strings.rightToLeft
   LayoutMirroring.childrenInherit: true
   readonly property var pages: [strings.t("Overview"), strings.t("Security keys"), strings.t("Desktop"), strings.t("Keyring"), strings.t("Disk & recovery")]

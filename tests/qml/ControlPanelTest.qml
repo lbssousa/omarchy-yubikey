@@ -8,6 +8,10 @@ TestCase {
   when: false
   function test_actions_and_keyboard() {
     verify(panel.width > 0)
+    var translations = findChild(panel, "setupTranslations")
+    verify(translations !== null)
+    compare(typeof translations.number, "function")
+    compare(translations.number(12).length, 2)
     function checkTabs(item) {
       if (item.objectName === "sidebarTab" && !panel.compact)
         verify(item.implicitWidth <= item.width, "Navigation label must fit its button")
