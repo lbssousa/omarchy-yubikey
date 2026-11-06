@@ -6,14 +6,15 @@ center copies them into `~/.ssh`, for example on a new computer, as the desktop
 user and without privileges. Like every other action, each one opens a terminal
 first; the FIDO2 PIN stays in that terminal.
 
-The **Resident SSH keys** card shows how many resident key files `~/.ssh`
-holds. The window receives only that count, never file names, applications or
-user names.
+The **Resident SSH keys** card lists the resident key files in `~/.ssh` by
+number only, each described by its type (Ed25519-SK or ECDSA-SK), whether a
+passphrase protects the copied file and whether a git-host drop-in uses it.
+The window never receives file names, applications or user IDs.
 
 | Action | What happens in the terminal |
 | --- | --- |
 | **Import SSH keys** | Runs `ssh-keygen -K` in a private temporary directory, where ssh-keygen asks for the PIN, a touch and an optional passphrase for each copied file. Every `id_*_sk_rk*` pair is then moved into `~/.ssh` (0600 for the private file, 0644 for the `.pub`), **never over an existing file**: a pair whose name is already taken is reported and left out. |
-| **Remove a copy** | Lists the resident key files in `~/.ssh`, then deletes the chosen file and its `.pub` after a confirmation. The credential stays on the security key and can be imported again. |
+| **Remove** (on a key's row) | Names the file behind that number, then deletes it and its `.pub` after a confirmation. The number follows the window's last refresh, so check the file name before confirming if `~/.ssh` changed meanwhile; a number past the end of the list stops without removing anything. The credential stays on the security key and can be imported again. |
 
 ## Git hosts
 
@@ -53,7 +54,7 @@ Host github.com
   `Include config.d/*.conf` at its top, where it applies to every host, and
   keeps the file's other contents and permissions. It does not edit a symbolic link.
 
-**Remove a copy** also takes the key's line out of the drop-in created for it,
+**Remove** also takes the key's line out of the drop-in created for it,
 and deletes the drop-in once no key is left. Drop-ins written by hand are left alone.
 
 Copied files are key handles, not the private key itself: they only work with

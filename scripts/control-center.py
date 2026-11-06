@@ -23,6 +23,7 @@ import uuid
 
 SOURCE = Path(__file__).resolve().parents[1]
 BACKUP_ID = re.compile(r'[0-9]{8}-[0-9]{6}-[a-f0-9]{8}')
+SSH_KEY_LIMIT = 50
 ACTIONS = {
     'setup': 'Set up security-key authentication',
     'setup-sudo': 'Configure sudo authentication',
@@ -47,15 +48,21 @@ ACTIONS = {
 
 
 def ssh_status():
-    """How many resident SSH key files ~/.ssh holds; never their names."""
+    """The resident SSH key files in ~/.ssh, in the order ssh-remove --index
+    uses, each described by type and two flags only; never names."""
     try:
         spec = importlib.util.spec_from_file_location('manage_ssh', SOURCE / 'scripts/manage-ssh.py')
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        count = module.status().get('count')
+        value = module.status()
     except (OSError, ValueError, ImportError):
-        return {'count': 0}
-    return {'count': count if isinstance(count, int) and 0 <= count <= 1000 else 0}
+        return {'count': 0, 'keys': []}
+    count = value.get('count')
+    keys = value.get('keys') if isinstance(value.get('keys'), list) else []
+    return {'count': count if isinstance(count, int) and 0 <= count <= 1000 else 0,
+            'keys': [{'type': key.get('type') if key.get('type') in ('ed25519-sk', 'ecdsa-sk') else 'other',
+                      'passphrase': key.get('passphrase') is True, 'host': key.get('host') is True}
+                     for key in keys[:SSH_KEY_LIMIT] if isinstance(key, dict)]}
 
 
 def bounded_text(path, limit=262144):
@@ -285,7 +292,7 @@ def status(root=Path('/'), config=None, state=None, store=None, username=None, q
             'plugins': plugins, 'keyring': keyring, 'ssh': ssh_status(), 'operation': operation_status(state)}
 
 
-def command_plan(action, device='', backup=''):
+def command_plan(action, device='', backup='', index=''):
     if action not in ACTIONS:
         raise ValueError('Unknown operation')
     if action.startswith('luks-'):
@@ -298,13 +305,20 @@ def command_plan(action, device='', backup=''):
             raise ValueError('Enter the backup ID printed by setup')
     elif backup:
         raise ValueError('Backup ID is only valid for rollback')
+    if action == 'ssh-remove':
+        if not re.fullmatch(r'[1-9][0-9]?', index) or int(index) > SSH_KEY_LIMIT:
+            raise ValueError('Select a resident SSH key')
+    elif index:
+        raise ValueError('A key number is only valid for removing an SSH key copy')
     install = ['bash', str(SOURCE / 'install.sh')]
     if action == 'setup':
         return [install]
     if action.startswith('setup-'):
         return [install + ['--components', action.removeprefix('setup-')]]
-    if action in ('ssh-import', 'ssh-remove'):
-        return [[sys.executable, str(SOURCE / 'scripts/manage-ssh.py'), action.removeprefix('ssh-')]]
+    if action == 'ssh-import':
+        return [[sys.executable, str(SOURCE / 'scripts/manage-ssh.py'), 'import']]
+    if action == 'ssh-remove':
+        return [[sys.executable, str(SOURCE / 'scripts/manage-ssh.py'), 'remove', '--index', index]]
     if action in ('add-key', 'remove-key'):
         return [[sys.executable, str(SOURCE / 'scripts/manage-keys.py'), 'add' if action == 'add-key' else 'remove']]
     if action == 'test-sudo':
@@ -341,8 +355,8 @@ def unlocked():
     return value is not None and value.strip() in ('false', 'no', '0')
 
 
-def launch(action, device='', backup=''):
-    command_plan(action, device, backup)  # Reject invalid input before opening a terminal.
+def launch(action, device='', backup='', index=''):
+    command_plan(action, device, backup, index)  # Reject invalid input before opening a terminal.
     if os.geteuid() == 0:
         raise ValueError('Open the plugin as your normal desktop user')
     if not shutil.which('omarchy-launch-terminal'):
@@ -361,6 +375,8 @@ def launch(action, device='', backup=''):
             command += ['--device', device]
         if backup:
             command += ['--backup', backup]
+        if index:
+            command += ['--index', index]
         try:
             process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             try:
@@ -375,10 +391,10 @@ def launch(action, device='', backup=''):
     return {'ok': True}
 
 
-def run(action, ticket, device='', backup=''):
+def run(action, ticket, device='', backup='', index=''):
     if os.geteuid() == 0 or not sys.stdin.isatty() or not sys.stdout.isatty():
         raise ValueError('Operations require an interactive terminal and a normal desktop account')
-    commands = command_plan(action, device, backup)
+    commands = command_plan(action, device, backup, index)
     _, _, state, _ = paths()
     directory = private_directory(state)
     with operation_lock(directory, wait_seconds=3):
@@ -390,6 +406,8 @@ def run(action, ticket, device='', backup=''):
             print('Selected device: ' + device)
         if backup:
             print('Selected backup: ' + backup)
+        if index:
+            print('Selected SSH key: number ' + index)
         record.update(phase='running')
         save_operation(directory, record)
         print('PINs, passwords and recovery keys stay in this terminal. Do not record enrollment.')
@@ -433,6 +451,7 @@ def main():
         item.add_argument('action', choices=sorted(ACTIONS))
         item.add_argument('--device', default='')
         item.add_argument('--backup', default='')
+        item.add_argument('--index', default='')
         if mode == 'run':
             item.add_argument('--ticket', required=True)
     args = parser.parse_args()
@@ -440,9 +459,9 @@ def main():
         if args.mode == 'status':
             print(json.dumps(status(root=args.root.resolve())))
         elif args.mode == 'launch':
-            print(json.dumps(launch(args.action, args.device, args.backup)))
+            print(json.dumps(launch(args.action, args.device, args.backup, args.index)))
         else:
-            return run(args.action, args.ticket, args.device, args.backup)
+            return run(args.action, args.ticket, args.device, args.backup, args.index)
         return 0
     except (OSError, ValueError, TypeError):
         if args.mode == 'run':

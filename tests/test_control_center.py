@@ -40,18 +40,32 @@ class ControlTests(unittest.TestCase):
             self.assertNotIn(value, rendered)
         self.assertFalse(state.exists())
 
-    def test_ssh_actions_are_fixed_commands_and_status_is_a_count(self):
-        for action in ('ssh-import', 'ssh-remove'):
-            self.assertEqual(control.command_plan(action), [[control.sys.executable, str(control.SOURCE / 'scripts/manage-ssh.py'), action.removeprefix('ssh-')]])
+    def test_ssh_actions_are_fixed_commands_and_status_has_no_names(self):
+        script = str(control.SOURCE / 'scripts/manage-ssh.py')
+        self.assertEqual(control.command_plan('ssh-import'), [[control.sys.executable, script, 'import']])
+        self.assertEqual(control.command_plan('ssh-remove', index='3'), [[control.sys.executable, script, 'remove', '--index', '3']])
+        for index in ('', '0', '51', '03', '1 --x', '-1', 'id_ed25519_sk_rk'):
             with self.assertRaises(ValueError):
-                control.command_plan(action, backup='20261104-120000-abcdef01')
+                control.command_plan('ssh-remove', index=index)
+        for arguments in ({'backup': '20261104-120000-abcdef01'}, {'index': '1'}):
+            with self.assertRaises(ValueError):
+                control.command_plan('ssh-import', **arguments)
+        with self.assertRaises(ValueError):
+            control.command_plan('add-key', index='1')
         home = self.root / 'home'
         (home / '.ssh').mkdir(parents=True)
         (home / '.ssh/id_ed25519_sk_rk_private-name').write_text('synthetic')
         with patch.dict(os.environ, {'HOME': str(home)}):
             result = control.status(self.root, self.root / 'config', self.root / 'state', self.root / 'store', 'user', query=False)
-        self.assertEqual(result['ssh'], {'count': 1})
+        self.assertEqual(result['ssh'], {'count': 1, 'keys': [{'type': 'other', 'passphrase': False, 'host': False}]})
         self.assertNotIn('private-name', json.dumps(result))
+        hostile = {'count': 2, 'keys': [{'type': 'ed25519-sk', 'passphrase': 'yes', 'host': True, 'name': 'private-name'}, 'private-name']}
+        fake = type('Module', (), {'status': staticmethod(lambda: hostile)})
+        loader = type('Loader', (), {'exec_module': lambda self, module: module.__dict__.update(status=fake.status)})()
+        with patch.object(control.importlib.util, 'spec_from_file_location', return_value=type('Spec', (), {'loader': loader})()), \
+                patch.object(control.importlib.util, 'module_from_spec', return_value=type('M', (), {})()):
+            value = control.ssh_status()
+        self.assertEqual(value, {'count': 2, 'keys': [{'type': 'ed25519-sk', 'passphrase': False, 'host': True}]})
 
     def test_status_rejects_duplicate_account_and_invalid_stores(self):
         with self.assertRaises(ValueError):

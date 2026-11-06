@@ -12,12 +12,17 @@ Interactive terminal operations, run as the desktop user without privileges:
           optionally keeping the connection open for reuse (ControlPersist)
   remove  delete one copied key file pair from ~/.ssh, and its line in the
           drop-in made for it; the credential stays on the security key and
-          can be imported again
+          can be imported again. `--index N` selects the Nth key as the
+          control center lists it, and the terminal still names the file and
+          asks before removing it
 
-`status()` is the metadata-only probe used by the control center: how many
-resident key files ~/.ssh holds, without names.
+`status()` is the metadata-only probe used by the control center: the resident
+key files in ~/.ssh in a fixed order, each described only by its key type,
+whether a passphrase protects it and whether a git-host drop-in uses it. File
+names, applications and user IDs never leave this script.
 """
 import argparse
+import base64
 import os
 from pathlib import Path
 import re
@@ -41,6 +46,11 @@ MAX_PERSIST_MINUTES = 24 * 60
 MARKER = '# Created by omarchy-yubikey for resident SSH keys.'
 IDENTITY = '    IdentityFile ~/.ssh/'
 INCLUDE = 'Include config.d/*.conf'
+STATUS_LIMIT = 50
+# Public key algorithm names, before their "@openssh.com" suffix.
+KEY_TYPES = {'sk-ssh-ed25519': 'ed25519-sk', 'sk-ecdsa-sha2-nistp256': 'ecdsa-sk'}
+# Built from parts so the publication scan does not see a key block here.
+PRIVATE_BEGIN = '-----BEGIN OPENSSH ' + 'PRIVATE KEY-----'
 
 
 def ssh_directory():
@@ -57,8 +67,37 @@ def resident_keys(directory):
                   and not (directory / name).is_symlink() and (directory / name).is_file())
 
 
+def key_type(directory, name):
+    try:
+        fields = (directory / (name + '.pub')).read_text(errors='replace').split()
+    except OSError:
+        return 'other'
+    name, _, vendor = (fields[0] if fields else '').partition('@')
+    return KEY_TYPES.get(name, 'other') if vendor == 'openssh.com' else 'other'
+
+
+def has_passphrase(path):
+    """Whether an OpenSSH private key file is encrypted (its cipher is not "none")."""
+    try:
+        text = path.read_text(errors='replace')
+        body = text.split(PRIVATE_BEGIN, 1)[1].split('-----END', 1)[0]
+        data = base64.b64decode(''.join(body.split()), validate=True)
+    except (OSError, IndexError, ValueError):
+        return False
+    magic = b'openssh-key-v1\0'
+    if not data.startswith(magic) or len(data) < len(magic) + 4:
+        return False
+    length = int.from_bytes(data[len(magic):len(magic) + 4], 'big')
+    return data[len(magic) + 4:len(magic) + 4 + length] not in (b'none', b'')
+
+
 def status():
-    return {'count': len(resident_keys(ssh_directory()))}
+    """Metadata only: never file names, applications or user IDs."""
+    directory = ssh_directory()
+    names = resident_keys(directory)
+    keys = [{'type': key_type(directory, name), 'passphrase': has_passphrase(directory / name),
+             'host': bool(drop_ins_for(directory, name))} for name in names[:STATUS_LIMIT]]
+    return {'count': len(names), 'keys': keys}
 
 
 def application(directory, name):
@@ -311,21 +350,28 @@ def do_import():
     offer_drop_ins(directory, sorted(present))
 
 
-def do_remove():
+def do_remove(index=None):
     directory = ssh_directory()
     names = resident_keys(directory)
     if not names:
         print('No resident key files in ~/.ssh; nothing to remove.')
         return
     print('The credential stays on the security key; only the copy in ~/.ssh is removed.')
-    for index, name in enumerate(names, 1):
-        print(str(index) + '. ' + name)
-    selected = input('Number to remove, or Enter to cancel: ').strip()
-    if not selected:
-        return
-    if not selected.isdecimal() or not 1 <= int(selected) <= len(names):
-        raise ValueError('Invalid selection')
-    name = names[int(selected) - 1]
+    if index is not None:
+        # The control center lists keys in the same order, by number only.
+        if not 1 <= index <= len(names):
+            raise ValueError('The key list changed; refresh the control center and try again')
+        name = names[index - 1]
+        print('Key ' + str(index) + ': ~/.ssh/' + name)
+    else:
+        for number, name in enumerate(names, 1):
+            print(str(number) + '. ' + name)
+        selected = input('Number to remove, or Enter to cancel: ').strip()
+        if not selected:
+            return
+        if not selected.isdecimal() or not 1 <= int(selected) <= len(names):
+            raise ValueError('Invalid selection')
+        name = names[int(selected) - 1]
     drop_ins = drop_ins_for(directory, name)
     question = 'Remove ~/.ssh/' + name + ' and its .pub'
     if drop_ins:
@@ -344,10 +390,16 @@ def do_remove():
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('operation', choices=['import', 'remove'])
+    parser.add_argument('--index', type=int, help='remove: the Nth key as the control center lists it')
     args = parser.parse_args()
+    if args.index is not None and (args.operation != 'remove' or not 1 <= args.index <= STATUS_LIMIT):
+        parser.error('--index selects a key from 1 to ' + str(STATUS_LIMIT) + ' for remove')
     if os.geteuid() == 0 or not sys.stdin.isatty() or not sys.stdout.isatty():
         parser.error('Run as the desktop user in an interactive terminal')
-    (do_import if args.operation == 'import' else do_remove)()
+    if args.operation == 'import':
+        do_import()
+    else:
+        do_remove(args.index)
 
 
 if __name__ == '__main__':

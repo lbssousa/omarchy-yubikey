@@ -37,7 +37,7 @@ class SshKeyTests(unittest.TestCase):
             (self.target / name).write_text('synthetic')
         (self.target / 'id_ecdsa_sk_rk_link').symlink_to(self.target / 'notes')
         self.assertEqual(ssh.resident_keys(self.target), ['id_ecdsa_sk_rk_example', 'id_ed25519_sk_rk'])
-        self.assertEqual(ssh.status(), {'count': 2})
+        self.assertEqual(ssh.status(), {'count': 2, 'keys': [{'type': 'other', 'passphrase': False, 'host': False}] * 2})
         self.assertEqual(ssh.resident_keys(self.base / 'missing'), [])
 
     def test_install_never_overwrites_and_sets_modes(self):
@@ -187,6 +187,40 @@ class SshKeyTests(unittest.TestCase):
                 patch('builtins.print'), patch('builtins.input', side_effect=['y', '0']):
             ssh.do_import()
         self.assertNotIn('Control', (self.target / 'config.d' / 'github.com.conf').read_text())
+
+    def test_status_describes_keys_without_names(self):
+        import subprocess
+        names = ['id_ecdsa_sk_rk_github.com', 'id_ed25519_sk_rk_github.com_alice']
+        self.resident(self.target, names[0], 'ssh:github.com')
+        (self.target / (names[0] + '.pub')).write_text('sk-ecdsa-sha2-nistp256' + AT + 'openssh.com AAAA ssh:github.com\n')
+        self.resident(self.target, names[1], 'ssh:github.com')
+        (self.target / (names[1] + '.pub')).write_text('sk-ssh-ed25519' + AT + 'openssh.com AAAA ssh:github.com\n')
+        # Real OpenSSH private key files: one encrypted, one not.
+        for name, passphrase in ((names[0], ''), (names[1], 'synthetic')):
+            (self.target / name).unlink()
+            subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', passphrase, '-C', '', '-f', str(self.base / name)], check=True)
+            (self.base / name).replace(self.target / name)
+        ssh.write_drop_in(self.target, [names[1]], ('git', 'github.com', None), 0)
+        value = ssh.status()
+        self.assertEqual(value, {'count': 2, 'keys': [{'type': 'ecdsa-sk', 'passphrase': False, 'host': False},
+                                                       {'type': 'ed25519-sk', 'passphrase': True, 'host': True}]})
+        self.assertNotIn('github', repr(value))
+        self.assertNotIn('alice', repr(value))
+
+    def test_remove_by_index_names_the_file_and_still_asks(self):
+        names = ['id_ed25519_sk_rk_a', 'id_ed25519_sk_rk_b']
+        for name in names:
+            self.resident(self.target, name)
+        with patch('builtins.input', side_effect=['n']) as asked, patch('builtins.print') as printed:
+            ssh.do_remove(2)
+        self.assertEqual(asked.call_count, 1)
+        self.assertIn('~/.ssh/id_ed25519_sk_rk_b', ' '.join(str(call) for call in printed.call_args_list))
+        with patch('builtins.input', side_effect=['y']), patch('builtins.print'):
+            ssh.do_remove(2)
+        self.assertEqual(ssh.resident_keys(self.target), ['id_ed25519_sk_rk_a'])
+        with patch('builtins.print'), self.assertRaises(ValueError):
+            ssh.do_remove(2)
+        self.assertEqual(ssh.resident_keys(self.target), ['id_ed25519_sk_rk_a'])
 
     def test_minutes_are_bounded(self):
         for answer, minutes in (('', 15), ('0', 0), ('30', 30), ('1440', 1440)):

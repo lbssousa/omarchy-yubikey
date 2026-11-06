@@ -14,7 +14,8 @@ FIXTURE = {'supported': True, 'connected': 1, 'enrollment': {'count': 2, 'state'
            'polkit': {'state': 'configured', 'pin': True}, 'lock': {'state': 'configured', 'pin': True},
            'plugins': {'lock': {'installed': True, 'enabled': True}, 'polkit': {'installed': True, 'enabled': True}},
            'keyring': {'installed': True, 'state': 'enrolled', 'count': 2, 'unit': True, 'autostart': 'enabled'},
-           'ssh': {'count': 1},
+           'ssh': {'count': 2, 'keys': [{'type': 'ed25519-sk', 'passphrase': True, 'host': True},
+                                        {'type': 'ecdsa-sk', 'passphrase': False, 'host': False}]},
            'operation': {}, 'diskReady': True}
 
 

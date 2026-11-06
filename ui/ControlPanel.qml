@@ -20,6 +20,17 @@ Item {
   readonly property bool canAct: !!snapshot && snapshot.supported && !busy
   readonly property int keyCount: snapshot ? snapshot.enrollment.count : 0
   readonly property int sshCount: snapshot && snapshot.ssh ? snapshot.ssh.count : 0
+  readonly property var sshKeys: snapshot && snapshot.ssh && snapshot.ssh.keys ? snapshot.ssh.keys : []
+  // Type and flags only: the window never receives file names, applications or user IDs.
+  function sshKeyDetails(key) {
+    var parts = [key.type === "ed25519-sk" ? "Ed25519-SK" : key.type === "ecdsa-sk" ? "ECDSA-SK" : strings.t("Other")]
+    parts.push(key.passphrase ? strings.t("passphrase") : strings.t("no passphrase"))
+    if (key.host) parts.push(strings.t("git host configured"))
+    return parts.join(" · ")
+  }
+  function sshNumber(value) {
+    return typeof strings.number === "function" ? strings.number(value) : String(value)
+  }
   property string pendingAction: ""
   property string pendingTitle: ""
   property var pendingParameters: []
@@ -34,9 +45,9 @@ Item {
   readonly property var shortPages: [strings.t("Overview"), strings.t("Keys"), strings.t("Desktop"), strings.t("Keyring"), strings.t("Recovery")]
   readonly property var subtitles: [strings.t("Security-key authentication, in one place."), strings.t("Keep a spare key ready before you need it."), strings.t("Choose how your key works with sudo and your session."), strings.t("Unlock your existing GNOME Keyring with a touch."), strings.t("Enroll disk keys and recover previous PAM settings.")]
 
-  function ask(action, title, device, backup) {
+  function ask(action, title, device, backup, index) {
     if (!root.canAct) return
-    var parameters = Model.parameters(action, device, backup)
+    var parameters = Model.parameters(action, device, backup, index)
     if (parameters === null) { root.notice = strings.t("Check the device path or backup ID."); root.failed = true; return }
     root.pendingAction = action
     root.pendingTitle = title
@@ -220,8 +231,28 @@ Item {
                 badge: strings.t("%1 in ~/.ssh", [strings.number(root.sshCount)])
                 ready: root.sshCount > 0
                 description: strings.t("Copy the SSH keys stored on your security key into ~/.ssh, for example on a new computer. Existing files are never overwritten. Removing a copy leaves the key on the security key.")
+                details: Column {
+                  objectName: "sshKeys"
+                  width: parent.width
+                  visible: root.sshKeys.length > 0
+                  spacing: Style.space(8)
+                  Repeater {
+                    model: root.sshKeys
+                    RowLayout {
+                      required property var modelData
+                      required property int index
+                      width: parent.width
+                      spacing: Style.space(12)
+                      Column {
+                        Layout.fillWidth: true
+                        Text { width: parent.width; text: strings.t("Key %1", [root.sshNumber(index + 1)]); color: Commons.Color.foreground; font { family: Style.font.family; pixelSize: Style.font.body } textFormat: Text.PlainText; elide: Text.ElideRight }
+                        Text { width: parent.width; text: root.sshKeyDetails(modelData); color: Util.alpha(Commons.Color.foreground, 0.73); font { family: Style.font.family; pixelSize: Style.font.caption } textFormat: Text.PlainText; wrapMode: Text.WrapAtWordBoundaryOrAnywhere }
+                      }
+                      ActionButton { objectName: "sshRemove" + index; text: strings.t("Remove"); enabled: root.canAct; onClicked: root.ask("ssh-remove", strings.t("Remove SSH key %1", [root.sshNumber(index + 1)]), "", "", index + 1) }
+                    }
+                  }
+                }
                 ActionButton { text: strings.t("Import SSH keys"); primary: root.sshCount === 0; enabled: root.canAct && root.snapshot.connected > 0; onClicked: root.ask("ssh-import", text) }
-                ActionButton { text: strings.t("Remove a copy"); enabled: root.canAct && root.sshCount > 0; onClicked: root.ask("ssh-remove", text) }
               }
               FeatureCard {
                 title: strings.t("A backup for every feature")

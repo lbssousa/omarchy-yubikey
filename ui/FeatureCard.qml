@@ -10,6 +10,9 @@ Rectangle {
   property string badge: ""
   property bool ready: false
   default property alias actions: actionFlow.data
+  // Rows shown between the description and the actions. They stay outside the
+  // Flow, whose width a full-width child would otherwise feed back into.
+  property alias details: detailColumn.data
   readonly property real padding: Style.space(18)
   Layout.fillWidth: true
   implicitHeight: content.implicitHeight + padding * 2
@@ -56,6 +59,12 @@ Rectangle {
       font { family: Style.font.family; pixelSize: Style.font.body }
       wrapMode: Text.WrapAtWordBoundaryOrAnywhere
       lineHeight: 1.25
+    }
+    Column {
+      id: detailColumn
+      Layout.fillWidth: true
+      visible: children.length > 0
+      spacing: Style.space(8)
     }
     Flow {
       id: actionFlow

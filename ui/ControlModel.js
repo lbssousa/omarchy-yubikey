@@ -18,14 +18,18 @@ function cleanSnapshot(value) {
   }
   var keyring = value.keyring || {}
   out.keyring = {installed: keyring.installed === true, unit: keyring.unit === true, count: count(keyring.count), state: ["enrolled", "not-enrolled", "unreadable"].indexOf(keyring.state) >= 0 ? keyring.state : "unreadable", autostart: keyring.autostart === "enabled" ? "enabled" : "disabled"}
-  out.ssh = {count: count((value.ssh || {}).count)}
+  var ssh = value.ssh || {}
+  out.ssh = {count: count(ssh.count), keys: (Array.isArray(ssh.keys) ? ssh.keys : []).slice(0, 50).map(function(key) {
+    key = key || {}
+    return {type: ["ed25519-sk", "ecdsa-sk"].indexOf(key.type) >= 0 ? key.type : "other", passphrase: key.passphrase === true, host: key.host === true}
+  })}
   var tools = value.tools || {}
   out.diskReady = tools.cryptsetup === true && tools["systemd-cryptenroll"] === true && tools["fido2-token"] === true
   var operation = value.operation || {}
   out.operation = {action: actions.indexOf(operation.action) >= 0 ? operation.action : "", phase: ["starting", "running", "succeeded", "failed", "cancelled", "interrupted"].indexOf(operation.phase) >= 0 ? operation.phase : ""}
   return out
 }
-function parameters(action, device, backup) {
+function parameters(action, device, backup, index) {
   if (actions.indexOf(action) < 0) return null
   var result = []
   if (action === "luks-check" || action === "luks-enroll") {
@@ -34,6 +38,9 @@ function parameters(action, device, backup) {
   } else if (action === "rollback") {
     if (!/^[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$/.test(backup || "")) return null
     result = ["--backup", backup]
+  } else if (action === "ssh-remove") {
+    if (!/^[1-9][0-9]?$/.test(String(index || "")) || Number(index) > 50) return null
+    result = ["--index", String(index)]
   }
   return result
 }

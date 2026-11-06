@@ -41,6 +41,18 @@ TestCase {
     panel.page = 1
     var sshCard = findChild(panel,"sshCard")
     verify(sshCard.visible)
+    verify(findChild(panel,"sshKeys").visible)
+    var remove = findChild(panel,"sshRemove0")
+    verify(remove !== null)
+    remove.clicked()
+    verify(dialog.opened)
+    compare(panel.pendingAction,"ssh-remove")
+    keyClick(Qt.Key_Right)
+    keyClick(Qt.Key_Return)
+    compare(dialog.opened,false)
+    compare(lastParameters.length,2)
+    compare(lastParameters[0],"--index")
+    compare(lastParameters[1],"1")
     panel.page = 0
     panel.snapshot = Object.assign({}, panel.snapshot, {operation:{phase:"running"}})
     panel.ask("setup", "Guided setup")
