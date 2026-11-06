@@ -131,6 +131,7 @@
   "Unavailable": "Unavailable",
   "Unlock now": "Unlock now",
   "Unlock your existing GNOME Keyring with a touch.": "Unlock your existing GNOME Keyring with a touch.",
+  "Update key": "Update key",
   "Use": "Use",
   "Use PIN + touch, with explicit password fallback by default. Setup preserves the original password stack and prints a rollback ID.": "Use PIN + touch, with explicit password fallback by default. Setup preserves the original password stack and prints a rollback ID.",
   "Use standard plugins": "Use standard plugins",

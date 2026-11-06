@@ -56,6 +56,29 @@ TestCase {
     checkPublicFields(panel)
     var openpgpCard = findChild(panel,"openpgpCard")
     verify(openpgpCard.visible)
+    var openpgpPrimary = findChild(panel,"openpgpPrimary")
+    var openpgpUpdate = findChild(panel,"openpgpUpdate")
+    function openpgpAction(button) {
+      button.clicked()
+      var action = panel.pendingAction
+      keyClick(Qt.Key_Escape)
+      compare(dialog.opened,false)
+      return action
+    }
+    // Ready key: the single button removes it and no update is offered.
+    verify(!openpgpUpdate.visible)
+    compare(openpgpAction(openpgpPrimary), "openpgp-remove")
+    var savedOpenpgp = panel.snapshot.openpgp
+    panel.snapshot = Object.assign({}, panel.snapshot, {openpgp:{card:true,imported:false,linked:false,trusted:false,ready:false,key:null}})
+    verify(!openpgpUpdate.visible)
+    compare(openpgpAction(openpgpPrimary), "openpgp-import")
+    panel.snapshot = Object.assign({}, panel.snapshot, {openpgp:{card:true,imported:true,linked:false,trusted:true,ready:false,key:{algorithm:"ed25519"}}})
+    verify(openpgpUpdate.visible)
+    compare(openpgpAction(openpgpUpdate), "openpgp-import")
+    compare(openpgpAction(openpgpPrimary), "openpgp-remove")
+    panel.snapshot = Object.assign({}, panel.snapshot, {openpgp:{card:true,imported:true,linked:true,trusted:true,ready:true,key:{algorithm:"ed25519",expired:true}}})
+    verify(openpgpUpdate.visible)
+    panel.snapshot = Object.assign({}, panel.snapshot, {openpgp:savedOpenpgp})
     var details = findChild(panel,"openpgpDetails")
     verify(details.visible)
     compare(panel.openpgpDetails().length, 9)

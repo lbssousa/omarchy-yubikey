@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- OpenPGP card: one button imports a missing key or removes an imported one,
+  instead of always showing both. A separate **Update key** button appears only
+  when the imported key is not linked, expired, revoked or disabled.
+
 - Fix translations of the standalone lock and Polkit plugins on Omarchy 4.5,
   whose `qs.Commons` exports its own `Translations` type. Their unqualified
   `Translations` resolved to it instead of the bundled loader, as the setup
