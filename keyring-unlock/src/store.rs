@@ -143,6 +143,42 @@ mod b64 {
 mod tests {
     use super::*;
 
+    #[test]
+    fn cipher_zeroizes_on_drop() {
+        // The 0.11 dependency makes this opt-in. Keep the previous key-erasure
+        // contract checked at compile time when dependency features change.
+        fn requires_zeroize_on_drop<T: zeroize::ZeroizeOnDrop>() {}
+        requires_zeroize_on_drop::<ChaCha20Poly1305>();
+    }
+
+    #[test]
+    fn legacy_010_store_decrypts() {
+        // Synthetic v1 fixture generated with chacha20poly1305 0.10.1:
+        // hmac-secret=[1;32], nonce=[7;12], existing HKDF info and credential AAD.
+        let store: Store = serde_json::from_value(serde_json::json!({
+            "version": 1,
+            "entries": [{
+                "label": "synthetic legacy fixture",
+                "created": "2026-01-01 00:00",
+                "credential_id": "c3ludGhldGljLWxlZ2FjeS1jcmVkZW50aWFs",
+                "salt": B64.encode([7; 32]),
+                "nonce": "BwcHBwcHBwcHBwcH",
+                "ciphertext": "adLL4WOtnBbVf8f/zx8yUc758zlZvxGtQkPCetp7mwSu50p/EbUD9j8="
+            }]
+        }))
+        .unwrap();
+        assert_eq!(store.version, VERSION);
+        let entry = &store.entries[0];
+        assert_eq!(open(entry, &[1; 32]).unwrap().as_slice(), b"synthetic legacy password");
+        assert!(open(entry, &[2; 32]).is_err());
+        let mut changed = entry.clone();
+        changed.credential_id = b"other".to_vec();
+        assert!(open(&changed, &[1; 32]).is_err());
+        changed = entry.clone();
+        changed.ciphertext[0] ^= 1;
+        assert!(open(&changed, &[1; 32]).is_err());
+    }
+
     fn entry(secret: &[u8], cred: &[u8], password: &[u8]) -> Entry {
         let (nonce, ciphertext) = seal(secret, cred, password).unwrap();
         Entry {
