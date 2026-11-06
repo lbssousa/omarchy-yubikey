@@ -15,7 +15,7 @@ Filenames and FIDO2 user IDs/credential handles are not sent to the window.
 | **Create SSH key** | Asks for each option in the terminal (see [Create a resident key](#create-a-resident-key)), shows the `ssh-keygen` command and asks before running it. The key is generated on the security key; its handle file is installed like an imported one. |
 | **Delete from security key** | **Permanently** deletes one resident SSH key from the security key itself (see [Delete a resident key](#delete-a-resident-key-from-the-security-key)). It cannot be recovered or imported again. |
 | **Import SSH keys** | Runs `ssh-keygen -K` in a private temporary directory, then installs complete pairs at 0600/0644. Existing files, including either half of a pair, are never overwritten. An incomplete/failed download installs nothing. Failed pair copies roll back files created for that pair. |
-| **Remove** | Passes a stable reference to the exact filename and public identity, rather than a row number. The terminal identifies the public fingerprint and filename before confirmation. A disappeared/replaced public key cannot redirect removal to another row, and both file contents are rechecked after confirmation. The credential stays on the security key. |
+| **Remove** | Passes a stable reference to the exact filename and public identity, rather than a row number. The terminal identifies the public fingerprint and filename before confirmation. A disappeared/replaced public key cannot redirect removal to another row, and both file contents are rechecked after confirmation. The terminal then asks how to remove it: **1** removes only the copy in `~/.ssh`, keeping the key on the security key; **2** deletes the key **permanently** from the security key, as described below, and then removes the copy. |
 
 SSH management directories must be owned by the account and private (0700).
 Symlinks, nonregular files, oversized input and concurrent tool operations are
@@ -52,11 +52,15 @@ Removing the copy keeps the credential on the security key;
 ## Delete a resident key from the security key
 
 > **This cannot be undone.** Deleting a resident key removes it from the security
-> key itself. Unlike **Remove**, which only deletes the copy in `~/.ssh`, the key
-> cannot be recovered or imported again, and every server or Git host that trusts
-> it needs a new key.
+> key itself. Unlike removing only the copy in `~/.ssh`, the key cannot be
+> recovered or imported again, and every server or Git host that trusts it needs a
+> new key.
 
-The card and the confirmation dialog both carry this warning. The terminal then:
+Two ways lead here: option **2** of a key's **Remove** button, which looks up the
+key matching that copy (same application and user ID, including user IDs that
+`ssh-keygen -K` wrote as hexadecimal), and **Delete from security key**, which also
+reaches keys without a copy in `~/.ssh`. The card and the confirmation dialog of
+both carry this warning. **Delete from security key** then:
 
 1. prints the warning, and runs `fido2-token -L -r` to list the applications with
    resident SSH keys (`ssh:…`), then `fido2-token -L -k` for the chosen application.
