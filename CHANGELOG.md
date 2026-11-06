@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Fix translations of the standalone lock and Polkit plugins on Omarchy 4.5,
+  whose `qs.Commons` exports its own `Translations` type. Their unqualified
+  `Translations` resolved to it instead of the bundled loader, as the setup
+  window's did before 0.5.0, so they stayed in English, lost right-to-left layout
+  and failed on `strings.number`. They now import the bundled loader by a
+  qualified local import.
+
 - Tests: the PAM setup and key-removal tests pin English, as the installer
   tests already do. They matched English messages that `tr()` translated into
   the developer's own Omarchy language, so four of them failed on any non-English
