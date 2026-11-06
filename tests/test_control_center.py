@@ -107,10 +107,18 @@ class ControlTests(unittest.TestCase):
     def test_ui_catalogs_cover_every_literal_and_preserve_placeholders(self):
         import re
         english = json.loads((ROOT / 'i18n/control/en.json').read_text())
-        german = json.loads((ROOT / 'i18n/control/de.json').read_text())
-        self.assertEqual(set(english), set(german))
-        for key, value in german.items():
-            self.assertEqual(re.findall(r'%[0-9]+', key), re.findall(r'%[0-9]+', value))
+        registry = json.loads((ROOT / 'i18n/locales.json').read_text())
+        catalogs = sorted((ROOT / 'i18n/control').glob('*.json'))
+        self.assertIn('de', [path.stem for path in catalogs])
+        self.assertIn('pt-BR', [path.stem for path in catalogs])
+        for path in catalogs:
+            with self.subTest(catalog=path.name):
+                # The loader builds the path from a normalized registry code.
+                self.assertIn(path.stem, registry)
+                translated = json.loads(path.read_text())
+                self.assertEqual(set(english), set(translated))
+                for key, value in translated.items():
+                    self.assertEqual(re.findall(r'%[0-9]+', key), re.findall(r'%[0-9]+', value))
         for path in (ROOT / 'ui').glob('*.qml'):
             for value in re.findall(r'strings\.t\(("(?:[^"\\]|\\.)*")', path.read_text()):
                 self.assertIn(json.loads(value), english)

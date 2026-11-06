@@ -29,7 +29,7 @@ def main():
     parser.add_argument('--screenshots', type=Path)
     parser.add_argument('--width', type=int, default=1280)
     parser.add_argument('--height', type=int, default=900)
-    parser.add_argument('--language', default='en', choices=['en', 'de', 'ar'])
+    parser.add_argument('--language', default='en', choices=['en', 'de', 'pt-BR', 'ar'])
     parser.add_argument('--shell-root', type=Path, default=Path('/usr/share/omarchy/shell'))
     args = parser.parse_args()
     if not shutil.which('qs') or not (args.shell_root / 'Commons').is_dir():
