@@ -23,6 +23,9 @@ Dependabot checks Cargo dependencies (including transitive dependencies) and
 GitHub Actions weekly. GitHub security-update pull requests should be enabled in
 repository settings; they are separate from this version-update schedule. Update
 pull requests require review and passing checks; they are not auto-merged.
+Routine minor/patch version updates are grouped to reduce review noise;
+cryptographic/hardware-authentication dependencies and major updates stay
+separate. Security updates are not included in those routine version groups.
 
 The Dependency audit workflow runs on pushes, pull requests, a daily schedule and
 manual dispatch. It checks the lockfile against the current RustSec database,

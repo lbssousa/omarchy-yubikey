@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.5.2 — 2026-11-06
+
+- Integrate the reviewed Dependabot batch in PRs #5–#15: pinned checkout 7.0.1,
+  Rust build/FFI/procedural-macro dependencies and chacha20poly1305 0.11.
+- Explicitly retain key/state zeroization for the crypto update and add a
+  compile-time regression guard. Verify decryption of a synthetic v1 store
+  produced with chacha20poly1305 0.10.1, including rejection of wrong keys,
+  changed credentials and modified ciphertext.
+- Group routine minor/patch version updates while keeping crypto/hardware-auth
+  and major changes separate. Leave security updates outside routine groups.
+
 ## 0.5.1 — 2026-11-06
 
 - Update the locked `libz-sys` dependency from 1.1.30 to 1.1.31 for

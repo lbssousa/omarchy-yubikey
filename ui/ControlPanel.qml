@@ -430,7 +430,7 @@ Item {
         text: root.snapshot && !root.snapshot.supported ? strings.t("A compatible Omarchy desktop is required.") : strings.t("Local status · no credential values displayed")
         color: Commons.Color.muted; font { family: Style.font.family; pixelSize: Style.font.caption } wrapMode: Text.WordWrap
       }
-      Text { text: "0.5.1"; color: Commons.Color.muted; font { family: Style.font.family; pixelSize: Style.font.caption } }
+      Text { text: "0.5.2"; color: Commons.Color.muted; font { family: Style.font.family; pixelSize: Style.font.caption } }
     }
   }
   Item {
