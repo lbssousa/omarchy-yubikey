@@ -100,7 +100,7 @@ def openpgp_status(query, available):
 
 
 def ssh_status():
-    """Public SSH identities and stable references, never filenames or handles."""
+    """Public SSH identities, user IDs and stable references, never filenames or handles."""
     try:
         spec = importlib.util.spec_from_file_location('manage_ssh', SOURCE / 'scripts/manage-ssh.py')
         module = importlib.util.module_from_spec(spec)
@@ -114,12 +114,13 @@ def ssh_status():
     for key in (keys if isinstance(keys, list) else [])[:SSH_KEY_LIMIT]:
         if not isinstance(key, dict) or not isinstance(key.get('id'), str) or not re.fullmatch(r'[0-9a-f]{64}', key['id']):
             continue
-        fingerprint, application = key.get('fingerprint'), key.get('application')
+        fingerprint, application, user = key.get('fingerprint'), key.get('application'), key.get('user')
         result['keys'].append({
             'id': key['id'],
             'type': key.get('type') if key.get('type') in ('ed25519-sk', 'ecdsa-sk') else 'other',
             'fingerprint': fingerprint if isinstance(fingerprint, str) and re.fullmatch(r'SHA256:[A-Za-z0-9+/]{43}', fingerprint) else '',
             'application': application if isinstance(application, str) and re.fullmatch(r'ssh:[\x21-\x7e]{0,252}', application) else '',
+            'user': user if isinstance(user, str) and re.fullmatch(r'[A-Za-z0-9._@:-]{1,128}', user) else '',
             'passphrase': key.get('passphrase') is True, 'host': key.get('host') is True})
     return result
 

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Show each resident SSH key's user ID next to its application, to tell apart
+  keys made for the same application. Long (binary, hexadecimal) user IDs are
+  shortened; filenames and credential handles stay out of the window.
+
 - Fix translations of the standalone lock and Polkit plugins on Omarchy 4.5,
   whose `qs.Commons` exports its own `Translations` type. Their unqualified
   `Translations` resolved to it instead of the bundled loader, as the setup

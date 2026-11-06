@@ -255,6 +255,24 @@ def load_managed(directory):
         raise ValueError('The managed SSH file has no valid management header; move it aside before continuing') from None
 
 
+# A user ID as ssh-keygen -K writes it into a filename; binary ones become hex.
+STATUS_USER = re.compile(r'[A-Za-z0-9._@:-]{1,128}')
+
+
+def name_user(name, app):
+    """The user ID part of a handle name made by ssh-keygen -K, or None."""
+    match = re.fullmatch(r'id_[a-z0-9]+_sk_rk(?:_(.+))?', name)
+    if not match:
+        return None
+    suffix = match.group(1) or ''
+    part = app[len('ssh:'):] if app.startswith('ssh:') else app
+    if not part:
+        return suffix
+    if suffix == part:
+        return ''
+    return suffix[len(part) + 1:] if suffix.startswith(part + '_') else None
+
+
 def status():
     directory = ssh_directory()
     names = resident_keys(directory)
@@ -277,7 +295,10 @@ def status():
         except (OSError, UnicodeError, ValueError):
             continue
         keys.append({key: public[key] for key in ('type', 'application', 'fingerprint')})
-        keys[-1].update(id=reference, passphrase=has_passphrase(directory / name), host=name in configured)
+        # The user ID tells apart keys made for the same application.
+        user = name_user(name, public['application'])
+        keys[-1].update(id=reference, passphrase=has_passphrase(directory / name), host=name in configured,
+                        user=user if user and STATUS_USER.fullmatch(user) else '')
         if len(keys) == STATUS_LIMIT:
             break
     return {'count': len(names), 'keys': keys, 'modified': modified}
