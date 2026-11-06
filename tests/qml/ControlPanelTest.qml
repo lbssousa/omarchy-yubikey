@@ -41,9 +41,16 @@ TestCase {
     panel.page = 1
     var openpgpCard = findChild(panel,"openpgpCard")
     verify(openpgpCard.visible)
-    panel.snapshot = Object.assign({}, panel.snapshot, {openpgp:{card:false}})
+    var details = findChild(panel,"openpgpDetails")
+    verify(details.visible)
+    compare(panel.openpgpDetails().length, 4)
+    panel.snapshot = Object.assign({}, panel.snapshot, {openpgp:{card:true,imported:true,linked:true,trusted:true,key:{algorithm:"ed25519",sign:true,encrypt:true,authenticate:false,expires:"2020-01-01",expired:true,uids:1}}})
+    verify(!openpgpCard.ready)
+    panel.snapshot = Object.assign({}, panel.snapshot, {openpgp:{card:true,imported:true,linked:true,trusted:false,key:null}})
+    verify(!details.visible)
+    panel.snapshot = Object.assign({}, panel.snapshot, {openpgp:{card:false,imported:false,linked:false,trusted:false,key:null}})
     verify(!openpgpCard.visible)
-    panel.snapshot = Object.assign({}, panel.snapshot, {openpgp:{card:true,imported:true,linked:true,trusted:false}})
+    panel.snapshot = Object.assign({}, panel.snapshot, {openpgp:{card:true,imported:true,linked:true,trusted:false,key:{algorithm:"ed25519",sign:true,encrypt:true,authenticate:true,expires:"2030-01-01",expired:false,uids:2}}})
     panel.page = 0
     panel.snapshot = Object.assign({}, panel.snapshot, {operation:{phase:"running"}})
     panel.ask("setup", "Guided setup")

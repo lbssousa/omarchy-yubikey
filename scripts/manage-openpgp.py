@@ -12,9 +12,11 @@ Interactive terminal operations, run as the desktop user without privileges:
 Removal refuses whenever gpg keeps a secret part of the key on disk, which
 would be lost for good. `status()` is the metadata-only probe used by the
 control center: whether a card is present and the key imported, linked and
-trusted, without fingerprints, serials or names.
+trusted, plus the imported key's algorithm, capabilities, expiry and number
+of user IDs, without fingerprints, serials, names or addresses.
 """
 import argparse
+import datetime
 import os
 import re
 import subprocess
@@ -23,6 +25,9 @@ import sys
 PROBE_TIMEOUT = 5
 NETWORK_TIMEOUT = 60
 KEY_URL = re.compile(r'(?:https?|hkps?)://[^\s]+')
+CURVES = {'ed25519', 'cv25519', 'ed448', 'cv448', 'nistp256', 'nistp384', 'nistp521',
+          'brainpoolP256r1', 'brainpoolP384r1', 'brainpoolP512r1', 'secp256k1'}
+RSA = {'1', '2', '3'}
 
 
 def unescape_colons(value):
@@ -61,6 +66,30 @@ def primary_key(text):
     return '', trust
 
 
+def key_summary(text, now=None):
+    """Non-identifying facts about the primary key of a --list-keys listing:
+    algorithm, capabilities, expiry and how many user IDs it carries."""
+    pub = next((line.split(':') for line in text.splitlines() if line.startswith('pub:')), None)
+    if pub is None:
+        return None
+    pub += [''] * (17 - len(pub))
+    if pub[16] in CURVES:
+        algorithm = pub[16]
+    elif pub[3] in RSA and pub[2].isdecimal() and 1024 <= int(pub[2]) <= 16384:
+        algorithm = 'rsa' + pub[2]
+    else:
+        algorithm = 'other'
+    expires, expired = '', pub[1] == 'e'
+    if pub[6].isdecimal():
+        moment = datetime.datetime.fromtimestamp(int(pub[6]), datetime.timezone.utc)
+        expires = moment.strftime('%Y-%m-%d')
+        expired = expired or moment < (now or datetime.datetime.now(datetime.timezone.utc))
+    capabilities = pub[11]
+    uids = sum(1 for line in text.splitlines() if line.startswith('uid:') and line.split(':')[1] != 'r')
+    return {'algorithm': algorithm, 'sign': 'S' in capabilities, 'encrypt': 'E' in capabilities,
+            'authenticate': 'A' in capabilities, 'expires': expires, 'expired': expired, 'uids': uids}
+
+
 def secret_on_disk(colons):
     """Whether a --list-secret-keys --with-colons listing has a secret part kept
     in the keyring rather than on a card. Field 15 holds the card serial for a
@@ -85,23 +114,30 @@ def card():
     return parse_card(result.stdout) if result.returncode == 0 else None
 
 
+def key_listing(fingerprint):
+    public = gpg('--list-keys', '--with-colons', fingerprint)
+    return public.stdout if public.returncode == 0 else ''
+
+
 def key_state(fingerprint):
     """(primary fingerprint or '', ownertrust, secret listing or '') for a card key."""
-    public = gpg('--list-keys', '--with-colons', fingerprint)
-    if public.returncode != 0:
+    public = key_listing(fingerprint)
+    if not public:
         return '', '', ''
-    primary, trust = primary_key(public.stdout)
+    primary, trust = primary_key(public)
     secret = gpg('--list-secret-keys', '--with-colons', fingerprint)
     return primary, trust, secret.stdout if secret.returncode == 0 else ''
 
 
 def status():
-    """Metadata only: never fingerprints, serials, names or URLs."""
+    """Metadata only: never fingerprints, serials, names, addresses or URLs."""
     found = card()
-    result = {'card': found is not None, 'imported': False, 'linked': False, 'trusted': False}
+    result = {'card': found is not None, 'imported': False, 'linked': False, 'trusted': False, 'key': None}
     if found and found['fingerprints']:
         primary, trust, secret = key_state(found['fingerprints'][0])
         result.update(imported=bool(primary), linked=bool(secret.strip()), trusted=trust == 'u')
+        if primary:
+            result['key'] = key_summary(key_listing(found['fingerprints'][0]))
     return result
 
 

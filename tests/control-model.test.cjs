@@ -22,10 +22,15 @@ test('untrusted status cannot enable operations or inject text', () => {
   assert.equal(value.sudo.state,'not-configured');
   assert.deepEqual(value.operation,{action:'',phase:''});
 });
-test('OpenPGP status keeps only its four flags', () => {
-  const result = model.cleanSnapshot({schema:1,ok:true,openpgp:{card:true,imported:'true',linked:true,trusted:false,fingerprint:'private-value'}});
-  assert.deepEqual(result.openpgp, {card:true,imported:false,linked:true,trusted:false});
+test('OpenPGP status keeps only its flags and a non-identifying key summary', () => {
+  const result = model.cleanSnapshot({schema:1,ok:true,openpgp:{card:true,imported:'true',linked:true,trusted:false,fingerprint:'private-value',key:{algorithm:'ed25519'}}});
+  assert.deepEqual(result.openpgp, {card:true,imported:false,linked:true,trusted:false,key:null});
   assert.equal(JSON.stringify(result).includes('private-value'), false);
-  assert.deepEqual(model.cleanSnapshot({schema:1,ok:true}).openpgp, {card:false,imported:false,linked:false,trusted:false});
+  assert.deepEqual(model.cleanSnapshot({schema:1,ok:true}).openpgp, {card:false,imported:false,linked:false,trusted:false,key:null});
+  const key = {algorithm:'ed25519',sign:true,encrypt:'yes',authenticate:true,expires:'2030-01-01',expired:false,uids:7,uid:'private-value'};
+  assert.deepEqual(model.cleanSnapshot({schema:1,ok:true,openpgp:{card:true,imported:true,key:key}}).openpgp.key,
+    {algorithm:'ed25519',expires:'2030-01-01',expired:false,uids:7,sign:true,encrypt:false,authenticate:true});
+  const hostile = model.cleanSnapshot({schema:1,ok:true,openpgp:{card:true,imported:true,key:{algorithm:'private-value',expires:'private-value',uids:-3}}});
+  assert.deepEqual([hostile.openpgp.key.algorithm, hostile.openpgp.key.expires, hostile.openpgp.key.uids], ['other','',0]);
   assert.deepEqual(model.parameters('openpgp-import','',''), []);
 });

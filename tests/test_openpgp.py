@@ -16,6 +16,9 @@ CARD = ('Reader:Example Reader 00 00:AID:D2760001240100000000000000000000:openpg
         'fpr:' + FPR + '::' + 'B' * 40 + ':\n')
 PUBLIC = 'pub:u:255:22:' + FPR[-16:] + ':1:::u:::scESC::::::23::0:\nfpr:::::::::' + FPR + ':\n'
 STUB = 'sec:u:255:22:' + FPR[-16:] + ':1:::u:::scESC:::D2760001240100000000000000000000::ed25519:::0:\n'
+DETAILED = ('pub:u:255:22:' + FPR[-16:] + ':1700000000:1900000000::u:::scESCA:::::ed25519:::0:\n'
+            'fpr:::::::::' + FPR + ':\nuid:u::::1::' + 'C' * 40 + '::Example User <user' + '@example.org>::::::::::0:\n'
+            'uid:r::::1::' + 'D' * 40 + '::Old Name::::::::::0:\nuid:u::::1::' + 'E' * 40 + '::Example::::::::::0:\n')
 SECRET = 'sec:u:255:22:' + FPR[-16:] + ':1:::u:::scESC:::+::ed25519:::0:\n'
 
 
@@ -58,13 +61,32 @@ class OpenPgpTests(unittest.TestCase):
     def test_status_reports_flags_only(self):
         with patch.object(openpgp.subprocess, 'run', side_effect=fake_gpg()):
             value = openpgp.status()
-        self.assertEqual(value, {'card': True, 'imported': True, 'linked': True, 'trusted': True})
+        self.assertEqual({name: value[name] for name in ('card', 'imported', 'linked', 'trusted')},
+                         {'card': True, 'imported': True, 'linked': True, 'trusted': True})
+        with patch.object(openpgp.subprocess, 'run', side_effect=fake_gpg(public=DETAILED)):
+            value = openpgp.status()
+        self.assertEqual(value['key'], {'algorithm': 'ed25519', 'sign': True, 'encrypt': True, 'authenticate': True,
+                                        'expires': '2030-03-17', 'expired': False, 'uids': 2})
+        rendered = repr(value)
+        for private in (FPR, FPR[-16:], 'Example', 'example.org', 'D276', 'keys.example'):
+            self.assertNotIn(private, rendered)
         with patch.object(openpgp.subprocess, 'run', side_effect=fake_gpg(public='', secret='')):
-            self.assertEqual(openpgp.status(), {'card': True, 'imported': False, 'linked': False, 'trusted': False})
+            self.assertEqual(openpgp.status(), {'card': True, 'imported': False, 'linked': False, 'trusted': False, 'key': None})
         with patch.object(openpgp.subprocess, 'run', side_effect=fake_gpg(card='')):
             self.assertEqual(openpgp.status()['card'], False)
         with patch.object(openpgp.subprocess, 'run', side_effect=FileNotFoundError):
             self.assertEqual(openpgp.status()['card'], False)
+
+    def test_key_summary_names_algorithms_and_expiry(self):
+        import datetime
+        later = datetime.datetime(2031, 1, 1, tzinfo=datetime.timezone.utc)
+        self.assertTrue(openpgp.key_summary(DETAILED, now=later)['expired'])
+        self.assertTrue(openpgp.key_summary(DETAILED.replace('pub:u:', 'pub:e:', 1))['expired'])
+        rsa = 'pub:u:4096:1:' + FPR[-16:] + ':1:::u:::scSC:::::::::0:\n'
+        self.assertEqual(openpgp.key_summary(rsa), {'algorithm': 'rsa4096', 'sign': True, 'encrypt': False,
+                                                    'authenticate': False, 'expires': '', 'expired': False, 'uids': 0})
+        self.assertEqual(openpgp.key_summary(DETAILED.replace('ed25519', 'Example label'))['algorithm'], 'other')
+        self.assertIsNone(openpgp.key_summary(''))
 
     def test_remove_refuses_a_secret_kept_on_disk(self):
         found = openpgp.parse_card(CARD)

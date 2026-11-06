@@ -57,11 +57,33 @@ Item {
     if (!snapshot || !snapshot.keyring.installed) return strings.t("Not installed")
     return snapshot.keyring.state === "enrolled" ? strings.t("Ready") : strings.t("Needs enrollment")
   }
-  readonly property var openpgp: snapshot && snapshot.openpgp ? snapshot.openpgp : {card: false, imported: false, linked: false, trusted: false}
+  readonly property var openpgp: snapshot && snapshot.openpgp ? snapshot.openpgp : {card: false, imported: false, linked: false, trusted: false, key: null}
   function openpgpState() {
     if (!openpgp.imported) return strings.t("Not imported")
+    if (openpgp.key && openpgp.key.expired) return strings.t("Expired")
     if (!openpgp.linked) return strings.t("Not linked to the card")
     return openpgp.trusted ? strings.t("Ready") : strings.t("Not trusted yet")
+  }
+  // Omarchy 4.5's Commons.Translations can shadow the bundled loader and lack
+  // number(); fall back to plain digits rather than losing every detail row.
+  function openpgpNumber(value) {
+    return typeof strings.number === "function" ? strings.number(value) : String(value)
+  }
+  readonly property var openpgpRows: openpgpDetails()
+  // Non-identifying facts only: the window never receives fingerprints or user IDs.
+  function openpgpDetails() {
+    var key = openpgp.key
+    if (!key) return []
+    var uses = []
+    if (key.sign) uses.push(strings.t("Sign"))
+    if (key.encrypt) uses.push(strings.t("Encrypt"))
+    if (key.authenticate) uses.push(strings.t("Authenticate"))
+    return [
+      {label: strings.t("Algorithm"), value: key.algorithm === "other" ? strings.t("Other") : key.algorithm},
+      {label: strings.t("Use"), value: uses.length ? uses.join(", ") : strings.t("None")},
+      {label: strings.t("Expires"), value: !key.expires ? strings.t("Never") : key.expired ? strings.t("Expired on %1", [key.expires]) : key.expires},
+      {label: strings.t("User IDs"), value: openpgpNumber(key.uids)}
+    ]
   }
   function showNotice(source, error) { notice = strings.t(source); failed = error }
   Keys.onPressed: function(event) {
@@ -224,8 +246,23 @@ Item {
                 visible: root.openpgp.card
                 title: strings.t("OpenPGP key on the card")
                 badge: root.openpgpState()
-                ready: root.openpgp.linked && root.openpgp.trusted
+                ready: root.openpgp.linked && root.openpgp.trusted && !(root.openpgp.key && root.openpgp.key.expired)
                 description: strings.t("Import the public key from the URL stored on the card or from the keyservers, so GnuPG signs and decrypts with the card. Removing it from the keyring leaves the key on the card.")
+                details: Column {
+                  objectName: "openpgpDetails"
+                  width: parent.width
+                  visible: root.openpgpRows.length > 0
+                  spacing: Style.space(8)
+                  Repeater {
+                    model: root.openpgpRows
+                    RowLayout {
+                      required property var modelData
+                      width: parent.width
+                      Text { Layout.fillWidth: true; text: modelData.label; color: Commons.Color.foreground; font { family: Style.font.family; pixelSize: Style.font.body } wrapMode: Text.WordWrap }
+                      Text { text: modelData.value; color: Commons.Color.accent; font { family: Style.font.family; pixelSize: Style.font.body } textFormat: Text.PlainText }
+                    }
+                  }
+                }
                 ActionButton { text: strings.t("Import key"); primary: !root.openpgp.linked; enabled: root.canAct; onClicked: root.ask("openpgp-import", text) }
                 ActionButton { text: strings.t("Trust as my key"); enabled: root.canAct && root.openpgp.imported && !root.openpgp.trusted; onClicked: root.ask("openpgp-trust", text) }
                 ActionButton { text: strings.t("Remove from keyring"); enabled: root.canAct && root.openpgp.imported; onClicked: root.ask("openpgp-remove", text) }

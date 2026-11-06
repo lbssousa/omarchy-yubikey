@@ -23,6 +23,8 @@ import uuid
 
 SOURCE = Path(__file__).resolve().parents[1]
 BACKUP_ID = re.compile(r'[0-9]{8}-[0-9]{6}-[a-f0-9]{8}')
+# Algorithm names manage-openpgp.py reports; anything else becomes 'other'.
+OPENPGP_ALGORITHM = re.compile(r'rsa[0-9]{4,5}|ed(?:25519|448)|cv(?:25519|448)|nistp(?:256|384|521)|brainpoolP(?:256|384|512)r1|secp256k1|other')
 ACTIONS = {
     'setup': 'Set up security-key authentication',
     'setup-sudo': 'Configure sudo authentication',
@@ -55,7 +57,8 @@ def openpgp_module():
 
 
 def openpgp_status(query, available):
-    """Card presence and keyring state as flags only; no fingerprints or names."""
+    """Card presence, keyring state and the key's algorithm, capabilities, expiry
+    and user-ID count; no fingerprints, names, addresses or serials."""
     empty = {'card': False, 'imported': False, 'linked': False, 'trusted': False}
     if not query or not available:
         return empty
@@ -63,7 +66,18 @@ def openpgp_status(query, available):
         value = openpgp_module().status()
     except (OSError, ValueError, ImportError):
         return empty
-    return {name: value.get(name) is True for name in empty}
+    result = {name: value.get(name) is True for name in empty}
+    key = value.get('key')
+    if result['imported'] and isinstance(key, dict):
+        algorithm = key.get('algorithm')
+        expires = key.get('expires')
+        uids = key.get('uids')
+        result['key'] = {
+            'algorithm': algorithm if isinstance(algorithm, str) and OPENPGP_ALGORITHM.fullmatch(algorithm) else 'other',
+            'expires': expires if isinstance(expires, str) and re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', expires) else '',
+            'uids': uids if isinstance(uids, int) and 0 <= uids <= 1000 else 0,
+            **{name: key.get(name) is True for name in ('sign', 'encrypt', 'authenticate', 'expired')}}
+    return result
 
 
 def bounded_text(path, limit=262144):
