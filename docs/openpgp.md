@@ -21,13 +21,14 @@ and usable public keys. Expired, revoked and disabled keys are not ready.
 Ownertrust is shown separately; ultimate ownertrust is not a prerequisite for
 using your card and does not prove a hardware link.
 
-**Import key** and **Remove from keyring** share one button: it imports while the
-key is missing and removes it once it is in the keyring.
+One button reads **Import key** while the key is missing and **Update key** once
+it is in the keyring; both run the same import. **Remove from keyring** stays a
+separate button.
 
 | Action | What happens in the terminal |
 | --- | --- |
 | **Import key** | Fetches into a private temporary GnuPG home using the card URL (HTTP, HTTPS, HKP or HKPS), falling back to a keyserver. Only a public certificate containing every populated card-slot fingerprint is exported into the account's keyring. Other downloaded certificates stay in the temporary keyring. A successful fetch of the wrong key triggers fallback. The account's configured dirmngr keyserver URLs are carried into staging; arbitrary GnuPG configuration is not. GnuPG then reads the card to create references; a changed card or a local secret preventing a link is reported. Local secrets are never replaced. |
-| **Update key** | Shown only when the imported key needs attention: not linked to the card, expired, revoked or disabled. Runs the same fetch as **Import key**, which refreshes the public certificate (for example after its expiry was extended) and the card references. |
+| **Update key** | The import button's label once the key is imported. Runs the same fetch as **Import key**, which refreshes the public certificate (for example after its expiry was extended) and the card references. It is highlighted when the key needs attention: not linked to the card, expired, revoked or disabled. |
 | **Trust as my key** | Marks the displayed primary key as ultimately trusted after a separate confirmation. Only do this for your own key. |
 | **Remove from keyring** | Requires a typed confirmation and deletes the public certificate and card stubs, leaving the card unchanged. Removal refuses if any secret part of that certificate is on disk. The secret listing is checked again after confirmation; an inspection failure also stops removal. |
 
