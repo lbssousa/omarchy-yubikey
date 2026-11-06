@@ -192,7 +192,7 @@ class SshKeyTests(unittest.TestCase):
             self.resident(self.target, name, byte=i)
         self.configure(a, b)
         reference = ssh.key_reference(self.target, a)
-        with patch('builtins.input', side_effect=['y', 'y']), patch('builtins.print'):
+        with patch('builtins.input', side_effect=['1', 'y', 'y']), patch('builtins.print'):
             ssh.do_remove(reference)
         hosts, _, modified = ssh.load_managed(self.target)
         self.assertFalse(modified)
@@ -208,7 +208,7 @@ class SshKeyTests(unittest.TestCase):
         self.resident(self.target, selected)
         reference = ssh.key_reference(self.target, selected)
         self.resident(self.target, 'id_ed25519_sk_rk_a', byte=2)
-        with patch('builtins.input', return_value='y'), patch('builtins.print'):
+        with patch('builtins.input', side_effect=['1', 'y']), patch('builtins.print'):
             ssh.do_remove(reference)
         self.assertTrue((self.target / 'id_ed25519_sk_rk_a').exists())
         self.resident(self.target, selected, byte=3)
@@ -221,7 +221,9 @@ class SshKeyTests(unittest.TestCase):
         name = 'id_ed25519_sk_rk_a'
         self.resident(self.target, name)
         reference = ssh.key_reference(self.target, name)
-        def answer(_):
+        def answer(question):
+            if question.startswith('Choice'):
+                return '1'
             (self.target / name).write_text('changed')
             return 'y'
         with patch('builtins.input', side_effect=answer), patch('builtins.print'), self.assertRaises(ValueError):
@@ -446,7 +448,7 @@ class SshKeyTests(unittest.TestCase):
                                              self.creds(('home', 'eddsa'), ('work', 'eddsa')))
         self.assertEqual(calls, [['fido2-token', '-D', '-i', 'E' * 64, '/dev/hidraw9']])
         self.assertEqual(output.count('PERMANENT'), 2)
-        removal.assert_called_once_with(ssh.key_reference(self.target, name))
+        removal.assert_called_once_with(ssh.key_reference(self.target, name), token=False)
 
     def test_delete_token_failure_and_cancellation_change_nothing(self):
         with self.assertRaises(ValueError):
@@ -456,6 +458,79 @@ class SshKeyTests(unittest.TestCase):
         runs, calls, output = self.token([], '00: ' + 'C' * 43 + '= pam://omarchy\n', '')
         self.assertIn('no resident SSH keys', output)
         self.assertEqual(calls, [])
+
+    def test_name_user_reads_the_user_part_of_a_handle_name(self):
+        self.assertEqual(ssh.name_user('id_ed25519_sk_rk_github.com_work', 'ssh:github.com'), 'work')
+        self.assertEqual(ssh.name_user('id_ed25519_sk_rk_github.com', 'ssh:github.com'), '')
+        self.assertEqual(ssh.name_user('id_ed25519_sk_rk_alice', 'ssh:'), 'alice')
+        self.assertEqual(ssh.name_user('id_ed25519_sk_rk', 'ssh:'), '')
+        self.assertIsNone(ssh.name_user('id_ed25519_sk_rk_other', 'ssh:github.com'))
+        self.assertIsNone(ssh.name_user('notes', 'ssh:'))
+
+    def remove_with(self, name, answers, creds, delete_result=0):
+        reference = ssh.key_reference(self.target, name)
+        def run(command, **options):
+            if command == ['fido2-token', '-L']:
+                return subprocess.CompletedProcess(command, 0, '/dev/hidraw9: vendor=0x1050 (Yubico)\n')
+            if command[1:3] == ['-L', '-k']:
+                return subprocess.CompletedProcess(command, 0, creds)
+            raise AssertionError(command)
+        calls = []
+        def call(command, timeout):
+            calls.append(command)
+            return delete_result
+        with patch.object(ssh.subprocess, 'run', side_effect=run), patch.object(ssh.subprocess, 'call', side_effect=call), \
+                patch('builtins.input', side_effect=answers), patch('builtins.print') as printed:
+            ssh.do_remove(reference)
+        return calls, ' '.join(str(c) for c in printed.call_args_list)
+
+    def test_remove_offers_copy_only_or_permanent_deletion(self):
+        name = 'id_ed25519_sk_rk_github.com_work'
+        self.resident(self.target, name)
+        # Option 1 keeps the key on the security key and asks y/N as before.
+        calls, output = self.remove_with(name, ['1', 'y'], '')
+        self.assertEqual(calls, [])
+        self.assertFalse((self.target / name).exists())
+        self.assertIn('PERMANENTLY', output)
+        # Option 2 finds the matching credential by user ID and needs the typed phrase.
+        self.resident(self.target, name)
+        creds = self.creds(('home', 'eddsa'), ('work', 'eddsa'))
+        calls, output = self.remove_with(name, ['2', 'DELETE ssh:github.com'], creds)
+        self.assertEqual(calls, [['fido2-token', '-D', '-i', 'E' * 64, '/dev/hidraw9']])
+        self.assertIn('Matching key', output)
+        self.assertFalse((self.target / name).exists())
+
+    def test_remove_permanent_matches_binary_user_ids_by_hex(self):
+        raw = bytes(range(1, 33))
+        name = 'id_ed25519_sk_rk_github.com_' + raw.hex()
+        self.resident(self.target, name)
+        line = '00: ' + 'F' * 64 + ' (null) ' + base64.b64encode(raw).decode() + ' eddsa uvopt nopay\n'
+        calls, output = self.remove_with(name, ['2', 'DELETE ssh:github.com'], self.creds(('home', 'eddsa')) + line.replace('00:', '01:'))
+        self.assertEqual(calls, [['fido2-token', '-D', '-i', 'F' * 64, '/dev/hidraw9']])
+        self.assertFalse((self.target / name).exists())
+
+    def test_remove_permanent_cancelled_or_failed_keeps_the_copy(self):
+        name = 'id_ed25519_sk_rk_github.com_work'
+        self.resident(self.target, name)
+        creds = self.creds(('work', 'eddsa'))
+        calls, output = self.remove_with(name, ['2', 'delete'], creds)
+        self.assertEqual(calls, [])
+        self.assertTrue((self.target / name).exists())
+        with self.assertRaises(ValueError):
+            self.remove_with(name, ['2', 'DELETE ssh:github.com'], creds, delete_result=1)
+        self.assertTrue((self.target / name).exists())
+        calls, output = self.remove_with(name, [''], creds)
+        self.assertIn('Cancelled', output)
+        with self.assertRaises(ValueError):
+            self.remove_with(name, ['3'], creds)
+        self.assertTrue((self.target / name).exists())
+
+    def test_remove_permanent_without_a_match_lets_the_user_choose(self):
+        name = 'id_ed25519_sk_rk_github.com_work'
+        self.resident(self.target, name)
+        calls, output = self.remove_with(name, ['2', '1', 'DELETE ssh:github.com'], self.creds(('home', 'eddsa'), ('', 'eddsa')))
+        self.assertIn('choose it yourself', output)
+        self.assertEqual(calls, [['fido2-token', '-D', '-i', 'D' * 64, '/dev/hidraw9']])
 
 if __name__ == '__main__':
     unittest.main()

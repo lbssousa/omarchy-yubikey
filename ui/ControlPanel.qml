@@ -329,7 +329,7 @@ Item {
                 }, Text {
                   objectName: "sshDeleteWarning"
                   width: parent.width
-                  text: strings.t("Delete from security key removes a key from the security key itself, permanently. It cannot be recovered or imported again.")
+                  text: strings.t("Deleting a key from the security key itself, through Remove or Delete from security key, is permanent. It cannot be recovered or imported again.")
                   color: Commons.Color.urgent
                   font { family: Style.font.family; pixelSize: Style.font.caption; bold: true }
                   textFormat: Text.PlainText
@@ -453,7 +453,10 @@ Item {
     objectName: "actionConfirmation"
     anchors.fill: parent
     // Deleting from the security key cannot be undone; say so before the terminal opens.
-    message: root.pendingTitle + "\n\n" + (root.pendingAction === "ssh-delete-token" ? strings.t("Delete from security key removes a key from the security key itself, permanently. It cannot be recovered or imported again.") + "\n\n" : "") + strings.t("Open an interactive terminal? Review the operation there before anything changes. PINs and passwords stay in that terminal.")
+    message: root.pendingTitle + "\n\n"
+      + (root.pendingAction === "ssh-remove" ? strings.t("The terminal asks whether to remove only this copy, keeping the key on the security key, or to delete the key permanently from the security key.") + "\n\n" : "")
+      + (["ssh-remove", "ssh-delete-token"].indexOf(root.pendingAction) >= 0 ? strings.t("Deleting a key from the security key itself, through Remove or Delete from security key, is permanent. It cannot be recovered or imported again.") + "\n\n" : "")
+      + strings.t("Open an interactive terminal? Review the operation there before anything changes. PINs and passwords stay in that terminal.")
     cancelText: strings.t("Cancel")
     confirmText: strings.t("Open terminal")
     onCanceled: { opened = false; root.focusFirst() }

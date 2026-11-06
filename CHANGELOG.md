@@ -2,8 +2,11 @@
 
 ## Unreleased
 
-- Permanently delete a resident SSH key from the security key. **Delete from
-  security key** carries a highlighted warning in the card and the confirmation
+- Permanently delete a resident SSH key from the security key. A key's **Remove**
+  now asks whether to remove only the copy in `~/.ssh` or to delete the key
+  permanently from the security key too, finding the matching credential by
+  application and user ID. **Delete from security key** also reaches keys without
+  a copy. Both carry a highlighted warning in the card and the confirmation
   dialog; the terminal lists applications and keys with `fido2-token`, repeats
   the warning, requires typing `DELETE <application>`, deletes the credential and
   offers to remove its now useless copy in `~/.ssh`.

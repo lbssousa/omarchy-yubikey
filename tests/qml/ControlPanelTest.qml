@@ -82,6 +82,7 @@ TestCase {
     remove.clicked()
     verify(dialog.opened)
     compare(panel.pendingAction,"ssh-remove")
+    verify(dialog.message.indexOf(findChild(panel,"sshDeleteWarning").text) >= 0, "Removal offers permanent deletion, so it carries the warning")
     keyClick(Qt.Key_Right)
     keyClick(Qt.Key_Return)
     compare(dialog.opened,false)

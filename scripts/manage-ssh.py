@@ -533,7 +533,8 @@ def do_import():
     offer_drop_ins(directory, sorted(present))
 
 
-def do_remove(key_id=None):
+def do_remove(key_id=None, token=True):
+    """Remove a copied handle; with token, first offer deleting the key itself."""
     directory = ssh_directory()
     names = resident_keys(directory)
     if not names:
@@ -568,9 +569,26 @@ def do_remove(key_id=None):
     public = validate_pair(directory, name)
     reference = key_reference(directory, name)
     print('Selected ' + public['fingerprint'] + ' (' + public['application'] + ')')
-    print('Only the copied handle is removed. The credential stays on the key. Existing SSH sessions remain open.')
-    if input('Remove ~/.ssh/' + name + ' and its .pub? [y/N] ').strip().lower() not in ('y', 'yes'):
-        return
+    choice = '1'
+    if token:
+        print('How should this key be removed?')
+        print('  1. Remove only the copy in ~/.ssh. The key stays on the security key and can be imported again.')
+        print('  2. Delete the key PERMANENTLY from the security key, then remove the copy.')
+        choice = input('Choice, or Enter to cancel: ').strip()
+        if not choice:
+            print('Cancelled; nothing changed.')
+            return
+        if choice not in ('1', '2'):
+            raise ValueError('Choose 1 or 2')
+    if choice == '2':
+        user = name_user(name, public['application'])
+        if delete_credential(public['application'], user, public['type']) is None:
+            return
+        print('The copy ~/.ssh/' + name + ' no longer works; removing it.')
+    else:
+        print('Only the copied handle is removed. The credential stays on the key. Existing SSH sessions remain open.')
+        if input('Remove ~/.ssh/' + name + ' and its .pub? [y/N] ').strip().lower() not in ('y', 'yes'):
+            return
     hosts, previous, modified = load_managed(directory)
     updated = {host: dict(entry, names=[n for n in entry['names'] if n != name]) for host, entry in hosts.items()}
     updated = {host: entry for host, entry in updated.items() if entry['names']}
@@ -720,13 +738,68 @@ def token_credentials(text):
         if len(fields) < 7 or not fields[0].endswith(':') or not CREDENTIAL_ID.fullmatch(fields[1]):
             continue
         try:
-            user = base64.b64decode(fields[-4], validate=True).rstrip(b'\0').decode('utf-8')
-        except (ValueError, UnicodeError):
-            user = '(binary user ID)'
-        if not user.isprintable():
-            user = '(binary user ID)'
-        found.append({'id': fields[1], 'user': user, 'type': COSE_TYPES.get(fields[-3], 'other')})
+            raw = base64.b64decode(fields[-4], validate=True).rstrip(b'\0')
+        except ValueError:
+            continue
+        try:
+            user = raw.decode('utf-8')
+            binary = not user.isprintable() or any(c in user for c in '/\\') or '..' in user
+        except UnicodeError:
+            user, binary = '', True
+        # ssh-keygen -K names such user IDs by their hexadecimal bytes.
+        found.append({'id': fields[1], 'user': raw.hex() if binary else user, 'binary': binary,
+                      'type': COSE_TYPES.get(fields[-3], 'other')})
     return found
+
+
+def name_user(name, app):
+    """The user ID part of a handle name made by ssh-keygen -K, or None."""
+    match = re.fullmatch(r'id_[a-z0-9]+_sk_rk(?:_(.+))?', name)
+    if not match:
+        return None
+    suffix = match.group(1) or ''
+    part = app[len('ssh:'):] if app.startswith('ssh:') else app
+    if not part:
+        return suffix
+    if suffix == part:
+        return ''
+    return suffix[len(part) + 1:] if suffix.startswith(part + '_') else None
+
+
+def describe(credential):
+    user = credential['user']
+    if credential['binary']:
+        user = 'binary user ID ' + user[:12] + '…'
+    return (user or '(no user ID)') + ' · ' + credential['type']
+
+
+def delete_credential(app, user=None, key_type=None):
+    """Delete one resident key of <app> from the token; the credential, or None if cancelled."""
+    device = fido_device()
+    credentials = token_credentials(token_list(['-L', '-k', app, device]))
+    if not credentials:
+        raise ValueError('No resident keys were listed for ' + app)
+    matches = [c for c in credentials if c['user'] == user and key_type in (None, c['type'])]
+    if user is not None and len(matches) == 1:
+        credential = matches[0]
+        print('Matching key on the security key: ' + app + ' · ' + describe(credential))
+    else:
+        if user is not None:
+            print('No single key on the security key matches this copy; choose it yourself.')
+        print('Resident keys for ' + app + ':')
+        credential = choose(credentials, describe)
+        if credential is None:
+            print('Cancelled; nothing changed.')
+            return None
+    warn_permanent()
+    phrase = 'DELETE ' + app
+    if input('Type "' + phrase + '" to delete this key from the security key: ').strip() != phrase:
+        print('Cancelled; nothing changed.')
+        return None
+    if subprocess.call(['fido2-token', '-D', '-i', credential['id'], device], timeout=TOKEN_TIMEOUT):
+        raise ValueError('fido2-token did not delete the key; it is still on the security key')
+    print('Deleted the key from the security key.')
+    return credential
 
 
 def choose(items, label):
@@ -761,29 +834,15 @@ def do_delete_token():
     if app is None:
         print('Cancelled; nothing changed.')
         return
-    credentials = token_credentials(token_list(['-L', '-k', app, device]))
-    if not credentials:
-        raise ValueError('No resident keys were listed for ' + app)
-    print('Resident keys for ' + app + ':')
-    credential = choose(credentials, lambda item: (item['user'] or '(no user ID)') + ' · ' + item['type'])
+    credential = delete_credential(app)
     if credential is None:
-        print('Cancelled; nothing changed.')
         return
-    warn_permanent()
-    phrase = 'DELETE ' + app
-    print('Selected: ' + app + ' · ' + (credential['user'] or '(no user ID)') + ' · ' + credential['type'])
-    if input('Type "' + phrase + '" to delete this key from the security key: ').strip() != phrase:
-        print('Cancelled; nothing changed.')
-        return
-    if subprocess.call(['fido2-token', '-D', '-i', credential['id'], device], timeout=TOKEN_TIMEOUT):
-        raise ValueError('fido2-token did not delete the key; it is still on the security key')
-    print('Deleted the key from the security key.')
     offer_copy_removal(app, credential)
 
 
 def offer_copy_removal(app, credential):
     """The copied handle in ~/.ssh is useless now; offer to remove it too."""
-    if credential['type'] not in ALGORITHMS or credential['user'].startswith('('):
+    if credential['type'] not in ALGORITHMS:
         return
     name = handle_name(credential['type'], app[len('ssh:'):], credential['user'])
     directory = ssh_directory()
@@ -794,7 +853,7 @@ def offer_copy_removal(app, credential):
     except (OSError, ValueError):
         return
     print('~/.ssh/' + name + ' was the copy of that key and no longer works.')
-    do_remove(reference)
+    do_remove(reference, token=False)
 
 
 def main():
