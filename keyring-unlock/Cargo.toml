@@ -11,7 +11,7 @@ publish = false
 [dependencies]
 anyhow = "1"
 base64 = "0.23"
-chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc"] }
+chacha20poly1305 = { version = "0.11", default-features = false, features = ["alloc"] }
 chrono = { version = "0.4.40", default-features = false, features = ["clock"] }
 clap = { version = "4", features = ["derive", "string"] }
 fido2-rs = "0.6"
