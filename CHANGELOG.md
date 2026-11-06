@@ -19,6 +19,9 @@
   requirements and comment, shows the `ssh-keygen` command before running it,
   installs the handle like an imported one, prints the public key and offers the
   Git-host configuration.
+- Show each resident SSH key's user ID next to its application, to tell apart
+  keys made for the same application. Long (binary, hexadecimal) user IDs are
+  shortened; filenames and credential handles stay out of the window.
 
 - Fix translations of the standalone lock and Polkit plugins on Omarchy 4.5,
   whose `qs.Commons` exports its own `Translations` type. Their unqualified

@@ -126,7 +126,7 @@ class SshKeyTests(unittest.TestCase):
             self.assertIsNone(ssh.git_remote(value))
 
     def test_status_exposes_public_identity_and_no_filename(self):
-        name = 'id_ed25519_sk_rk_private-user-id'
+        name = 'id_ed25519_sk_rk_private-name'
         self.resident(self.target, name)
         value = ssh.status()
         self.assertEqual(value['count'], 1)
@@ -135,8 +135,21 @@ class SshKeyTests(unittest.TestCase):
         self.assertEqual(key['type'], 'ed25519-sk')
         self.assertRegex(key['fingerprint'], r'^SHA256:[A-Za-z0-9+/]{43}$')
         self.assertRegex(key['id'], r'^[0-9a-f]{64}$')
-        self.assertNotIn('private-user-id', repr(value))
+        self.assertNotIn('private-name', repr(value))
         self.assertNotIn('synthetic private handle', repr(value))
+        self.assertEqual(key['user'], '')  # The name does not follow the application.
+
+    def test_status_shows_the_user_id_to_tell_apart_keys_of_one_application(self):
+        binary = bytes(range(1, 33)).hex()
+        for i, name in enumerate(['id_ed25519_sk_rk_github.com', 'id_ed25519_sk_rk_github.com_work',
+                                  'id_ed25519_sk_rk_github.com_' + binary], 1):
+            self.resident(self.target, name, byte=i)
+        self.resident(self.target, 'id_ed25519_sk_rk_alice', 'ssh:', byte=4)
+        users = {(k['application'], k['user']) for k in ssh.status()['keys']}
+        self.assertEqual(users, {('ssh:github.com', ''), ('ssh:github.com', 'work'),
+                                 ('ssh:github.com', binary), ('ssh:', 'alice')})
+        self.assertEqual(ssh.name_user('id_ed25519_sk_rk_other', 'ssh:github.com'), None)
+        self.assertEqual(ssh.name_user('notes', 'ssh:'), None)
 
     def test_real_openssh_passphrase_detection(self):
         for passphrase in ['', 'synthetic']:

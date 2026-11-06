@@ -122,10 +122,14 @@ A private state directory, lock and expiring launch ticket coordinate operations
 They are not a defense against arbitrary code already running as that user.
 
 The OpenPGP/SSH cards additionally show bounded public fingerprints and SSH
-applications. An OpenPGP public user ID (name/email) is revealed only on request.
+applications, and SSH key user IDs. An OpenPGP public user ID (name/email) is
+revealed only on request.
 Public text is rendered literally with control characters removed; public
-identity is not a PIN, private key or FIDO credential handle. SSH filenames,
-FIDO user IDs, card serials and URLs are kept out of the GUI. SSH removals use
+identity is not a PIN, private key or FIDO credential handle. An SSH key's
+FIDO user ID only labels the key, telling apart keys made for the same
+application; it is not a credential handle or secret, and it is limited to
+letters, digits and `. _ @ : -`. SSH filenames, credential handles, card serials
+and URLs are kept out of the GUI. SSH removals use
 stable references and recheck the selected files, rather than trusting a row
 position. See [OpenPGP](openpgp.md) and [SSH](ssh.md) for import, deletion and
 connection-reuse semantics. Do not publish screenshots of public identities

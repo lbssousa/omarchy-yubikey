@@ -42,6 +42,7 @@ function cleanSnapshot(value) {
   }).map(function(key) {
     return {id: key.id, type: ["ed25519-sk", "ecdsa-sk"].indexOf(key.type) >= 0 ? key.type : "other", passphrase: key.passphrase === true, host: key.host === true,
       application: typeof key.application === "string" && /^ssh:[\x21-\x7e]{0,252}$/.test(key.application) ? key.application : "",
+      user: typeof key.user === "string" && /^[A-Za-z0-9._@:-]{1,128}$/.test(key.user) ? key.user : "",
       fingerprint: typeof key.fingerprint === "string" && /^SHA256:[A-Za-z0-9+/]{43}$/.test(key.fingerprint) ? key.fingerprint : ""}
   })}
   var tools = value.tools || {}

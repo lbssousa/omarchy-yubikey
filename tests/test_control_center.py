@@ -82,7 +82,9 @@ class ControlTests(unittest.TestCase):
             control.command_plan('ssh-import', key_id=reference)
         hostile = {'count': 2, 'keys': [
             {'id': reference, 'type': 'ed25519-sk', 'application': 'ssh:github.com',
-             'fingerprint': 'SHA256:' + 'A' * 43, 'passphrase': 'yes', 'host': True, 'name': 'private-value'},
+             'fingerprint': 'SHA256:' + 'A' * 43, 'passphrase': 'yes', 'host': True, 'name': 'private-value',
+             'user': 'work'},
+            {'id': 'b' * 64, 'user': 'bad user\nHost *'},
             {'id': 'bad', 'name': 'private-value'}]}
         loader = type('Loader', (), {'exec_module': lambda self, module:
                                     module.__dict__.update(status=lambda: hostile)})()
@@ -90,8 +92,9 @@ class ControlTests(unittest.TestCase):
                           return_value=type('Spec', (), {'loader': loader})()), \
                 patch.object(control.importlib.util, 'module_from_spec', return_value=type('M', (), {})()):
             value = control.ssh_status()
-        self.assertEqual(len(value['keys']), 1)
+        self.assertEqual(len(value['keys']), 2)
         self.assertEqual(value['keys'][0]['application'], 'ssh:github.com')
+        self.assertEqual([key['user'] for key in value['keys']], ['work', ''])
         self.assertFalse(value['keys'][0]['passphrase'])
         self.assertNotIn('private-value', json.dumps(value))
 

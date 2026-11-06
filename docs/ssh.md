@@ -8,7 +8,10 @@ terminal; the PIN and passphrases go to ssh-keygen itself.
 Each row shows the public application, key type, selectable SHA256 public
 fingerprint, passphrase flag and whether the managed configuration lists it.
 Applications are read from the public-key blob, not its editable comment.
-Filenames and FIDO2 user IDs/credential handles are not sent to the window.
+Each row also shows the key's FIDO2 user ID, which tells apart keys made for the
+same application. It is read from the handle's filename, where `ssh-keygen -K`
+puts it (binary user IDs as hexadecimal, shortened in the window). Filenames and
+credential handles are not sent to the window.
 
 | Action | What happens |
 | --- | --- |
