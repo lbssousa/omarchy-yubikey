@@ -390,5 +390,72 @@ class SshKeyTests(unittest.TestCase):
             self.create(['', '', '', '', '', '', 'y'], result=1)
         self.assertEqual(list(self.target.iterdir()), [])
 
+    def token(self, answers, rps, creds, delete_result=0):
+        """Run do_delete_token against a scripted fido2-token."""
+        runs, calls = [], []
+        def run(command, **options):
+            runs.append(command)
+            if command == ['fido2-token', '-L']:
+                return subprocess.CompletedProcess(command, 0, '/dev/hidraw9: vendor=0x1050, product=0x0407 (Yubico)\n')
+            if command[1:3] == ['-L', '-r']:
+                return subprocess.CompletedProcess(command, 0, rps)
+            if command[1:3] == ['-L', '-k']:
+                return subprocess.CompletedProcess(command, 0, creds)
+            raise AssertionError(command)
+        def call(command, timeout):
+            calls.append(command)
+            return delete_result
+        with patch.object(ssh.subprocess, 'run', side_effect=run), \
+                patch.object(ssh.subprocess, 'call', side_effect=call), \
+                patch('builtins.input', side_effect=answers), patch('builtins.print') as printed:
+            ssh.do_delete_token()
+        return runs, calls, ' '.join(str(c) for c in printed.call_args_list)
+
+    RPS = ('00: ' + 'A' * 43 + '= ssh:github.com\n01: ' + 'B' * 43 + '= ssh:\n'
+           '02: ' + 'C' * 43 + '= pam://omarchy\n')
+
+    @staticmethod
+    def creds(*users):
+        lines = []
+        for i, (user, cose) in enumerate(users):
+            uid = base64.b64encode(user.encode().ljust(32, b'\0') if user else b'\0' * 32).decode()
+            lines.append('%02d: %s (null) %s %s uvopt nopay' % (i, chr(ord('D') + i) * 64, uid, cose))
+        return '\n'.join(lines) + '\n'
+
+    def test_token_listings_are_parsed_from_the_right(self):
+        self.assertEqual(ssh.ssh_applications(self.RPS), ['ssh:', 'ssh:github.com'])
+        found = ssh.token_credentials(self.creds(('work', 'eddsa'), ('', 'es256')))
+        self.assertEqual([(c['user'], c['type']) for c in found], [('work', 'ed25519-sk'), ('', 'ecdsa-sk')])
+        self.assertEqual(found[0]['id'], 'D' * 64)
+        spaced = '00: ' + 'E' * 64 + ' Display Name With Spaces ' + base64.b64encode(b'bob').decode() + ' eddsa uvopt nopay\n'
+        self.assertEqual(ssh.token_credentials(spaced)[0]['user'], 'bob')
+        self.assertEqual(ssh.token_credentials('garbage\n00: not-base64! x y z w v\n'), [])
+
+    def test_delete_token_requires_the_typed_phrase(self):
+        runs, calls, output = self.token(['2', '1', 'DELETE ssh:github'], self.RPS, self.creds(('work', 'eddsa')))
+        self.assertEqual(calls, [])
+        self.assertIn('Cancelled', output)
+        self.assertIn('PERMANENT', output)
+        self.assertIn(['fido2-token', '-L', '-k', 'ssh:github.com', '/dev/hidraw9'], runs)
+
+    def test_delete_token_deletes_the_chosen_credential_and_offers_the_copy(self):
+        name = 'id_ed25519_sk_rk_github.com_work'
+        self.resident(self.target, name)
+        with patch.object(ssh, 'do_remove') as removal:
+            runs, calls, output = self.token(['2', '2', 'DELETE ssh:github.com'], self.RPS,
+                                             self.creds(('home', 'eddsa'), ('work', 'eddsa')))
+        self.assertEqual(calls, [['fido2-token', '-D', '-i', 'E' * 64, '/dev/hidraw9']])
+        self.assertEqual(output.count('PERMANENT'), 2)
+        removal.assert_called_once_with(ssh.key_reference(self.target, name))
+
+    def test_delete_token_failure_and_cancellation_change_nothing(self):
+        with self.assertRaises(ValueError):
+            self.token(['2', '1', 'DELETE ssh:github.com'], self.RPS, self.creds(('work', 'eddsa')), delete_result=1)
+        runs, calls, output = self.token([''], self.RPS, self.creds())
+        self.assertEqual(calls, [])
+        runs, calls, output = self.token([], '00: ' + 'C' * 43 + '= pam://omarchy\n', '')
+        self.assertIn('no resident SSH keys', output)
+        self.assertEqual(calls, [])
+
 if __name__ == '__main__':
     unittest.main()

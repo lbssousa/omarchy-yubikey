@@ -48,6 +48,7 @@ ACTIONS = {
     'openpgp-remove': 'Remove the OpenPGP key of the security key from the keyring',
     'ssh-create': 'Create a resident SSH key on the security key',
     'ssh-import': 'Copy the resident SSH keys of the security key into ~/.ssh',
+    'ssh-delete-token': 'Permanently delete a resident SSH key from the security key',
     'ssh-remove': 'Remove one copied resident SSH key from ~/.ssh',
     'backups': 'List system PAM backup IDs',
     'rollback': 'Restore the selected PAM backup',
@@ -379,7 +380,7 @@ def command_plan(action, device='', backup='', key_id=''):
         return [install + ['--components', action.removeprefix('setup-')]]
     if action.startswith('openpgp-'):
         return [[sys.executable, str(SOURCE / 'scripts/manage-openpgp.py'), action.removeprefix('openpgp-')]]
-    if action in ('ssh-create', 'ssh-import'):
+    if action in ('ssh-create', 'ssh-import', 'ssh-delete-token'):
         return [[sys.executable, str(SOURCE / 'scripts/manage-ssh.py'), action.removeprefix('ssh-')]]
     if action == 'ssh-remove':
         return [[sys.executable, str(SOURCE / 'scripts/manage-ssh.py'), 'remove', '--key-id', key_id]]

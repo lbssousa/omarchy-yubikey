@@ -305,7 +305,7 @@ Item {
                 badge: strings.t("%1 in ~/.ssh", [strings.number(root.sshCount)])
                 ready: root.sshCount > 0
                 description: strings.t("Create SSH keys on your security key, or copy the ones it stores into ~/.ssh, for example on a new computer. Existing files are never overwritten. Removing a copy leaves the key on the security key.")
-                details: Column {
+                details: [Column {
                   objectName: "sshKeys"
                   width: parent.width
                   visible: root.sshKeys.length > 0
@@ -326,9 +326,18 @@ Item {
                       ActionButton { objectName: "sshRemove" + index; text: strings.t("Remove"); enabled: root.canAct && !!modelData.id; onClicked: root.ask("ssh-remove", strings.t("Remove SSH key %1", [modelData.fingerprint.slice(0, 19)]), "", "", modelData.id) }
                     }
                   }
-                }
+                }, Text {
+                  objectName: "sshDeleteWarning"
+                  width: parent.width
+                  text: strings.t("Delete from security key removes a key from the security key itself, permanently. It cannot be recovered or imported again.")
+                  color: Commons.Color.urgent
+                  font { family: Style.font.family; pixelSize: Style.font.caption; bold: true }
+                  textFormat: Text.PlainText
+                  wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                }]
                 ActionButton { text: strings.t("Import SSH keys"); primary: root.sshCount === 0; enabled: root.canAct && root.snapshot.connected > 0; onClicked: root.ask("ssh-import", text) }
                 ActionButton { objectName: "sshCreate"; text: strings.t("Create SSH key"); enabled: root.canAct && root.snapshot.connected > 0; onClicked: root.ask("ssh-create", text) }
+                ActionButton { objectName: "sshDeleteToken"; text: strings.t("Delete from security key"); enabled: root.canAct && root.snapshot.connected > 0; onClicked: root.ask("ssh-delete-token", text) }
               }
               FeatureCard {
                 title: strings.t("A backup for every feature")
@@ -443,7 +452,8 @@ Item {
     id: confirmation
     objectName: "actionConfirmation"
     anchors.fill: parent
-    message: root.pendingTitle + "\n\n" + strings.t("Open an interactive terminal? Review the operation there before anything changes. PINs and passwords stay in that terminal.")
+    // Deleting from the security key cannot be undone; say so before the terminal opens.
+    message: root.pendingTitle + "\n\n" + (root.pendingAction === "ssh-delete-token" ? strings.t("Delete from security key removes a key from the security key itself, permanently. It cannot be recovered or imported again.") + "\n\n" : "") + strings.t("Open an interactive terminal? Review the operation there before anything changes. PINs and passwords stay in that terminal.")
     cancelText: strings.t("Cancel")
     confirmText: strings.t("Open terminal")
     onCanceled: { opened = false; root.focusFirst() }
