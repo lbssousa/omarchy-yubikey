@@ -321,33 +321,51 @@ Item {
                 badge: strings.t("%1 in ~/.ssh", [strings.number(root.sshCount)])
                 ready: root.sshCount > 0
                 description: strings.t("Create SSH keys on your security key, or copy the ones it stores into ~/.ssh, for example on a new computer. Existing files are never overwritten. Removing a copy leaves the key on the security key.")
-                details: Column {
+                // Card-wide actions first, then each key in its own box with its own
+                // actions, so the two groups never sit next to each other.
+                details: [Flow {
+                  objectName: "sshCardActions"
+                  width: parent.width
+                  spacing: Style.space(8)
+                  ActionButton { objectName: "sshImport"; text: strings.t("Import SSH keys"); primary: root.sshCount === 0; enabled: root.canAct && root.snapshot.connected > 0; onClicked: root.ask("ssh-import", text) }
+                  ActionButton { objectName: "sshCreate"; text: strings.t("Create SSH key"); enabled: root.canAct && root.snapshot.connected > 0; onClicked: root.ask("ssh-create", text) }
+                }, Column {
                   objectName: "sshKeys"
                   width: parent.width
                   visible: root.sshKeys.length > 0
-                  spacing: Style.space(16)
+                  topPadding: Style.space(6)
+                  spacing: Style.space(10)
                   Repeater {
                     model: root.sshKeys
-                    Column {
+                    Rectangle {
                       required property var modelData
                       required property int index
+                      objectName: "sshKeyBox" + index
                       width: parent.width
-                      spacing: Style.space(6)
-                      Text { width: parent.width; text: root.sshKeyTitle(modelData); color: Commons.Color.foreground; font { family: Style.font.family; pixelSize: Style.font.body } textFormat: Text.PlainText; elide: Text.ElideRight }
-                      Text { width: parent.width; text: root.sshKeyDetails(modelData); color: Util.alpha(Commons.Color.foreground, 0.73); font { family: Style.font.family; pixelSize: Style.font.caption } textFormat: Text.PlainText; wrapMode: Text.WrapAtWordBoundaryOrAnywhere }
-                      TextEdit { width: parent.width; text: modelData.fingerprint; readOnly: true; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere; color: Commons.Color.accent; font { family: Style.font.family; pixelSize: Style.font.caption } textFormat: TextEdit.PlainText }
-                      // One action per button, side by side: the copy, or the key on the security key.
-                      Flow {
-                        width: parent.width
-                        spacing: Style.space(8)
-                        ActionButton { objectName: "sshRemove" + index; text: strings.t("Remove copy"); enabled: root.canAct && !!modelData.id; onClicked: root.ask("ssh-remove", strings.t("Remove SSH key %1", [modelData.fingerprint.slice(0, 19)]), "", "", modelData.id) }
-                        ActionButton { objectName: "sshDelete" + index; text: strings.t("Delete from security key"); foreground: Commons.Color.urgent; accent: Commons.Color.urgent; enabled: root.canAct && !!modelData.id && root.snapshot.connected > 0; onClicked: root.ask("ssh-delete", strings.t("Delete SSH key %1 from the security key", [modelData.fingerprint.slice(0, 19)]), "", "", modelData.id) }
+                      height: keyContent.implicitHeight + Style.space(14) * 2
+                      radius: Style.cornerRadius
+                      color: Util.alpha(Commons.Color.foreground, 0.035)
+                      border.color: Util.alpha(Commons.Color.foreground, 0.16)
+                      border.width: 1
+                      Column {
+                        id: keyContent
+                        anchors { left: parent.left; right: parent.right; top: parent.top; margins: Style.space(14) }
+                        spacing: Style.space(6)
+                        Text { width: parent.width; text: root.sshKeyTitle(modelData); color: Commons.Color.foreground; font { family: Style.font.family; pixelSize: Style.font.body } textFormat: Text.PlainText; elide: Text.ElideRight }
+                        Text { width: parent.width; text: root.sshKeyDetails(modelData); color: Util.alpha(Commons.Color.foreground, 0.73); font { family: Style.font.family; pixelSize: Style.font.caption } textFormat: Text.PlainText; wrapMode: Text.WrapAtWordBoundaryOrAnywhere }
+                        TextEdit { width: parent.width; text: modelData.fingerprint; readOnly: true; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere; color: Commons.Color.accent; font { family: Style.font.family; pixelSize: Style.font.caption } textFormat: TextEdit.PlainText }
+                        // One action per button: the copy, or the key on the security key.
+                        Flow {
+                          width: parent.width
+                          topPadding: Style.space(4)
+                          spacing: Style.space(8)
+                          ActionButton { objectName: "sshRemove" + index; text: strings.t("Remove copy"); enabled: root.canAct && !!modelData.id; onClicked: root.ask("ssh-remove", strings.t("Remove SSH key %1", [modelData.fingerprint.slice(0, 19)]), "", "", modelData.id) }
+                          ActionButton { objectName: "sshDelete" + index; text: strings.t("Delete from security key"); foreground: Commons.Color.urgent; accent: Commons.Color.urgent; enabled: root.canAct && !!modelData.id && root.snapshot.connected > 0; onClicked: root.ask("ssh-delete", strings.t("Delete SSH key %1 from the security key", [modelData.fingerprint.slice(0, 19)]), "", "", modelData.id) }
+                        }
                       }
                     }
                   }
-                }
-                ActionButton { text: strings.t("Import SSH keys"); primary: root.sshCount === 0; enabled: root.canAct && root.snapshot.connected > 0; onClicked: root.ask("ssh-import", text) }
-                ActionButton { objectName: "sshCreate"; text: strings.t("Create SSH key"); enabled: root.canAct && root.snapshot.connected > 0; onClicked: root.ask("ssh-create", text) }
+                }]
               }
               FeatureCard {
                 title: strings.t("A backup for every feature")
