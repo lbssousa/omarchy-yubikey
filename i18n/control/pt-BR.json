@@ -29,7 +29,7 @@
   "Could not open this operation. Check prerequisites or another open setup terminal.": "Não foi possível abrir esta operação. Verifique os pré-requisitos ou se há outro terminal de configuração aberto.",
   "Could not read setup status. Check that Python 3 is installed, then refresh.": "Não foi possível ler o status da configuração. Confira se o Python 3 está instalado e atualize.",
   "Create SSH key": "Criar chave SSH",
-  "Create SSH keys on your security key, or copy the ones it stores into ~/.ssh, for example on a new computer. Existing files are never overwritten. Removing a copy leaves the key on the security key.": "Crie chaves SSH na sua chave de segurança ou copie para ~/.ssh as que ela guarda, por exemplo em um computador novo. Arquivos existentes nunca são sobrescritos. Remover uma cópia mantém a chave na chave de segurança.",
+  "Create SSH keys on your security key, or copy the ones it stores into ~/.ssh, for example on a new computer. Existing files are never overwritten. Removing a copy leaves the key on the security key.": "Crie chaves SSH na sua chave de segurança ou copie para ~/.ssh as que ela guarda (por exemplo, em um computador novo). Arquivos existentes nunca são sobrescritos. Remover uma cópia mantém a chave na chave de segurança.",
   "Custom configuration": "Configuração personalizada",
   "Delete SSH key %1 from the security key": "Apagar a chave SSH %1 da chave de segurança",
   "Delete from security key": "Apagar da chave de segurança",
