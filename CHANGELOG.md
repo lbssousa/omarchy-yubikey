@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Create resident SSH keys from the control center. **Create SSH key** opens a
+  terminal wizard for the algorithm, application, user ID, PIN and touch
+  requirements and comment, shows the `ssh-keygen` command before running it,
+  installs the handle like an imported one, prints the public key and offers the
+  Git-host configuration.
+
 - Fix translations of the standalone lock and Polkit plugins on Omarchy 4.5,
   whose `qs.Commons` exports its own `Translations` type. Their unqualified
   `Translations` resolved to it instead of the bundled loader, as the setup

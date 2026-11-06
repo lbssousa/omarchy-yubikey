@@ -311,5 +311,84 @@ class SshKeyTests(unittest.TestCase):
                     pass
 
 
+    def create(self, answers, write=True, result=0, byte=7):
+        """Run do_create with scripted answers; ssh-keygen writes a synthetic pair."""
+        calls = []
+        def call(command, timeout):
+            calls.append(command)
+            path = Path(command[command.index('-f') + 1])
+            self.assertEqual(stat.S_IMODE(path.parent.stat().st_mode), 0o700)
+            if write:
+                app = next(o for o in command if o.startswith('application='))[len('application='):]
+                self.resident(path.parent, path.name, app, byte=byte)
+            return result
+        with patch.object(ssh.subprocess, 'call', side_effect=call), \
+                patch('builtins.input', side_effect=answers), patch('builtins.print') as printed, \
+                patch.object(ssh, 'offer_drop_ins') as offered, \
+                patch.object(ssh.getpass, 'getuser', return_value='alice'), \
+                patch.object(ssh.socket, 'gethostname', return_value='laptop'):
+            ssh.do_create()
+        return calls, offered, ' '.join(str(c) for c in printed.call_args_list)
+
+    def test_create_builds_the_ssh_keygen_vector_from_the_answers(self):
+        # algorithm, application, user ID, PIN, touch, comment, confirm
+        calls, offered, output = self.create(['', 'github.com', 'work', '', '', '', 'y'])
+        name = 'id_ed25519_sk_rk_github.com_work'
+        self.assertEqual(calls[0][:-1], ['ssh-keygen', '-t', 'ed25519-sk', '-O', 'resident',
+                                         '-O', 'application=ssh:github.com', '-O', 'user=work',
+                                         '-O', 'verify-required', '-C', 'alice@laptop', '-f'])
+        self.assertEqual(Path(calls[0][-1]).name, name)
+        self.assertTrue((self.target / name).is_file())
+        self.assertEqual(stat.S_IMODE((self.target / name).stat().st_mode), 0o600)
+        self.assertIn('SHA256:', output)
+        self.assertIn('sk-ssh-ed25519', output)
+        offered.assert_called_once_with(self.target, [name])
+        calls, _, _ = self.create(['ecdsa-sk', '', '', 'n', 'n', 'test key', 'y'], byte=8)
+        self.assertEqual(calls[0][:-1], ['ssh-keygen', '-t', 'ecdsa-sk', '-O', 'resident', '-O', 'application=ssh:',
+                                         '-O', 'no-touch-required', '-C', 'test key', '-f'])
+        self.assertEqual(Path(calls[0][-1]).name, 'id_ecdsa_sk_rk')
+
+    def test_create_names_files_as_ssh_keygen_download_does(self):
+        self.assertEqual(ssh.handle_name('ed25519-sk', '', ''), 'id_ed25519_sk_rk')
+        self.assertEqual(ssh.handle_name('ed25519-sk', 'github.com', ''), 'id_ed25519_sk_rk_github.com')
+        self.assertEqual(ssh.handle_name('ecdsa-sk', '', 'alice'), 'id_ecdsa_sk_rk_alice')
+        self.assertEqual(ssh.handle_name('ed25519-sk', 'github.com', 'alice'), 'id_ed25519_sk_rk_github.com_alice')
+        for name in ('id_ed25519_sk_rk_github.com_alice', 'id_ecdsa_sk_rk'):
+            self.assertTrue(ssh.RESIDENT.fullmatch(name))
+
+    def test_create_rejects_unsafe_application_user_and_comment(self):
+        for value in ('git/hub', 'a..b', 'with space', 'line\nbreak', '-flag', 'x' * 200):
+            self.assertFalse(ssh.valid_application(value), value)
+        for value in ('git/hub', 'a..b', 'with space', 'tab\t', '-flag', 'x' * 70):
+            self.assertFalse(ssh.valid_user(value), value)
+        self.assertTrue(ssh.valid_application('git' + '@' + 'git.example.com:2222'))
+        self.assertTrue(ssh.valid_user('alice.work'))
+        for answers in (['rsa'], ['', 'bad/app'], ['', '', 'bad user'], ['', '', '', '', '', 'line\nbreak']):
+            with self.assertRaises(ValueError):
+                self.create(answers + ['y'] * 6)
+        self.assertEqual(list(self.target.iterdir()), [])
+
+    def test_create_cancelled_at_confirmation_runs_nothing(self):
+        calls, offered, output = self.create(['', '', '', '', '', '', ''])
+        self.assertEqual(calls, [])
+        offered.assert_not_called()
+        self.assertIn('Cancelled', output)
+        self.assertEqual(list(self.target.iterdir()), [])
+
+    def test_create_never_overwrites_and_skips_hosts_for_a_kept_copy(self):
+        name = 'id_ed25519_sk_rk_github.com'
+        self.resident(self.target, name, byte=9)
+        before = (self.target / (name + '.pub')).read_text()
+        calls, offered, output = self.create(['', 'github.com', '', '', '', '', 'y'])
+        self.assertEqual(len(calls), 1)
+        self.assertEqual((self.target / (name + '.pub')).read_text(), before)
+        self.assertIn('security key only', output)
+        offered.assert_not_called()
+
+    def test_create_failure_installs_nothing(self):
+        with self.assertRaises(ValueError):
+            self.create(['', '', '', '', '', '', 'y'], result=1)
+        self.assertEqual(list(self.target.iterdir()), [])
+
 if __name__ == '__main__':
     unittest.main()
