@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.0 — 2026-11-06
+
 - Import the OpenPGP key stored on a connected card into the account's GnuPG
   keyring after matching all populated card fingerprints in an isolated staging
   keyring. Report actual card links per slot, local secrets, revocation and

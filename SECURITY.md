@@ -1,6 +1,6 @@
 # Security policy
 
-The current release series is **0.1.x**. Fixes are made on `main` and included
+The current release series is **0.5.x**. Fixes are made on `main` and included
 in subsequent releases. Report issues against the latest available version.
 Hardware authentication and session locking also need validation on the target
 environment; see the documented validation scope and security model.
