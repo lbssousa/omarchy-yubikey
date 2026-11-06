@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-93c5fd" alt="License: MIT"></a>
-  <a href="docs/control-center.md"><img src="https://img.shields.io/badge/setup_plugin-0.5.0-c5f46b" alt="Setup plugin 0.5.0"></a>
+  <a href="docs/control-center.md"><img src="https://img.shields.io/badge/setup_plugin-0.5.1-c5f46b" alt="Setup plugin 0.5.1"></a>
   <img src="https://img.shields.io/badge/made_for-Omarchy_4-a3e635" alt="Made for Omarchy 4">
   <a href="https://github.com/marselnenaj/omarchy-yubikey/actions/workflows/checks.yml"><img src="https://github.com/marselnenaj/omarchy-yubikey/actions/workflows/checks.yml/badge.svg" alt="Checks"></a>
 </p>
@@ -70,7 +70,7 @@ operations for setup and management. PINs and passwords stay in the terminal.
 
 <p align="center"><img src="preview.png" alt="Omarchy YubiKey control center with synthetic example status." width="100%"></p>
 
-The control center is **0.5.0**, with OpenPGP-card and resident SSH-key management.
+The control center is **0.5.1**, with OpenPGP-card and resident SSH-key management.
 Its interface is English/German with English
 fallback; the existing authentication components retain their 50-language support.
 The standalone lock/Polkit plugins remain 0.3.0 and the Rust helper remains 0.2.0.
@@ -85,8 +85,8 @@ LUKS enrollment is a separate opt-in command: `./install.sh --luks --device /dev
 It requests PIN plus touch and preserves the disk passphrase. Boot configuration
 is a manual step; read the [LUKS guide](docs/luks.md) first.
 
-The **v0.5.0 release** provides [source and checksums](https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.5.0).
-The [release notes](docs/releases/0.5.0.md) describe key management, upgrade behavior,
+The **v0.5.1 release** provides [source and checksums](https://github.com/marselnenaj/omarchy-yubikey/releases/tag/v0.5.1).
+The [release notes](docs/releases/0.5.1.md) describe the build-output security fix,
 component versions and validation.
 For manual setup or a custom PAM stack, see [PAM setup](docs/pam-setup.md).
 New PAM setup defaults to PIN plus touch and explicit password fallback.

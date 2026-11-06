@@ -1,0 +1,29 @@
+name: Dependency audit
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '37 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rustsec:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Audit locked dependencies against current RustSec advisories
+        shell: bash
+        run: |
+          set -euo pipefail
+          audit_dir=$(mktemp -d)
+          trap 'rm -rf "$audit_dir"' EXIT
+          curl -fsSL https://github.com/rustsec/rustsec/releases/download/cargo-audit/v0.22.2/cargo-audit-x86_64-unknown-linux-gnu-v0.22.2.tgz -o "$audit_dir/cargo-audit.tgz"
+          printf '%s  %s\n' 'ab28a1bdb54db4d5d8ad5981cf1f959410370b3d28250dbd35f6a44248620e39' "$audit_dir/cargo-audit.tgz" | sha256sum -c -
+          tar -xzf "$audit_dir/cargo-audit.tgz" -C "$audit_dir" --strip-components=1 cargo-audit-x86_64-unknown-linux-gnu-v0.22.2/cargo-audit
+          # Vulnerabilities fail by default. Also reject unsound/yanked crates;
+          # keep maintenance notices visible without treating them as exploits.
+          "$audit_dir/cargo-audit" audit --file Cargo.lock --deny unsound --deny yanked

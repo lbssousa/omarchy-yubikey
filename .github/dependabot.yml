@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Vienna
+    # Include transitive dependencies, such as native build helpers.
+    allow:
+      - dependency-type: all
+    open-pull-requests-limit: 10
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Vienna
+    open-pull-requests-limit: 5

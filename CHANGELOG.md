@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.5.1 — 2026-11-06
+
+- Update the locked `libz-sys` dependency from 1.1.30 to 1.1.31 for
+  RUSTSEC-2026-0418. Unix builds no longer print the inherited compiler
+  environment during the dynamic-zlib probe. Normal native build settings remain
+  available for installer, CI and manual Cargo builds.
+- Replace yanked `async-executor 1.14.0` with 1.14.1, fixing the upstream
+  use-after-free regression during executor shutdown.
+- Add a real build-output regression check with synthetic environment canaries,
+  weekly Dependabot updates for direct/transitive Cargo dependencies and GitHub
+  Actions, and daily RustSec audits of the locked dependency graph.
+
 ## 0.5.0 — 2026-11-06
 
 - Import the OpenPGP key stored on a connected card into the account's GnuPG

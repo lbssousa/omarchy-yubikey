@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "yubikey.setup",
   "name": "Omarchy YubiKey",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "author": "marselnenaj",
   "license": "MIT",
   "description": "Set up and manage security keys, sudo, desktop authentication, GNOME Keyring and optional LUKS enrollment.",

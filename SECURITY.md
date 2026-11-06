@@ -16,3 +16,23 @@ encrypted password stores, real secrets or unredacted logs.
 
 For the current assumptions and limitations, read
 [the security model](docs/security-model.md).
+
+## Dependency maintenance
+
+Dependabot checks Cargo dependencies (including transitive dependencies) and
+GitHub Actions weekly. GitHub security-update pull requests should be enabled in
+repository settings; they are separate from this version-update schedule. Update
+pull requests require review and passing checks; they are not auto-merged.
+
+The Dependency audit workflow runs on pushes, pull requests, a daily schedule and
+manual dispatch. It checks the lockfile against the current RustSec database,
+fails on vulnerabilities, unsoundness and yanked crates, and reports informational
+maintenance notices. Actions use immutable commit references. The audit binary
+and source secret scanner use fixed versions and verified SHA-256 downloads;
+their versions/checksums need deliberate maintenance as well.
+
+At 0.5.1 the audit reports maintenance notices RUSTSEC-2026-0370, -0371 and -0372
+for the zbus 5 serialization/name dependencies. Upstream merged these crates into
+zbus 6; migrating that API is separate work from the build-output fix. No advisory
+is suppressed. These checks detect known issues and do not replace code review,
+hardware validation or prompt handling of new reports.
