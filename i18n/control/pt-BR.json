@@ -2,7 +2,7 @@
   "%1 connected": "%1 conectada(s)",
   "%1 in ~/.ssh": "%1 em ~/.ssh",
   "%1 registered": "%1 cadastrada(s)",
-  "%1 registered keys": "%1 chaves cadastradas",
+  "%1 registered keys": "%1 chave(s) cadastrada(s)",
   "A backup for every feature": "Uma chave reserva para cada recurso",
   "A compatible Omarchy desktop is required.": "É necessário um desktop Omarchy compatível.",
   "Actions open a terminal for review and authentication. Keep a recovery root shell open while changing PAM.": "As ações abrem um terminal para revisão e autenticação. Mantenha um shell root de recuperação aberto enquanto altera o PAM.",
