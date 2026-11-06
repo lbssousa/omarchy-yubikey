@@ -205,7 +205,7 @@ class SshKeyTests(unittest.TestCase):
             self.resident(self.target, name, byte=i)
         self.configure(a, b)
         reference = ssh.key_reference(self.target, a)
-        with patch('builtins.input', side_effect=['1', 'y', 'y']), patch('builtins.print'):
+        with patch('builtins.input', side_effect=['y', 'y']), patch('builtins.print'):
             ssh.do_remove(reference)
         hosts, _, modified = ssh.load_managed(self.target)
         self.assertFalse(modified)
@@ -221,7 +221,7 @@ class SshKeyTests(unittest.TestCase):
         self.resident(self.target, selected)
         reference = ssh.key_reference(self.target, selected)
         self.resident(self.target, 'id_ed25519_sk_rk_a', byte=2)
-        with patch('builtins.input', side_effect=['1', 'y']), patch('builtins.print'):
+        with patch('builtins.input', return_value='y'), patch('builtins.print'):
             ssh.do_remove(reference)
         self.assertTrue((self.target / 'id_ed25519_sk_rk_a').exists())
         self.resident(self.target, selected, byte=3)
@@ -235,8 +235,6 @@ class SshKeyTests(unittest.TestCase):
         self.resident(self.target, name)
         reference = ssh.key_reference(self.target, name)
         def answer(question):
-            if question.startswith('Choice'):
-                return '1'
             (self.target / name).write_text('changed')
             return 'y'
         with patch('builtins.input', side_effect=answer), patch('builtins.print'), self.assertRaises(ValueError):
@@ -405,29 +403,6 @@ class SshKeyTests(unittest.TestCase):
             self.create(['', '', '', '', '', '', 'y'], result=1)
         self.assertEqual(list(self.target.iterdir()), [])
 
-    def token(self, answers, rps, creds, delete_result=0):
-        """Run do_delete_token against a scripted fido2-token."""
-        runs, calls = [], []
-        def run(command, **options):
-            runs.append(command)
-            if command == ['fido2-token', '-L']:
-                return subprocess.CompletedProcess(command, 0, '/dev/hidraw9: vendor=0x1050, product=0x0407 (Yubico)\n')
-            if command[1:3] == ['-L', '-r']:
-                return subprocess.CompletedProcess(command, 0, rps)
-            if command[1:3] == ['-L', '-k']:
-                return subprocess.CompletedProcess(command, 0, creds)
-            raise AssertionError(command)
-        def call(command, timeout):
-            calls.append(command)
-            return delete_result
-        with patch.object(ssh.subprocess, 'run', side_effect=run), \
-                patch.object(ssh.subprocess, 'call', side_effect=call), \
-                patch('builtins.input', side_effect=answers), patch('builtins.print') as printed:
-            ssh.do_delete_token()
-        return runs, calls, ' '.join(str(c) for c in printed.call_args_list)
-
-    RPS = ('00: ' + 'A' * 43 + '= ssh:github.com\n01: ' + 'B' * 43 + '= ssh:\n'
-           '02: ' + 'C' * 43 + '= pam://omarchy\n')
 
     @staticmethod
     def creds(*users):
@@ -438,39 +413,12 @@ class SshKeyTests(unittest.TestCase):
         return '\n'.join(lines) + '\n'
 
     def test_token_listings_are_parsed_from_the_right(self):
-        self.assertEqual(ssh.ssh_applications(self.RPS), ['ssh:', 'ssh:github.com'])
         found = ssh.token_credentials(self.creds(('work', 'eddsa'), ('', 'es256')))
         self.assertEqual([(c['user'], c['type']) for c in found], [('work', 'ed25519-sk'), ('', 'ecdsa-sk')])
         self.assertEqual(found[0]['id'], 'D' * 64)
         spaced = '00: ' + 'E' * 64 + ' Display Name With Spaces ' + base64.b64encode(b'bob').decode() + ' eddsa uvopt nopay\n'
         self.assertEqual(ssh.token_credentials(spaced)[0]['user'], 'bob')
         self.assertEqual(ssh.token_credentials('garbage\n00: not-base64! x y z w v\n'), [])
-
-    def test_delete_token_requires_the_typed_phrase(self):
-        runs, calls, output = self.token(['2', '1', 'DELETE ssh:github'], self.RPS, self.creds(('work', 'eddsa')))
-        self.assertEqual(calls, [])
-        self.assertIn('Cancelled', output)
-        self.assertIn('PERMANENT', output)
-        self.assertIn(['fido2-token', '-L', '-k', 'ssh:github.com', '/dev/hidraw9'], runs)
-
-    def test_delete_token_deletes_the_chosen_credential_and_offers_the_copy(self):
-        name = 'id_ed25519_sk_rk_github.com_work'
-        self.resident(self.target, name)
-        with patch.object(ssh, 'do_remove') as removal:
-            runs, calls, output = self.token(['2', '2', 'DELETE ssh:github.com'], self.RPS,
-                                             self.creds(('home', 'eddsa'), ('work', 'eddsa')))
-        self.assertEqual(calls, [['fido2-token', '-D', '-i', 'E' * 64, '/dev/hidraw9']])
-        self.assertEqual(output.count('PERMANENT'), 2)
-        removal.assert_called_once_with(ssh.key_reference(self.target, name), token=False)
-
-    def test_delete_token_failure_and_cancellation_change_nothing(self):
-        with self.assertRaises(ValueError):
-            self.token(['2', '1', 'DELETE ssh:github.com'], self.RPS, self.creds(('work', 'eddsa')), delete_result=1)
-        runs, calls, output = self.token([''], self.RPS, self.creds())
-        self.assertEqual(calls, [])
-        runs, calls, output = self.token([], '00: ' + 'C' * 43 + '= pam://omarchy\n', '')
-        self.assertIn('no resident SSH keys', output)
-        self.assertEqual(calls, [])
 
     def test_name_user_reads_the_user_part_of_a_handle_name(self):
         self.assertEqual(ssh.name_user('id_ed25519_sk_rk_github.com_work', 'ssh:github.com'), 'work')
@@ -480,7 +428,7 @@ class SshKeyTests(unittest.TestCase):
         self.assertIsNone(ssh.name_user('id_ed25519_sk_rk_other', 'ssh:github.com'))
         self.assertIsNone(ssh.name_user('notes', 'ssh:'))
 
-    def remove_with(self, name, answers, creds, delete_result=0):
+    def remove_with(self, name, answers, creds, delete_result=0, token=True):
         reference = ssh.key_reference(self.target, name)
         def run(command, **options):
             if command == ['fido2-token', '-L']:
@@ -494,23 +442,24 @@ class SshKeyTests(unittest.TestCase):
             return delete_result
         with patch.object(ssh.subprocess, 'run', side_effect=run), patch.object(ssh.subprocess, 'call', side_effect=call), \
                 patch('builtins.input', side_effect=answers), patch('builtins.print') as printed:
-            ssh.do_remove(reference)
+            ssh.do_remove(reference, token=token)
         return calls, ' '.join(str(c) for c in printed.call_args_list)
 
-    def test_remove_offers_copy_only_or_permanent_deletion(self):
+    def test_remove_keeps_the_key_and_delete_removes_it_from_the_token(self):
         name = 'id_ed25519_sk_rk_github.com_work'
         self.resident(self.target, name)
-        # Option 1 keeps the key on the security key and asks y/N as before.
-        calls, output = self.remove_with(name, ['1', 'y'], '')
+        # Remove copy: no fido2-token, one y/N, the key stays on the security key.
+        calls, output = self.remove_with(name, ['y'], '', token=False)
         self.assertEqual(calls, [])
         self.assertFalse((self.target / name).exists())
-        self.assertIn('PERMANENTLY', output)
-        # Option 2 finds the matching credential by user ID and needs the typed phrase.
+        self.assertNotIn('PERMANENT', output)
+        # Delete: finds the matching credential by user ID and needs the typed phrase.
         self.resident(self.target, name)
         creds = self.creds(('home', 'eddsa'), ('work', 'eddsa'))
-        calls, output = self.remove_with(name, ['2', 'DELETE ssh:github.com'], creds)
+        calls, output = self.remove_with(name, ['DELETE ssh:github.com'], creds)
         self.assertEqual(calls, [['fido2-token', '-D', '-i', 'E' * 64, '/dev/hidraw9']])
         self.assertIn('Matching key', output)
+        self.assertIn('PERMANENT', output)
         self.assertFalse((self.target / name).exists())
 
     def test_remove_permanent_matches_binary_user_ids_by_hex(self):
@@ -518,7 +467,7 @@ class SshKeyTests(unittest.TestCase):
         name = 'id_ed25519_sk_rk_github.com_' + raw.hex()
         self.resident(self.target, name)
         line = '00: ' + 'F' * 64 + ' (null) ' + base64.b64encode(raw).decode() + ' eddsa uvopt nopay\n'
-        calls, output = self.remove_with(name, ['2', 'DELETE ssh:github.com'], self.creds(('home', 'eddsa')) + line.replace('00:', '01:'))
+        calls, output = self.remove_with(name, ['DELETE ssh:github.com'], self.creds(('home', 'eddsa')) + line.replace('00:', '01:'))
         self.assertEqual(calls, [['fido2-token', '-D', '-i', 'F' * 64, '/dev/hidraw9']])
         self.assertFalse((self.target / name).exists())
 
@@ -526,22 +475,20 @@ class SshKeyTests(unittest.TestCase):
         name = 'id_ed25519_sk_rk_github.com_work'
         self.resident(self.target, name)
         creds = self.creds(('work', 'eddsa'))
-        calls, output = self.remove_with(name, ['2', 'delete'], creds)
+        calls, output = self.remove_with(name, ['delete'], creds)
         self.assertEqual(calls, [])
         self.assertTrue((self.target / name).exists())
         with self.assertRaises(ValueError):
-            self.remove_with(name, ['2', 'DELETE ssh:github.com'], creds, delete_result=1)
+            self.remove_with(name, ['DELETE ssh:github.com'], creds, delete_result=1)
         self.assertTrue((self.target / name).exists())
-        calls, output = self.remove_with(name, [''], creds)
-        self.assertIn('Cancelled', output)
-        with self.assertRaises(ValueError):
-            self.remove_with(name, ['3'], creds)
+        calls, output = self.remove_with(name, [''], creds, token=False)
+        self.assertEqual(calls, [])
         self.assertTrue((self.target / name).exists())
 
     def test_remove_permanent_without_a_match_lets_the_user_choose(self):
         name = 'id_ed25519_sk_rk_github.com_work'
         self.resident(self.target, name)
-        calls, output = self.remove_with(name, ['2', '1', 'DELETE ssh:github.com'], self.creds(('home', 'eddsa'), ('', 'eddsa')))
+        calls, output = self.remove_with(name, ['1', 'DELETE ssh:github.com'], self.creds(('home', 'eddsa'), ('', 'eddsa')))
         self.assertIn('choose it yourself', output)
         self.assertEqual(calls, [['fido2-token', '-D', '-i', 'D' * 64, '/dev/hidraw9']])
 
