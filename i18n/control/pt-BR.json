@@ -26,7 +26,7 @@
   "Configure desktop": "Configurar área de trabalho",
   "Configure sudo": "Configurar sudo",
   "Continue in the terminal, then return here to check status.": "Continue no terminal e depois volte aqui para conferir o status.",
-  "Copy the SSH keys stored on your security key into ~/.ssh, for example on a new computer. Existing files are never overwritten. Removing a copy leaves the key on the security key.": "Copie para ~/.ssh as chaves SSH guardadas na sua chave de segurança (por exemplo, em um computador novo). Arquivos existentes nunca são sobrescritos. Remover uma cópia mantém a chave na chave de segurança.",
+  "Copy the SSH keys stored on your security key into ~/.ssh, for example on a new computer. Existing files are never overwritten. Removing a copy leaves the key on the security key.": "Copie para ~/.ssh as chaves SSH guardadas na sua chave de segurança (por exemplo, em um computador novo). Arquivos existentes nunca são sobrescritos. Remover uma cópia mantém o original na chave de segurança.",
   "Could not open this operation. Check prerequisites or another open setup terminal.": "Não foi possível abrir esta operação. Verifique os pré-requisitos ou se há outro terminal de configuração aberto.",
   "Could not read setup status. Check that Python 3 is installed, then refresh.": "Não foi possível ler o status da configuração. Confira se o Python 3 está instalado e atualize.",
   "Custom configuration": "Configuração personalizada",
