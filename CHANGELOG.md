@@ -5,6 +5,11 @@
 - OpenPGP card: one button imports a missing key or removes an imported one,
   instead of always showing both. A separate **Update key** button appears only
   when the imported key is not linked, expired, revoked or disabled.
+- Create resident SSH keys from the control center. **Create SSH key** opens a
+  terminal wizard for the algorithm, application, user ID, PIN and touch
+  requirements and comment, shows the `ssh-keygen` command before running it,
+  installs the handle like an imported one, prints the public key and offers the
+  Git-host configuration.
 
 - Fix translations of the standalone lock and Polkit plugins on Omarchy 4.5,
   whose `qs.Commons` exports its own `Translations` type. Their unqualified

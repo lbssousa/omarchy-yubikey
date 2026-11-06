@@ -12,12 +12,41 @@ Filenames and FIDO2 user IDs/credential handles are not sent to the window.
 
 | Action | What happens |
 | --- | --- |
+| **Create SSH key** | Asks for each option in the terminal (see [Create a resident key](#create-a-resident-key)), shows the `ssh-keygen` command and asks before running it. The key is generated on the security key; its handle file is installed like an imported one. |
 | **Import SSH keys** | Runs `ssh-keygen -K` in a private temporary directory, then installs complete pairs at 0600/0644. Existing files, including either half of a pair, are never overwritten. An incomplete/failed download installs nothing. Failed pair copies roll back files created for that pair. |
 | **Remove** | Passes a stable reference to the exact filename and public identity, rather than a row number. The terminal identifies the public fingerprint and filename before confirmation. A disappeared/replaced public key cannot redirect removal to another row, and both file contents are rechecked after confirmation. The credential stays on the security key. |
 
 SSH management directories must be owned by the account and private (0700).
 Symlinks, nonregular files, oversized input and concurrent tool operations are
 rejected. Existing directory permissions are not silently relaxed or changed.
+
+## Create a resident key
+
+**Create SSH key** opens a terminal wizard. Press Enter to keep a suggestion:
+
+| Option | Suggestion | `ssh-keygen` |
+| --- | --- | --- |
+| Algorithm | `ed25519-sk`; `ecdsa-sk` for keys without Ed25519 (YubiKey firmware before 5.2.3) | `-t` |
+| Application | empty (`ssh:`); a name or host such as `github.com` | `-O application=ssh:<value>` |
+| User ID | empty; tells apart several keys for the same application | `-O user=<value>` |
+| PIN for every use | yes | `-O verify-required` |
+| Touch for every use | yes; no adds `-O no-touch-required`, which `sshd` refuses unless `authorized_keys` allows it | `-O no-touch-required` |
+| Comment | `<user>@<hostname>` | `-C` |
+
+The application and user ID accept letters, digits and `. _ - @` (the application
+also `:`), without slashes or `..`, so the handle gets the same filename that
+**Import SSH keys** would give it (`id_<type>_rk[_<application>][_<user ID>]`).
+`ssh-keygen` itself asks for the FIDO2 PIN, a touch and an optional passphrase for
+the handle file.
+
+A new key with the same application and user ID as an existing resident key
+**replaces it on the security key**; `ssh-keygen` asks before overwriting it. If
+`~/.ssh` already has a file with the new key's name, nothing is copied and the key
+stays only on the security key, ready to import later. After creating the key, the
+wizard prints the public key and fingerprint to add to the server or Git host, and
+offers the Git-host configuration below when the application names one.
+Removing the copy keeps the credential on the security key;
+`ykman fido credentials delete` removes it there.
 
 ## Git hosts
 

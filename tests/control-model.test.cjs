@@ -51,4 +51,6 @@ test('SSH exposes public metadata but removal requires an exact stable key refer
   assert.deepEqual(model.parameters('ssh-remove','','',id),['--key-id',id]);
   for (const id of [undefined,0,1,51,'1 --x','02','A'.repeat(64)]) assert.equal(model.parameters('ssh-remove','','',id),null);
   assert.deepEqual(model.parameters('ssh-import','',''),[]);
+  assert.ok(model.actions.includes('ssh-create'));
+  assert.deepEqual(model.parameters('ssh-create','','',id),[]);
 });

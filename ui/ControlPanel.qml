@@ -312,7 +312,7 @@ Item {
                 title: strings.t("Resident SSH keys")
                 badge: strings.t("%1 in ~/.ssh", [strings.number(root.sshCount)])
                 ready: root.sshCount > 0
-                description: strings.t("Copy the SSH keys stored on your security key into ~/.ssh, for example on a new computer. Existing files are never overwritten. Removing a copy leaves the key on the security key.")
+                description: strings.t("Create SSH keys on your security key, or copy the ones it stores into ~/.ssh, for example on a new computer. Existing files are never overwritten. Removing a copy leaves the key on the security key.")
                 details: Column {
                   objectName: "sshKeys"
                   width: parent.width
@@ -336,6 +336,7 @@ Item {
                   }
                 }
                 ActionButton { text: strings.t("Import SSH keys"); primary: root.sshCount === 0; enabled: root.canAct && root.snapshot.connected > 0; onClicked: root.ask("ssh-import", text) }
+                ActionButton { objectName: "sshCreate"; text: strings.t("Create SSH key"); enabled: root.canAct && root.snapshot.connected > 0; onClicked: root.ask("ssh-create", text) }
               }
               FeatureCard {
                 title: strings.t("A backup for every feature")

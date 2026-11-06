@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Import resident SSH key handles and manage explicitly selected Git hosts.
+"""Create or import resident SSH key handles and manage explicitly selected Git hosts.
 
 Runs as the desktop user. PINs and passphrases belong to ssh-keygen's terminal.
 Public applications/fingerprints may enter the GUI; filenames and credential
@@ -10,11 +10,14 @@ import base64
 from contextlib import contextmanager
 import difflib
 import fcntl
+import getpass
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
+import shlex
+import socket
 import stat
 import subprocess
 import sys
@@ -40,6 +43,12 @@ MARKER = '# omarchy-yubikey-state-v1 '
 KEY_TYPES = {'sk-ssh-ed25519' + '@' + 'openssh.com': 'ed25519-sk',
              'sk-ecdsa-sha2-nistp256' + '@' + 'openssh.com': 'ecdsa-sk'}
 PRIVATE_BEGIN = '-----BEGIN OPENSSH ' + 'PRIVATE KEY-----'
+CREATE_TIMEOUT = 180
+ALGORITHMS = {'ed25519-sk': 'ed25519_sk', 'ecdsa-sk': 'ecdsa_sk'}
+# What follows "ssh:" in a new key's application: a simple name, a host or
+# login@host:port. No slashes or "..", so the name stays a plain filename.
+CREATE_APPLICATION = re.compile(r'[A-Za-z0-9](?:[A-Za-z0-9._@:-]{0,126}[A-Za-z0-9])?')
+CREATE_USER = re.compile(r'[A-Za-z0-9](?:[A-Za-z0-9._@-]{0,62}[A-Za-z0-9])?')
 
 
 def ssh_directory():
@@ -571,9 +580,107 @@ def do_remove(key_id=None):
     print('Removed ~/.ssh/' + name)
 
 
+def ask(question, default=''):
+    answer = input(question + (' [' + default + ']' if default else '') + ': ').strip()
+    return answer or default
+
+
+def ask_yes(question, default):
+    answer = input(question + (' [Y/n] ' if default else ' [y/N] ')).strip().lower()
+    if not answer:
+        return default
+    if answer not in ('y', 'yes', 'n', 'no'):
+        raise ValueError('Answer y or n')
+    return answer in ('y', 'yes')
+
+
+def valid_application(value):
+    return value == '' or (CREATE_APPLICATION.fullmatch(value) is not None and '..' not in value)
+
+
+def valid_user(value):
+    return value == '' or (CREATE_USER.fullmatch(value) is not None and '..' not in value)
+
+
+def handle_name(algorithm, app, user):
+    """The filename ssh-keygen -K gives this key, so a later import recognizes it."""
+    suffix = '_'.join(part for part in (app, user) if part)
+    return 'id_' + ALGORITHMS[algorithm] + '_rk' + ('_' + suffix if suffix else '')
+
+
+def create_command(path, algorithm, app, user, verify, touch, comment):
+    command = ['ssh-keygen', '-t', algorithm, '-O', 'resident', '-O', 'application=ssh:' + app]
+    if user:
+        command += ['-O', 'user=' + user]
+    if verify:
+        command += ['-O', 'verify-required']
+    if not touch:
+        command += ['-O', 'no-touch-required']
+    return command + ['-C', comment, '-f', str(path)]
+
+
+def ask_options():
+    """Ask for each ssh-keygen option, with a suggested default."""
+    print('Create a resident SSH key on the connected security key. Press Enter to keep a suggestion.')
+    algorithm = ask('Algorithm: ed25519-sk (YubiKey firmware 5.2.3 or later) or ecdsa-sk', 'ed25519-sk')
+    if algorithm not in ALGORITHMS:
+        raise ValueError('Choose ed25519-sk or ecdsa-sk')
+    print('The application names what the key is for, after "ssh:" (for example github.com).'
+          ' A Git host there can be configured afterwards.')
+    app = ask('Application (empty for plain "ssh:")')
+    if not valid_application(app):
+        raise ValueError('Use letters, digits and . _ - @ : in the application, without slashes or ".."')
+    print('A user ID tells apart several keys for the same application. A new key with the same'
+          ' application and user ID replaces the old one on the security key.')
+    user = ask('User ID (optional)')
+    if not valid_user(user):
+        raise ValueError('Use letters, digits and . _ - @ in the user ID, without slashes or ".."')
+    verify = ask_yes('Require the FIDO2 PIN for every use?', True)
+    touch = ask_yes('Require a touch for every use?', True)
+    if not touch:
+        print('sshd refuses signatures without a touch unless authorized_keys allows "no-touch-required".')
+    comment = ask('Comment', getpass.getuser() + '@' + socket.gethostname())
+    if len(comment) > 128 or not comment.isprintable():
+        raise ValueError('The comment must be printable and at most 128 characters')
+    return algorithm, app, user, verify, touch, comment
+
+
+def do_create():
+    algorithm, app, user, verify, touch, comment = ask_options()
+    name = handle_name(algorithm, app, user)
+    directory = ssh_directory()
+    if any(os.path.lexists(directory / item) for item in (name, name + '.pub')):
+        print('~/.ssh/' + name + ' already exists; the new key would stay only on the security key'
+              ' until that file is moved away and the key is imported.')
+    runtime = os.environ.get('XDG_RUNTIME_DIR')
+    base = runtime if runtime and os.path.isdir(runtime) else None
+    with tempfile.TemporaryDirectory(prefix='omarchy-yubikey-ssh-', dir=base) as temporary:
+        workdir = Path(temporary)
+        command = create_command(workdir / name, algorithm, app, user, verify, touch, comment)
+        print('Command: ' + shlex.join(command))
+        print('The new files are then copied into ~/.ssh/' + name + ', never over an existing file.')
+        if not ask_yes('Create this key?', False):
+            print('Cancelled; nothing changed.')
+            return
+        print('ssh-keygen asks for the FIDO2 PIN, a touch and a passphrase for the key handle file.')
+        if subprocess.call(command, timeout=CREATE_TIMEOUT):
+            raise ValueError('ssh-keygen did not finish; no key files were installed')
+        installed, skipped = install(workdir, directory)
+    if skipped:
+        print('Kept the existing ~/.ssh/' + name + '; the new key is on the security key only.')
+        return
+    public = validate_pair(directory, name)
+    print('Created ~/.ssh/' + name + ' (' + public['fingerprint'] + ')')
+    print('Public key, to add to the server or Git host:')
+    print(read_file(directory / (name + '.pub')).decode('ascii').strip())
+    print('Removing the copy later keeps the credential on the security key;'
+          ' "ykman fido credentials delete" removes it there.')
+    offer_drop_ins(directory, installed)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('operation', choices=['import', 'remove'])
+    parser.add_argument('operation', choices=['create', 'import', 'remove'])
     parser.add_argument('--key-id', help='stable opaque reference returned by status')
     args = parser.parse_args()
     if args.key_id and (args.operation != 'remove' or not KEY_ID.fullmatch(args.key_id)):
@@ -581,7 +688,12 @@ def main():
     if os.geteuid() == 0 or not sys.stdin.isatty() or not sys.stdout.isatty():
         parser.error('Run as the desktop user in an interactive terminal')
     with operation_lock(ssh_directory()):
-        do_import() if args.operation == 'import' else do_remove(args.key_id)
+        if args.operation == 'create':
+            do_create()
+        elif args.operation == 'import':
+            do_import()
+        else:
+            do_remove(args.key_id)
 
 
 if __name__ == '__main__':
