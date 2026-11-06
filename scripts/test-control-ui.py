@@ -17,6 +17,8 @@ FIXTURE = {'supported': True, 'connected': 1, 'enrollment': {'count': 2, 'state'
            'openpgp': {'card': True, 'imported': True, 'linked': True, 'trusted': False,
                        'key': {'algorithm': 'ed25519', 'sign': True, 'encrypt': True, 'authenticate': True,
                                'expires': '2030-01-01', 'expired': False, 'uids': 2}},
+           'ssh': {'count': 2, 'keys': [{'type': 'ed25519-sk', 'passphrase': True, 'host': True},
+                                        {'type': 'ecdsa-sk', 'passphrase': False, 'host': False}]},
            'operation': {}, 'diskReady': True}
 
 

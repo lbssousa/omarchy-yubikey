@@ -46,6 +46,7 @@ Choose the parts you need. The PAM route also works without the plugins.
 | **Multiple accounts** | Keep enrollment and user data separate; review shared PAM changes | [Multiple users](docs/multi-user.md) |
 | **GNOME Keyring** | Decrypt a saved keyring password with the key's `hmac-secret`, then unlock over D-Bus | [Keyring helper](docs/keyring.md#gnome-keyring) |
 | **OpenPGP card** | Import the key on the card into GnuPG, trust it, or remove it again without losing secrets | [OpenPGP card](docs/openpgp.md) |
+| **Resident SSH keys** | Copy the SSH keys stored on the key into `~/.ssh` without overwriting files, and set up the git hosts named by their application | [SSH keys](docs/ssh.md) |
 | **LUKS2 boot unlock** | Enroll disk-unlock keys with PIN plus touch; integrate boot separately with a manual guide | [LUKS setup](docs/luks.md) |
 
 **Passwordless PAM and the optional helper work differently.** PAM verifies a
@@ -146,6 +147,7 @@ authentication and session recovery require separate manual validation.
 - [Build, enroll and run the optional helper](docs/keyring.md)
 - [Optional LUKS2 enrollment, boot integration and recovery](docs/luks.md)
 - [OpenPGP key on the security key](docs/openpgp.md)
+- [Resident SSH keys on the security key](docs/ssh.md)
 - [Optional signed enrollment transfer through Git](docs/enrollment-sync.md)
 - [All 50 languages and translation maintenance](docs/languages.md)
 - [Multiple Linux accounts and shared PAM policy](docs/multi-user.md)

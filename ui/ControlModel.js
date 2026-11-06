@@ -1,5 +1,5 @@
 // The GUI accepts metadata only. Secrets and command output never enter this model.
-var actions = ["setup", "setup-sudo", "setup-desktop", "setup-keyring", "add-key", "remove-key", "test-sudo", "desktop-restore", "keyring-add", "keyring-check", "keyring-unlock", "keyring-enable", "keyring-disable", "luks-check", "luks-enroll", "openpgp-import", "openpgp-trust", "openpgp-remove", "backups", "rollback"]
+var actions = ["setup", "setup-sudo", "setup-desktop", "setup-keyring", "add-key", "remove-key", "test-sudo", "desktop-restore", "keyring-add", "keyring-check", "keyring-unlock", "keyring-enable", "keyring-disable", "luks-check", "luks-enroll", "openpgp-import", "openpgp-trust", "openpgp-remove", "ssh-import", "ssh-remove", "backups", "rollback"]
 function count(value) { return typeof value === "number" && isFinite(value) && value >= 0 && value <= 1000 ? Math.floor(value) : 0 }
 function state(value) { return ["configured", "external", "unreadable", "not-configured"].indexOf(value) >= 0 ? value : "not-configured" }
 function cleanSnapshot(value) {
@@ -28,13 +28,18 @@ function cleanSnapshot(value) {
       expired: key.expired === true, uids: count(key.uids),
       sign: key.sign === true, encrypt: key.encrypt === true, authenticate: key.authenticate === true}
   }
+  var ssh = value.ssh || {}
+  out.ssh = {count: count(ssh.count), keys: (Array.isArray(ssh.keys) ? ssh.keys : []).slice(0, 50).map(function(key) {
+    key = key || {}
+    return {type: ["ed25519-sk", "ecdsa-sk"].indexOf(key.type) >= 0 ? key.type : "other", passphrase: key.passphrase === true, host: key.host === true}
+  })}
   var tools = value.tools || {}
   out.diskReady = tools.cryptsetup === true && tools["systemd-cryptenroll"] === true && tools["fido2-token"] === true
   var operation = value.operation || {}
   out.operation = {action: actions.indexOf(operation.action) >= 0 ? operation.action : "", phase: ["starting", "running", "succeeded", "failed", "cancelled", "interrupted"].indexOf(operation.phase) >= 0 ? operation.phase : ""}
   return out
 }
-function parameters(action, device, backup) {
+function parameters(action, device, backup, index) {
   if (actions.indexOf(action) < 0) return null
   var result = []
   if (action === "luks-check" || action === "luks-enroll") {
@@ -43,6 +48,9 @@ function parameters(action, device, backup) {
   } else if (action === "rollback") {
     if (!/^[0-9]{8}-[0-9]{6}-[a-f0-9]{8}$/.test(backup || "")) return null
     result = ["--backup", backup]
+  } else if (action === "ssh-remove") {
+    if (!/^[1-9][0-9]?$/.test(String(index || "")) || Number(index) > 50) return null
+    result = ["--index", String(index)]
   }
   return result
 }

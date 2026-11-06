@@ -34,3 +34,15 @@ test('OpenPGP status keeps only its flags and a non-identifying key summary', ()
   assert.deepEqual([hostile.openpgp.key.algorithm, hostile.openpgp.key.expires, hostile.openpgp.key.uids], ['other','',0]);
   assert.deepEqual(model.parameters('openpgp-import','',''), []);
 });
+test('SSH status keeps a count and per-key type and flags, never names', () => {
+  assert.deepEqual(model.cleanSnapshot({schema:1,ok:true,ssh:{count:2,names:['private-value']}}).ssh, {count:2,keys:[]});
+  assert.deepEqual(model.cleanSnapshot({schema:1,ok:true,ssh:{count:-1}}).ssh, {count:0,keys:[]});
+  const keys = [{type:'ed25519-sk',passphrase:true,host:'yes',name:'private-value'}, null, {type:'private-value'}];
+  const ssh = model.cleanSnapshot({schema:1,ok:true,ssh:{count:3,keys:keys}}).ssh;
+  assert.deepEqual(ssh.keys, [{type:'ed25519-sk',passphrase:true,host:false},{type:'other',passphrase:false,host:false},{type:'other',passphrase:false,host:false}]);
+  assert.equal(JSON.stringify(ssh).includes('private-value'), false);
+  assert.equal(model.cleanSnapshot({schema:1,ok:true,ssh:{count:99,keys:new Array(80).fill({})}}).ssh.keys.length, 50);
+  assert.deepEqual(model.parameters('ssh-import','',''), []);
+  assert.deepEqual(model.parameters('ssh-remove','','',2), ['--index','2']);
+  for (const index of [undefined, 0, 51, '1 --x', '02', 'id_ed25519_sk_rk']) assert.equal(model.parameters('ssh-remove','','',index), null);
+});

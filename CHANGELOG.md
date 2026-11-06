@@ -6,6 +6,14 @@
   keyring (card URL, then keyservers), link it to the card, trust it, or remove
   it again; removal refuses while gpg keeps a secret part on disk. The window
   receives only status flags.
+- Copy the resident SSH keys of the security key into `~/.ssh` (`ssh-keygen -K`
+  in a private directory, never over an existing file) and remove a copy again,
+  from the Security keys page. The window receives only a file count.
+- When a resident key's application names a git host (`application=ssh:github.com`),
+  the SSH import offers a `~/.ssh/config.d/<host>.conf` drop-in that uses the keys
+  for that host without the SSH agent, with an optional `ControlPersist` (default
+  15 minutes), and the `Include` in `~/.ssh/config` that drop-ins need. Removing a
+  copy takes its key out of the drop-in.
 
 ## 0.4.0 — 2026-11-04
 

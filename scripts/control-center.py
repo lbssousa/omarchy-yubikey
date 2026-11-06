@@ -25,6 +25,7 @@ SOURCE = Path(__file__).resolve().parents[1]
 BACKUP_ID = re.compile(r'[0-9]{8}-[0-9]{6}-[a-f0-9]{8}')
 # Algorithm names manage-openpgp.py reports; anything else becomes 'other'.
 OPENPGP_ALGORITHM = re.compile(r'rsa[0-9]{4,5}|ed(?:25519|448)|cv(?:25519|448)|nistp(?:256|384|521)|brainpoolP(?:256|384|512)r1|secp256k1|other')
+SSH_KEY_LIMIT = 50
 ACTIONS = {
     'setup': 'Set up security-key authentication',
     'setup-sudo': 'Configure sudo authentication',
@@ -44,6 +45,8 @@ ACTIONS = {
     'openpgp-import': 'Import the OpenPGP key stored on the security key',
     'openpgp-trust': 'Trust the OpenPGP key of the security key ultimately',
     'openpgp-remove': 'Remove the OpenPGP key of the security key from the keyring',
+    'ssh-import': 'Copy the resident SSH keys of the security key into ~/.ssh',
+    'ssh-remove': 'Remove one copied resident SSH key from ~/.ssh',
     'backups': 'List system PAM backup IDs',
     'rollback': 'Restore the selected PAM backup',
 }
@@ -78,6 +81,24 @@ def openpgp_status(query, available):
             'uids': uids if isinstance(uids, int) and 0 <= uids <= 1000 else 0,
             **{name: key.get(name) is True for name in ('sign', 'encrypt', 'authenticate', 'expired')}}
     return result
+
+
+def ssh_status():
+    """The resident SSH key files in ~/.ssh, in the order ssh-remove --index
+    uses, each described by type and two flags only; never names."""
+    try:
+        spec = importlib.util.spec_from_file_location('manage_ssh', SOURCE / 'scripts/manage-ssh.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        value = module.status()
+    except (OSError, ValueError, ImportError):
+        return {'count': 0, 'keys': []}
+    count = value.get('count')
+    keys = value.get('keys') if isinstance(value.get('keys'), list) else []
+    return {'count': count if isinstance(count, int) and 0 <= count <= 1000 else 0,
+            'keys': [{'type': key.get('type') if key.get('type') in ('ed25519-sk', 'ecdsa-sk') else 'other',
+                      'passphrase': key.get('passphrase') is True, 'host': key.get('host') is True}
+                     for key in keys[:SSH_KEY_LIMIT] if isinstance(key, dict)]}
 
 
 def bounded_text(path, limit=262144):
@@ -305,10 +326,10 @@ def status(root=Path('/'), config=None, state=None, store=None, username=None, q
             'tools': tools, 'connected': connected, 'enrollment': enrollment, 'sudo': sudo,
             'polkit': pam_state(polkit), 'lock': pam_state(root / 'etc/pam.d/omarchy-lock-fido2'),
             'plugins': plugins, 'keyring': keyring, 'openpgp': openpgp_status(query, tools['gpg']),
-            'operation': operation_status(state)}
+            'ssh': ssh_status(), 'operation': operation_status(state)}
 
 
-def command_plan(action, device='', backup=''):
+def command_plan(action, device='', backup='', index=''):
     if action not in ACTIONS:
         raise ValueError('Unknown operation')
     if action.startswith('luks-'):
@@ -321,6 +342,11 @@ def command_plan(action, device='', backup=''):
             raise ValueError('Enter the backup ID printed by setup')
     elif backup:
         raise ValueError('Backup ID is only valid for rollback')
+    if action == 'ssh-remove':
+        if not re.fullmatch(r'[1-9][0-9]?', index) or int(index) > SSH_KEY_LIMIT:
+            raise ValueError('Select a resident SSH key')
+    elif index:
+        raise ValueError('A key number is only valid for removing an SSH key copy')
     install = ['bash', str(SOURCE / 'install.sh')]
     if action == 'setup':
         return [install]
@@ -328,6 +354,10 @@ def command_plan(action, device='', backup=''):
         return [install + ['--components', action.removeprefix('setup-')]]
     if action.startswith('openpgp-'):
         return [[sys.executable, str(SOURCE / 'scripts/manage-openpgp.py'), action.removeprefix('openpgp-')]]
+    if action == 'ssh-import':
+        return [[sys.executable, str(SOURCE / 'scripts/manage-ssh.py'), 'import']]
+    if action == 'ssh-remove':
+        return [[sys.executable, str(SOURCE / 'scripts/manage-ssh.py'), 'remove', '--index', index]]
     if action in ('add-key', 'remove-key'):
         return [[sys.executable, str(SOURCE / 'scripts/manage-keys.py'), 'add' if action == 'add-key' else 'remove']]
     if action == 'test-sudo':
@@ -364,8 +394,8 @@ def unlocked():
     return value is not None and value.strip() in ('false', 'no', '0')
 
 
-def launch(action, device='', backup=''):
-    command_plan(action, device, backup)  # Reject invalid input before opening a terminal.
+def launch(action, device='', backup='', index=''):
+    command_plan(action, device, backup, index)  # Reject invalid input before opening a terminal.
     if os.geteuid() == 0:
         raise ValueError('Open the plugin as your normal desktop user')
     if not shutil.which('omarchy-launch-terminal'):
@@ -384,6 +414,8 @@ def launch(action, device='', backup=''):
             command += ['--device', device]
         if backup:
             command += ['--backup', backup]
+        if index:
+            command += ['--index', index]
         try:
             process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             try:
@@ -398,10 +430,10 @@ def launch(action, device='', backup=''):
     return {'ok': True}
 
 
-def run(action, ticket, device='', backup=''):
+def run(action, ticket, device='', backup='', index=''):
     if os.geteuid() == 0 or not sys.stdin.isatty() or not sys.stdout.isatty():
         raise ValueError('Operations require an interactive terminal and a normal desktop account')
-    commands = command_plan(action, device, backup)
+    commands = command_plan(action, device, backup, index)
     _, _, state, _ = paths()
     directory = private_directory(state)
     with operation_lock(directory, wait_seconds=3):
@@ -413,6 +445,8 @@ def run(action, ticket, device='', backup=''):
             print('Selected device: ' + device)
         if backup:
             print('Selected backup: ' + backup)
+        if index:
+            print('Selected SSH key: number ' + index)
         record.update(phase='running')
         save_operation(directory, record)
         print('PINs, passwords and recovery keys stay in this terminal. Do not record enrollment.')
@@ -456,6 +490,7 @@ def main():
         item.add_argument('action', choices=sorted(ACTIONS))
         item.add_argument('--device', default='')
         item.add_argument('--backup', default='')
+        item.add_argument('--index', default='')
         if mode == 'run':
             item.add_argument('--ticket', required=True)
     args = parser.parse_args()
@@ -463,9 +498,9 @@ def main():
         if args.mode == 'status':
             print(json.dumps(status(root=args.root.resolve())))
         elif args.mode == 'launch':
-            print(json.dumps(launch(args.action, args.device, args.backup)))
+            print(json.dumps(launch(args.action, args.device, args.backup, args.index)))
         else:
-            return run(args.action, args.ticket, args.device, args.backup)
+            return run(args.action, args.ticket, args.device, args.backup, args.index)
         return 0
     except (OSError, ValueError, TypeError):
         if args.mode == 'run':
