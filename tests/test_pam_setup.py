@@ -16,6 +16,11 @@ ENROLLMENT = 'example_user:example-handle,example-public-key'
 
 class PamSetupTests(unittest.TestCase):
     def setUp(self):
+        # Assertions match the canonical English messages; tr() would otherwise
+        # follow the developer's own Omarchy language.
+        language = patch.dict(os.environ, OMARCHY_YUBIKEY_LANGUAGE='en')
+        language.start()
+        self.addCleanup(language.stop)
         self.directory = tempfile.TemporaryDirectory(prefix='yubikey-pam-test-')
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)

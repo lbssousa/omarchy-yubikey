@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Tests: the PAM setup and key-removal tests pin English, as the installer
+  tests already do. They matched English messages that `tr()` translated into
+  the developer's own Omarchy language, so four of them failed on any non-English
+  desktop.
+
 ## 0.5.1 — 2026-11-06
 
 - Update the locked `libz-sys` dependency from 1.1.30 to 1.1.31 for
