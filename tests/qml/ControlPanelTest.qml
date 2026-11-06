@@ -7,6 +7,7 @@ TestCase {
   property var lastParameters
   when: false
   function test_actions_and_keyboard() {
+    var originalSnapshot = panel.snapshot
     verify(panel.width > 0)
     var translations = findChild(panel, "setupTranslations")
     verify(translations !== null)
@@ -43,12 +44,30 @@ TestCase {
     keyClick(Qt.Key_Escape)
     compare(closed,1)
     panel.page = 1
+    wait(30)
+    function checkPublicFields(item) {
+      if (item.readOnly === true && item.selectByMouse === true && item.visible) {
+        var point = item.mapToItem(panel, 0, 0)
+        verify(point.x >= -1 && point.x + item.width <= panel.width + 1, "Public identity field must fit horizontally")
+        verify(item.contentWidth <= item.width + 1, "Long fingerprints must wrap within the field")
+      }
+      if (item.children) for (var i=0;i<item.children.length;i++) checkPublicFields(item.children[i])
+    }
+    checkPublicFields(panel)
     var openpgpCard = findChild(panel,"openpgpCard")
     verify(openpgpCard.visible)
     var details = findChild(panel,"openpgpDetails")
     verify(details.visible)
-    compare(panel.openpgpDetails().length, 4)
+    compare(panel.openpgpDetails().length, 9)
+    verify(openpgpCard.ready)
+    var identityToggle = findChild(panel,"openpgpIdentityToggle")
+    verify(identityToggle.visible)
+    identityToggle.clicked()
+    compare(panel.openpgpDetails().length, 10)
+    identityToggle.clicked()
     panel.snapshot = Object.assign({}, panel.snapshot, {openpgp:{card:true,imported:true,linked:true,trusted:true,key:{algorithm:"ed25519",sign:true,encrypt:true,authenticate:false,expires:"2020-01-01",expired:true,uids:1}}})
+    verify(!openpgpCard.ready)
+    panel.snapshot = Object.assign({}, panel.snapshot, {openpgp:{card:true,imported:true,linked:true,ready:true,key:{algorithm:"ed25519",revoked:true}}})
     verify(!openpgpCard.ready)
     panel.snapshot = Object.assign({}, panel.snapshot, {openpgp:{card:true,imported:true,linked:true,trusted:false,key:null}})
     verify(!details.visible)
@@ -67,8 +86,8 @@ TestCase {
     keyClick(Qt.Key_Return)
     compare(dialog.opened,false)
     compare(lastParameters.length,2)
-    compare(lastParameters[0],"--index")
-    compare(lastParameters[1],"1")
+    compare(lastParameters[0],"--key-id")
+    compare(lastParameters[1],"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
     panel.page = 0
     panel.snapshot = Object.assign({}, panel.snapshot, {operation:{phase:"running"}})
     panel.ask("setup", "Guided setup")
@@ -85,5 +104,6 @@ TestCase {
         scroll.contentItem.contentY = 0
       }
     }
+    panel.snapshot = originalSnapshot
   }
 }

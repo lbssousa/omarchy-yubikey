@@ -1,62 +1,74 @@
 # Resident SSH keys
 
-FIDO2 security keys can store resident (discoverable) SSH keys, created with
-`ssh-keygen -t ed25519-sk -O resident`. The *Security keys* page of the control
-center copies them into `~/.ssh`, for example on a new computer, as the desktop
-user and without privileges. Like every other action, each one opens a terminal
-first; the FIDO2 PIN stays in that terminal.
+The **Resident SSH keys** card copies resident security-key handles into
+`~/.ssh` as the desktop user, for example on a new computer. Create such keys
+with `ssh-keygen -t ed25519-sk -O resident`. Each action opens an interactive
+terminal; the PIN and passphrases go to ssh-keygen itself.
 
-The **Resident SSH keys** card lists the resident key files in `~/.ssh` by
-number only, each described by its type (Ed25519-SK or ECDSA-SK), whether a
-passphrase protects the copied file and whether a git-host drop-in uses it.
-The window never receives file names, applications or user IDs.
+Each row shows the public application, key type, selectable SHA256 public
+fingerprint, passphrase flag and whether the managed configuration lists it.
+Applications are read from the public-key blob, not its editable comment.
+Filenames and FIDO2 user IDs/credential handles are not sent to the window.
 
-| Action | What happens in the terminal |
+| Action | What happens |
 | --- | --- |
-| **Import SSH keys** | Runs `ssh-keygen -K` in a private temporary directory, where ssh-keygen asks for the PIN, a touch and an optional passphrase for each copied file. Every `id_*_sk_rk*` pair is then moved into `~/.ssh` (0600 for the private file, 0644 for the `.pub`), **never over an existing file**: a pair whose name is already taken is reported and left out. |
-| **Remove** (on a key's row) | Names the file behind that number, then deletes it and its `.pub` after a confirmation. The number follows the window's last refresh, so check the file name before confirming if `~/.ssh` changed meanwhile; a number past the end of the list stops without removing anything. The credential stays on the security key and can be imported again. |
+| **Import SSH keys** | Runs `ssh-keygen -K` in a private temporary directory, then installs complete pairs at 0600/0644. Existing files, including either half of a pair, are never overwritten. An incomplete/failed download installs nothing. Failed pair copies roll back files created for that pair. |
+| **Remove** | Passes a stable reference to the exact filename and public identity, rather than a row number. The terminal identifies the public fingerprint and filename before confirmation. A disappeared/replaced public key cannot redirect removal to another row, and both file contents are rechecked after confirmation. The credential stays on the security key. |
+
+SSH management directories must be owned by the account and private (0700).
+Symlinks, nonregular files, oversized input and concurrent tool operations are
+rejected. Existing directory permissions are not silently relaxed or changed.
 
 ## Git hosts
 
-A resident key made for a git host names it in its application
-(`ssh-keygen -t ed25519-sk -O resident -O application=ssh:github.com`), which
-`ssh-keygen -K` keeps as the comment of the `.pub` file. For each such host the
-import offers to create a drop-in `~/.ssh/config.d/<host>.conf`:
+For an application such as `ssh:github.com`, import offers to configure the
+matching Git host. Applications may name a host, a login and host, or a login,
+host and port. Only validated known forges or names with `git` in a label before
+the top-level domain are offered; the default SSH login is `git`.
 
-```
-# Created by omarchy-yubikey for resident SSH keys.
-Host github.com
-    User git
-    IdentityFile ~/.ssh/id_ed25519_sk_rk_github.com
-    IdentityFile ~/.ssh/id_ed25519_sk_rk_github.com_work
-    IdentitiesOnly yes
-    IdentityAgent none
-    ControlMaster auto
-    ControlPath ~/.ssh/control/%C
-    ControlPersist 15m
-```
+The tool owns one file, `~/.ssh/omarchy-yubikey/config`, and one canonical
+global `Include omarchy-yubikey/config` at the beginning of `~/.ssh/config`.
+It does not adopt or edit general `config.d` files. An unrelated or conditional
+Include does not suppress the global managed Include. The main file's remaining
+contents and mode are preserved; a symbolic-link main config is refused.
 
-- After `ssh:`, the application may be `host`, `login@host` or
-  `//login@host:port`; the login defaults to `git`. The key's user ID (`-O user=`)
-  is ignored: it is usually an account name or random, not an SSH login.
-- A host counts as a git host if it is a known one (GitHub, GitLab, Bitbucket,
-  Codeberg, SourceHut, Gitea, Azure DevOps) or if any of its names before the
-  top-level domain contains `git`, as in `git.example.com` or `gitlab.example.org`.
-- All keys for the same host go into one drop-in. ssh offers their public keys in
-  that order, and only the one the server accepts asks for a touch.
-- `IdentitiesOnly` and `IdentityAgent none` make ssh use these key files directly,
-  without the SSH agent or other keys.
-- The terminal asks how many minutes the first connection stays open for reuse
-  (default 15, at most 1440; 0 leaves the `Control*` lines out). While it is open,
-  new connections to that host reuse it **without a PIN or touch**.
-- An existing drop-in for the same host is never replaced.
-- If `~/.ssh/config` does not include `~/.ssh/config.d`, the import offers to add
-  `Include config.d/*.conf` at its top, where it applies to every host, and
-  keeps the file's other contents and permissions. It does not edit a symbolic link.
+All selected keys for the same login/host/port share a Host entry. Reimporting
+a removed key offers to restore its IdentityFile line; adding another key offers
+to extend the same entry. Conflicting logins or ports are reported.
 
-**Remove** also takes the key's line out of the drop-in created for it,
-and deletes the drop-in once no key is left. Drop-ins written by hand are left alone.
+Before applying a configuration update, the terminal shows its diff and uses
+`ssh -G` to compare effective settings for each managed host, including existing
+Host/Match rules. Invalid or conflicting configurations are not installed.
+Existing explicit IdentityFile directives can add other keys; their effective
+list is included in the preview. Disabling the agent does not remove those
+directives.
 
-Copied files are key handles, not the private key itself: they only work with
-the security key connected. A passphrase still protects them from use on
-another machine together with a stolen key.
+The managed file carries its source model in a comment and is replaced
+atomically. Hand edits to its body are detected; applying the proposed
+replacement requires typing **REPLACE**, not just answering yes. The model and
+configuration are in the same file, avoiding a split manifest/config update.
+If its header is missing or invalid, move the file aside and review it manually.
+
+## Connection reuse
+
+The default is **0 minutes**, with explicit `ControlMaster no`,
+`ControlPath none` and `ControlPersist no`. This also disables inherited
+multiplexing for these hosts. Every new connection performs authentication;
+the card's own policies determine whether a PIN and touch are required.
+
+A positive duration, up to 1440 minutes, is an explicit choice. For that
+duration, additional connections can reuse the authenticated session without
+another PIN or touch. Removing a copied key does not terminate existing SSH
+connections or revoke the credential on the security key.
+
+Removal proposes an update to the managed configuration before deleting the
+key pair. Cancelling that update preserves both files. Empty Host entries are
+removed; an empty managed file and its Include are harmless and retained.
+Existing legacy `config.d/<host>.conf` files from preview versions are not
+automatically migrated: inspect and remove those manually before enabling the
+new configuration, using the effective-settings preview as a check.
+
+Copied private files contain hardware-bound handles, not the private signing
+key. Their passphrases still matter if both a handle and the physical key are
+stolen. Software tests use synthetic public blobs and real `ssh -G`; actual
+authentication and connection reuse require hardware/server testing.

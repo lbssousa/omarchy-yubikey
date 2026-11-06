@@ -36,6 +36,11 @@ Polkit and helper catalogs still support all 50 Omarchy languages.
 Counts describe configuration, not successful authentication. USB discovery
 counts FIDO2 devices, not necessarily enrolled YubiKeys. No device serials,
 credential handles, encrypted passwords or collection labels are shown.
+The key-management cards may show bounded public fingerprints and SSH
+applications. OpenPGP name/email is optional and hidden initially. Fingerprints
+can be selected and copied; raw command output and private handles never enter
+the model. SSH removal selects a stable key reference and checks the files
+again after confirmation, so changing row positions cannot select another key.
 The window neither guesses a disk nor changes boot configuration.
 
 Every action first offers **Cancel** or **Open terminal**, defaulting to Cancel.

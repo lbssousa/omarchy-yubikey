@@ -20,6 +20,7 @@ import sys
 import tempfile
 import time
 import uuid
+import unicodedata
 
 SOURCE = Path(__file__).resolve().parents[1]
 BACKUP_ID = re.compile(r'[0-9]{8}-[0-9]{6}-[a-f0-9]{8}')
@@ -59,46 +60,68 @@ def openpgp_module():
     return module
 
 
+def metadata_text(value, limit=256):
+    if not isinstance(value, str):
+        return ''
+    return ''.join(c for c in value if c.isprintable() and not unicodedata.category(c).startswith('C'))[:limit]
+
+
 def openpgp_status(query, available):
-    """Card presence, keyring state and the key's algorithm, capabilities, expiry
-    and user-ID count; no fingerprints, names, addresses or serials."""
-    empty = {'card': False, 'imported': False, 'linked': False, 'trusted': False}
+    """Bounded public identity and state; no card serials, URLs or secret data."""
+    empty = dict.fromkeys(('card', 'imported', 'linked', 'trusted', 'ready', 'local'), False)
+    empty.update(key=None, slots={})
     if not query or not available:
         return empty
     try:
         value = openpgp_module().status()
-    except (OSError, ValueError, ImportError):
+    except (OSError, ValueError, ImportError, UnicodeError):
         return empty
-    result = {name: value.get(name) is True for name in empty}
+    result = {name: value.get(name) is True for name in ('card', 'imported', 'linked', 'trusted', 'ready', 'local')}
+    result.update(key=None, slots={})
     key = value.get('key')
     if result['imported'] and isinstance(key, dict):
-        algorithm = key.get('algorithm')
-        expires = key.get('expires')
-        uids = key.get('uids')
+        algorithm, expires, uids = key.get('algorithm'), key.get('expires'), key.get('uids')
+        fingerprint = key.get('fingerprint')
         result['key'] = {
             'algorithm': algorithm if isinstance(algorithm, str) and OPENPGP_ALGORITHM.fullmatch(algorithm) else 'other',
             'expires': expires if isinstance(expires, str) and re.fullmatch(r'[0-9]{4}-[0-9]{2}-[0-9]{2}', expires) else '',
-            'uids': uids if isinstance(uids, int) and 0 <= uids <= 1000 else 0,
-            **{name: key.get(name) is True for name in ('sign', 'encrypt', 'authenticate', 'expired')}}
+            'uids': uids if type(uids) is int and 0 <= uids <= 1000 else 0,
+            'fingerprint': fingerprint if isinstance(fingerprint, str) and re.fullmatch(r'(?:[A-F0-9]{40}|[A-F0-9]{64})', fingerprint) else '',
+            'uid': metadata_text(key.get('uid')),
+            **{name: key.get(name) is True for name in ('sign', 'encrypt', 'authenticate', 'expired', 'revoked', 'disabled')}}
+    slots = value.get('slots') if isinstance(value.get('slots'), dict) else {}
+    for role in ('sign', 'encrypt', 'authenticate'):
+        slot = slots.get(role)
+        if isinstance(slot, dict):
+            result['slots'][role] = {
+                **{name: slot.get(name) is True for name in ('present', 'linked', 'ready')},
+                'location': slot.get('location') if slot.get('location') in ('card', 'other-card', 'disk', 'missing') else 'missing'}
     return result
 
 
 def ssh_status():
-    """The resident SSH key files in ~/.ssh, in the order ssh-remove --index
-    uses, each described by type and two flags only; never names."""
+    """Public SSH identities and stable references, never filenames or handles."""
     try:
         spec = importlib.util.spec_from_file_location('manage_ssh', SOURCE / 'scripts/manage-ssh.py')
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         value = module.status()
-    except (OSError, ValueError, ImportError):
-        return {'count': 0, 'keys': []}
-    count = value.get('count')
-    keys = value.get('keys') if isinstance(value.get('keys'), list) else []
-    return {'count': count if isinstance(count, int) and 0 <= count <= 1000 else 0,
-            'keys': [{'type': key.get('type') if key.get('type') in ('ed25519-sk', 'ecdsa-sk') else 'other',
-                      'passphrase': key.get('passphrase') is True, 'host': key.get('host') is True}
-                     for key in keys[:SSH_KEY_LIMIT] if isinstance(key, dict)]}
+    except (OSError, ValueError, ImportError, UnicodeError):
+        return {'count': 0, 'keys': [], 'modified': False}
+    count, keys = value.get('count'), value.get('keys')
+    result = {'count': count if type(count) is int and 0 <= count <= 1000 else 0,
+              'modified': value.get('modified') is True, 'keys': []}
+    for key in (keys if isinstance(keys, list) else [])[:SSH_KEY_LIMIT]:
+        if not isinstance(key, dict) or not isinstance(key.get('id'), str) or not re.fullmatch(r'[0-9a-f]{64}', key['id']):
+            continue
+        fingerprint, application = key.get('fingerprint'), key.get('application')
+        result['keys'].append({
+            'id': key['id'],
+            'type': key.get('type') if key.get('type') in ('ed25519-sk', 'ecdsa-sk') else 'other',
+            'fingerprint': fingerprint if isinstance(fingerprint, str) and re.fullmatch(r'SHA256:[A-Za-z0-9+/]{43}', fingerprint) else '',
+            'application': application if isinstance(application, str) and re.fullmatch(r'ssh:[\x21-\x7e]{0,252}', application) else '',
+            'passphrase': key.get('passphrase') is True, 'host': key.get('host') is True})
+    return result
 
 
 def bounded_text(path, limit=262144):
@@ -326,10 +349,11 @@ def status(root=Path('/'), config=None, state=None, store=None, username=None, q
             'tools': tools, 'connected': connected, 'enrollment': enrollment, 'sudo': sudo,
             'polkit': pam_state(polkit), 'lock': pam_state(root / 'etc/pam.d/omarchy-lock-fido2'),
             'plugins': plugins, 'keyring': keyring, 'openpgp': openpgp_status(query, tools['gpg']),
-            'ssh': ssh_status(), 'operation': operation_status(state)}
+            'ssh': ssh_status() if query else {'count': 0, 'keys': [], 'modified': False},
+            'operation': operation_status(state)}
 
 
-def command_plan(action, device='', backup='', index=''):
+def command_plan(action, device='', backup='', key_id=''):
     if action not in ACTIONS:
         raise ValueError('Unknown operation')
     if action.startswith('luks-'):
@@ -343,10 +367,10 @@ def command_plan(action, device='', backup='', index=''):
     elif backup:
         raise ValueError('Backup ID is only valid for rollback')
     if action == 'ssh-remove':
-        if not re.fullmatch(r'[1-9][0-9]?', index) or int(index) > SSH_KEY_LIMIT:
+        if not re.fullmatch(r'[0-9a-f]{64}', key_id):
             raise ValueError('Select a resident SSH key')
-    elif index:
-        raise ValueError('A key number is only valid for removing an SSH key copy')
+    elif key_id:
+        raise ValueError('A key reference is only valid for removing an SSH key copy')
     install = ['bash', str(SOURCE / 'install.sh')]
     if action == 'setup':
         return [install]
@@ -357,7 +381,7 @@ def command_plan(action, device='', backup='', index=''):
     if action == 'ssh-import':
         return [[sys.executable, str(SOURCE / 'scripts/manage-ssh.py'), 'import']]
     if action == 'ssh-remove':
-        return [[sys.executable, str(SOURCE / 'scripts/manage-ssh.py'), 'remove', '--index', index]]
+        return [[sys.executable, str(SOURCE / 'scripts/manage-ssh.py'), 'remove', '--key-id', key_id]]
     if action in ('add-key', 'remove-key'):
         return [[sys.executable, str(SOURCE / 'scripts/manage-keys.py'), 'add' if action == 'add-key' else 'remove']]
     if action == 'test-sudo':
@@ -394,8 +418,8 @@ def unlocked():
     return value is not None and value.strip() in ('false', 'no', '0')
 
 
-def launch(action, device='', backup='', index=''):
-    command_plan(action, device, backup, index)  # Reject invalid input before opening a terminal.
+def launch(action, device='', backup='', key_id=''):
+    command_plan(action, device, backup, key_id)  # Reject invalid input before opening a terminal.
     if os.geteuid() == 0:
         raise ValueError('Open the plugin as your normal desktop user')
     if not shutil.which('omarchy-launch-terminal'):
@@ -414,8 +438,8 @@ def launch(action, device='', backup='', index=''):
             command += ['--device', device]
         if backup:
             command += ['--backup', backup]
-        if index:
-            command += ['--index', index]
+        if key_id:
+            command += ['--key-id', key_id]
         try:
             process = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             try:
@@ -430,10 +454,10 @@ def launch(action, device='', backup='', index=''):
     return {'ok': True}
 
 
-def run(action, ticket, device='', backup='', index=''):
+def run(action, ticket, device='', backup='', key_id=''):
     if os.geteuid() == 0 or not sys.stdin.isatty() or not sys.stdout.isatty():
         raise ValueError('Operations require an interactive terminal and a normal desktop account')
-    commands = command_plan(action, device, backup, index)
+    commands = command_plan(action, device, backup, key_id)
     _, _, state, _ = paths()
     directory = private_directory(state)
     with operation_lock(directory, wait_seconds=3):
@@ -445,8 +469,8 @@ def run(action, ticket, device='', backup='', index=''):
             print('Selected device: ' + device)
         if backup:
             print('Selected backup: ' + backup)
-        if index:
-            print('Selected SSH key: number ' + index)
+        if key_id:
+            print('Selected SSH key reference: ' + key_id)
         record.update(phase='running')
         save_operation(directory, record)
         print('PINs, passwords and recovery keys stay in this terminal. Do not record enrollment.')
@@ -490,7 +514,7 @@ def main():
         item.add_argument('action', choices=sorted(ACTIONS))
         item.add_argument('--device', default='')
         item.add_argument('--backup', default='')
-        item.add_argument('--index', default='')
+        item.add_argument('--key-id', default='')
         if mode == 'run':
             item.add_argument('--ticket', required=True)
     args = parser.parse_args()
@@ -498,9 +522,9 @@ def main():
         if args.mode == 'status':
             print(json.dumps(status(root=args.root.resolve())))
         elif args.mode == 'launch':
-            print(json.dumps(launch(args.action, args.device, args.backup, args.index)))
+            print(json.dumps(launch(args.action, args.device, args.backup, args.key_id)))
         else:
-            return run(args.action, args.ticket, args.device, args.backup, args.index)
+            return run(args.action, args.ticket, args.device, args.backup, args.key_id)
         return 0
     except (OSError, ValueError, TypeError):
         if args.mode == 'run':

@@ -40,59 +40,54 @@ class ControlTests(unittest.TestCase):
             self.assertNotIn(value, rendered)
         self.assertFalse(state.exists())
 
-    def test_openpgp_actions_are_fixed_commands_and_status_is_flags_only(self):
+    def test_openpgp_actions_and_bounded_public_metadata(self):
         for action in ('openpgp-import', 'openpgp-trust', 'openpgp-remove'):
-            plan = control.command_plan(action)
-            self.assertEqual(plan, [[control.sys.executable, str(control.SOURCE / 'scripts/manage-openpgp.py'), action.removeprefix('openpgp-')]])
+            self.assertEqual(control.command_plan(action), [[control.sys.executable,
+                str(control.SOURCE / 'scripts/manage-openpgp.py'), action.removeprefix('openpgp-')]])
             with self.assertRaises(ValueError):
                 control.command_plan(action, device='/dev/example')
-        self.assertEqual(control.openpgp_status(False, True), {'card': False, 'imported': False, 'linked': False, 'trusted': False})
-        fake = type('Module', (), {'status': staticmethod(lambda: {'card': True, 'imported': True, 'linked': 'yes', 'fingerprint': 'private-value'})})
+        self.assertFalse(control.openpgp_status(False, True)['card'])
+        summary = {'algorithm': 'ed25519', 'expires': '2030-01-01', 'uids': 3,
+                   'fingerprint': 'A' * 40, 'uid': '<b>Public</b>' + chr(27) + 'X' * 300,
+                   'sign': True, 'encrypt': 'yes', 'serial': 'private-value'}
+        fake = type('Module', (), {'status': staticmethod(lambda: {
+            'card': True, 'imported': True, 'linked': 'yes', 'ready': True, 'key': summary,
+            'serial': 'private-value', 'slots': {'sign': {'present': True, 'location': 'disk', 'ready': False}}})})
         with patch.object(control, 'openpgp_module', return_value=fake):
             value = control.openpgp_status(True, True)
-        self.assertEqual(value, {'card': True, 'imported': True, 'linked': False, 'trusted': False})
-        summary = {'algorithm': 'ed25519', 'sign': True, 'encrypt': 'yes', 'authenticate': False, 'expires': '2030-01-01',
-                   'expired': False, 'uids': 3, 'fingerprint': 'private-value'}
-        fake = type('Module', (), {'status': staticmethod(lambda: {'card': True, 'imported': True, 'key': summary})})
-        with patch.object(control, 'openpgp_module', return_value=fake):
-            value = control.openpgp_status(True, True)
-        self.assertEqual(value['key'], {'algorithm': 'ed25519', 'sign': True, 'encrypt': False, 'authenticate': False,
-                                        'expires': '2030-01-01', 'expired': False, 'uids': 3})
-        hostile = dict(summary, algorithm='Example User', expires='soon', uids=-1)
-        fake = type('Module', (), {'status': staticmethod(lambda: {'card': True, 'imported': True, 'key': hostile})})
-        with patch.object(control, 'openpgp_module', return_value=fake):
-            value = control.openpgp_status(True, True)
-        self.assertEqual((value['key']['algorithm'], value['key']['expires'], value['key']['uids']), ('other', '', 0))
+        self.assertFalse(value['linked'])
+        self.assertFalse(value['key']['encrypt'])
+        self.assertEqual(value['key']['fingerprint'], 'A' * 40)
+        self.assertEqual(len(value['key']['uid']), 256)
+        self.assertNotIn(chr(27), value['key']['uid'])
+        self.assertEqual(value['slots']['sign']['location'], 'disk')
         self.assertNotIn('private-value', json.dumps(value))
-        result = control.status(self.root, self.root / 'config', self.root / 'state', self.root / 'store', 'user', query=False)
-        self.assertEqual(result['openpgp']['card'], False)
 
-    def test_ssh_actions_are_fixed_commands_and_status_has_no_names(self):
+    def test_ssh_actions_use_stable_references_and_filter_private_fields(self):
         script = str(control.SOURCE / 'scripts/manage-ssh.py')
+        reference = 'a' * 64
         self.assertEqual(control.command_plan('ssh-import'), [[control.sys.executable, script, 'import']])
-        self.assertEqual(control.command_plan('ssh-remove', index='3'), [[control.sys.executable, script, 'remove', '--index', '3']])
-        for index in ('', '0', '51', '03', '1 --x', '-1', 'id_ed25519_sk_rk'):
+        self.assertEqual(control.command_plan('ssh-remove', key_id=reference),
+                         [[control.sys.executable, script, 'remove', '--key-id', reference]])
+        for key_id in ('', '1', '03', '1 --x', '-1', 'id_ed25519_sk_rk', 'A' * 64):
             with self.assertRaises(ValueError):
-                control.command_plan('ssh-remove', index=index)
-        for arguments in ({'backup': '20261104-120000-abcdef01'}, {'index': '1'}):
-            with self.assertRaises(ValueError):
-                control.command_plan('ssh-import', **arguments)
+                control.command_plan('ssh-remove', key_id=key_id)
         with self.assertRaises(ValueError):
-            control.command_plan('add-key', index='1')
-        home = self.root / 'home'
-        (home / '.ssh').mkdir(parents=True)
-        (home / '.ssh/id_ed25519_sk_rk_private-name').write_text('synthetic')
-        with patch.dict(os.environ, {'HOME': str(home)}):
-            result = control.status(self.root, self.root / 'config', self.root / 'state', self.root / 'store', 'user', query=False)
-        self.assertEqual(result['ssh'], {'count': 1, 'keys': [{'type': 'other', 'passphrase': False, 'host': False}]})
-        self.assertNotIn('private-name', json.dumps(result))
-        hostile = {'count': 2, 'keys': [{'type': 'ed25519-sk', 'passphrase': 'yes', 'host': True, 'name': 'private-name'}, 'private-name']}
-        fake = type('Module', (), {'status': staticmethod(lambda: hostile)})
-        loader = type('Loader', (), {'exec_module': lambda self, module: module.__dict__.update(status=fake.status)})()
-        with patch.object(control.importlib.util, 'spec_from_file_location', return_value=type('Spec', (), {'loader': loader})()), \
+            control.command_plan('ssh-import', key_id=reference)
+        hostile = {'count': 2, 'keys': [
+            {'id': reference, 'type': 'ed25519-sk', 'application': 'ssh:github.com',
+             'fingerprint': 'SHA256:' + 'A' * 43, 'passphrase': 'yes', 'host': True, 'name': 'private-value'},
+            {'id': 'bad', 'name': 'private-value'}]}
+        loader = type('Loader', (), {'exec_module': lambda self, module:
+                                    module.__dict__.update(status=lambda: hostile)})()
+        with patch.object(control.importlib.util, 'spec_from_file_location',
+                          return_value=type('Spec', (), {'loader': loader})()), \
                 patch.object(control.importlib.util, 'module_from_spec', return_value=type('M', (), {})()):
             value = control.ssh_status()
-        self.assertEqual(value, {'count': 2, 'keys': [{'type': 'ed25519-sk', 'passphrase': False, 'host': True}]})
+        self.assertEqual(len(value['keys']), 1)
+        self.assertEqual(value['keys'][0]['application'], 'ssh:github.com')
+        self.assertFalse(value['keys'][0]['passphrase'])
+        self.assertNotIn('private-value', json.dumps(value))
 
     def test_status_rejects_duplicate_account_and_invalid_stores(self):
         with self.assertRaises(ValueError):
@@ -101,6 +96,13 @@ class ControlTests(unittest.TestCase):
         store.write_text('[]')
         result = control.status(self.root, self.root / 'config', self.root / 'state', store, 'user', query=False)
         self.assertEqual(result['keyring']['state'], 'unreadable')
+
+    def test_isolated_status_does_not_probe_account_ssh_keys(self):
+        with patch.object(control, 'ssh_status') as probe:
+            value = control.status(self.root, self.root / 'config', self.root / 'state',
+                                   self.root / 'store', 'user', query=False)
+        probe.assert_not_called()
+        self.assertEqual(value['ssh']['keys'], [])
 
     def test_ui_catalogs_cover_every_literal_and_preserve_placeholders(self):
         import re

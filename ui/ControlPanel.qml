@@ -22,16 +22,14 @@ Item {
   readonly property int keyCount: snapshot ? snapshot.enrollment.count : 0
   readonly property int sshCount: snapshot && snapshot.ssh ? snapshot.ssh.count : 0
   readonly property var sshKeys: snapshot && snapshot.ssh && snapshot.ssh.keys ? snapshot.ssh.keys : []
-  // Type and flags only: the window never receives file names, applications or user IDs.
+  // Public identity only; filenames and credential handles stay in the terminal.
   function sshKeyDetails(key) {
     var parts = [key.type === "ed25519-sk" ? "Ed25519-SK" : key.type === "ecdsa-sk" ? "ECDSA-SK" : strings.t("Other")]
     parts.push(key.passphrase ? strings.t("passphrase") : strings.t("no passphrase"))
     if (key.host) parts.push(strings.t("git host configured"))
     return parts.join(" · ")
   }
-  function sshNumber(value) {
-    return typeof strings.number === "function" ? strings.number(value) : String(value)
-  }
+  property bool showOpenpgpIdentity: false
   property string pendingAction: ""
   property string pendingTitle: ""
   property var pendingParameters: []
@@ -46,9 +44,9 @@ Item {
   readonly property var shortPages: [strings.t("Overview"), strings.t("Keys"), strings.t("Desktop"), strings.t("Keyring"), strings.t("Recovery")]
   readonly property var subtitles: [strings.t("Security-key authentication, in one place."), strings.t("Keep a spare key ready before you need it."), strings.t("Choose how your key works with sudo and your session."), strings.t("Unlock your existing GNOME Keyring with a touch."), strings.t("Enroll disk keys and recover previous PAM settings.")]
 
-  function ask(action, title, device, backup, index) {
+  function ask(action, title, device, backup, keyId) {
     if (!root.canAct) return
-    var parameters = Model.parameters(action, device, backup, index)
+    var parameters = Model.parameters(action, device, backup, keyId)
     if (parameters === null) { root.notice = strings.t("Check the device path or backup ID."); root.failed = true; return }
     root.pendingAction = action
     root.pendingTitle = title
@@ -73,9 +71,12 @@ Item {
   readonly property var openpgp: snapshot && snapshot.openpgp ? snapshot.openpgp : {card: false, imported: false, linked: false, trusted: false, key: null}
   function openpgpState() {
     if (!openpgp.imported) return strings.t("Not imported")
+    if (openpgp.key && openpgp.key.revoked) return strings.t("Revoked")
+    if (openpgp.key && openpgp.key.disabled) return strings.t("Disabled")
     if (openpgp.key && openpgp.key.expired) return strings.t("Expired")
+    if (openpgp.ready) return strings.t("Ready")
     if (!openpgp.linked) return strings.t("Not linked to the card")
-    return openpgp.trusted ? strings.t("Ready") : strings.t("Not trusted yet")
+    return strings.t("Unavailable")
   }
   // Omarchy 4.5's Commons.Translations can shadow the bundled loader and lack
   // number(); fall back to plain digits rather than losing every detail row.
@@ -83,7 +84,12 @@ Item {
     return typeof strings.number === "function" ? strings.number(value) : String(value)
   }
   readonly property var openpgpRows: openpgpDetails()
-  // Non-identifying facts only: the window never receives fingerprints or user IDs.
+  function slotState(slot) {
+    if (slot.ready) return strings.t("On this card")
+    if (slot.location === "disk") return strings.t("Local secret copy")
+    if (slot.location === "other-card") return strings.t("Other card")
+    return slot.linked ? strings.t("Unavailable") : strings.t("Not linked to the card")
+  }
   function openpgpDetails() {
     var key = openpgp.key
     if (!key) return []
@@ -91,12 +97,23 @@ Item {
     if (key.sign) uses.push(strings.t("Sign"))
     if (key.encrypt) uses.push(strings.t("Encrypt"))
     if (key.authenticate) uses.push(strings.t("Authenticate"))
-    return [
+    var rows = [
+      {label: strings.t("Fingerprint"), value: key.fingerprint || strings.t("Unavailable")},
       {label: strings.t("Algorithm"), value: key.algorithm === "other" ? strings.t("Other") : key.algorithm},
       {label: strings.t("Use"), value: uses.length ? uses.join(", ") : strings.t("None")},
       {label: strings.t("Expires"), value: !key.expires ? strings.t("Never") : key.expired ? strings.t("Expired on %1", [key.expires]) : key.expires},
-      {label: strings.t("User IDs"), value: openpgpNumber(key.uids)}
+      {label: strings.t("User IDs"), value: openpgpNumber(key.uids)},
+      {label: strings.t("Ownertrust"), value: openpgp.trusted ? strings.t("Ultimate") : strings.t("Not trusted yet")}
     ]
+    if (root.showOpenpgpIdentity && key.uid) rows.push({label: strings.t("Name and email"), value: key.uid})
+    if (openpgp.local) rows.push({label: strings.t("Local key material"), value: strings.t("Local secret copy")})
+    var roles = ["sign", "encrypt", "authenticate"]
+    var labels = [strings.t("Sign"), strings.t("Encrypt"), strings.t("Authenticate")]
+    roles.forEach(function(role, i) {
+      var slot = (openpgp.slots || {})[role]
+      if (slot && slot.present) rows.push({label: labels[i], value: root.slotState(slot)})
+    })
+    return rows
   }
   function showNotice(source, error) { notice = strings.t(source); failed = error }
   Keys.onPressed: function(event) {
@@ -259,7 +276,7 @@ Item {
                 visible: root.openpgp.card
                 title: strings.t("OpenPGP key on the card")
                 badge: root.openpgpState()
-                ready: root.openpgp.linked && root.openpgp.trusted && !(root.openpgp.key && root.openpgp.key.expired)
+                ready: root.openpgp.ready === true && !!root.openpgp.key && !root.openpgp.key.expired && !root.openpgp.key.revoked && !root.openpgp.key.disabled
                 description: strings.t("Import the public key from the URL stored on the card or from the keyservers, so GnuPG signs and decrypts with the card. Removing it from the keyring leaves the key on the card.")
                 details: Column {
                   objectName: "openpgpDetails"
@@ -271,14 +288,16 @@ Item {
                     RowLayout {
                       required property var modelData
                       width: parent.width
-                      Text { Layout.fillWidth: true; text: modelData.label; color: Commons.Color.foreground; font { family: Style.font.family; pixelSize: Style.font.body } wrapMode: Text.WordWrap }
-                      Text { text: modelData.value; color: Commons.Color.accent; font { family: Style.font.family; pixelSize: Style.font.body } textFormat: Text.PlainText }
+                      spacing: Style.space(12)
+                      Text { Layout.preferredWidth: Math.min(Style.space(130), parent.width * 0.35); text: modelData.label; color: Commons.Color.foreground; font { family: Style.font.family; pixelSize: Style.font.body } wrapMode: Text.WordWrap; textFormat: Text.PlainText }
+                      TextEdit { Layout.fillWidth: true; Layout.minimumWidth: 0; text: modelData.value; readOnly: true; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere; color: Commons.Color.accent; font { family: Style.font.family; pixelSize: Style.font.body } textFormat: TextEdit.PlainText }
                     }
                   }
                 }
                 ActionButton { text: strings.t("Import key"); primary: !root.openpgp.linked; enabled: root.canAct; onClicked: root.ask("openpgp-import", text) }
                 ActionButton { text: strings.t("Trust as my key"); enabled: root.canAct && root.openpgp.imported && !root.openpgp.trusted; onClicked: root.ask("openpgp-trust", text) }
                 ActionButton { text: strings.t("Remove from keyring"); enabled: root.canAct && root.openpgp.imported; onClicked: root.ask("openpgp-remove", text) }
+                ActionButton { objectName: "openpgpIdentityToggle"; text: root.showOpenpgpIdentity ? strings.t("Hide name and email") : strings.t("Show name and email"); visible: !!root.openpgp.key && !!root.openpgp.key.uid; onClicked: root.showOpenpgpIdentity = !root.showOpenpgpIdentity }
               }
               FeatureCard {
                 objectName: "sshCard"
@@ -300,10 +319,11 @@ Item {
                       spacing: Style.space(12)
                       Column {
                         Layout.fillWidth: true
-                        Text { width: parent.width; text: strings.t("Key %1", [root.sshNumber(index + 1)]); color: Commons.Color.foreground; font { family: Style.font.family; pixelSize: Style.font.body } textFormat: Text.PlainText; elide: Text.ElideRight }
+                        Text { width: parent.width; text: modelData.application || strings.t("SSH key"); color: Commons.Color.foreground; font { family: Style.font.family; pixelSize: Style.font.body } textFormat: Text.PlainText; elide: Text.ElideRight }
                         Text { width: parent.width; text: root.sshKeyDetails(modelData); color: Util.alpha(Commons.Color.foreground, 0.73); font { family: Style.font.family; pixelSize: Style.font.caption } textFormat: Text.PlainText; wrapMode: Text.WrapAtWordBoundaryOrAnywhere }
+                        TextEdit { width: parent.width; text: modelData.fingerprint; readOnly: true; selectByMouse: true; wrapMode: TextEdit.WrapAnywhere; color: Commons.Color.accent; font { family: Style.font.family; pixelSize: Style.font.caption } textFormat: TextEdit.PlainText }
                       }
-                      ActionButton { objectName: "sshRemove" + index; text: strings.t("Remove"); enabled: root.canAct; onClicked: root.ask("ssh-remove", strings.t("Remove SSH key %1", [root.sshNumber(index + 1)]), "", "", index + 1) }
+                      ActionButton { objectName: "sshRemove" + index; text: strings.t("Remove"); enabled: root.canAct && !!modelData.id; onClicked: root.ask("ssh-remove", strings.t("Remove SSH key %1", [modelData.fingerprint.slice(0, 19)]), "", "", modelData.id) }
                     }
                   }
                 }

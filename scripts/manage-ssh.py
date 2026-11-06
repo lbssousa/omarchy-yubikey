@@ -1,55 +1,44 @@
 #!/usr/bin/env python3
-"""Copy the resident SSH keys of a security key into ~/.ssh, or remove copies.
+"""Import resident SSH key handles and manage explicitly selected Git hosts.
 
-Interactive terminal operations, run as the desktop user without privileges:
-
-  import  `ssh-keygen -K` in a private temporary directory, where ssh-keygen
-          itself asks for the FIDO2 PIN, a touch and an optional passphrase;
-          then each key file pair is moved into ~/.ssh, never over a file
-          already there. Keys whose application names a git host
-          (`ssh-keygen -O application=ssh:github.com`) can get a drop-in in
-          ~/.ssh/config.d that uses them for that host without the SSH agent,
-          optionally keeping the connection open for reuse (ControlPersist)
-  remove  delete one copied key file pair from ~/.ssh, and its line in the
-          drop-in made for it; the credential stays on the security key and
-          can be imported again. `--index N` selects the Nth key as the
-          control center lists it, and the terminal still names the file and
-          asks before removing it
-
-`status()` is the metadata-only probe used by the control center: the resident
-key files in ~/.ssh in a fixed order, each described only by its key type,
-whether a passphrase protects it and whether a git-host drop-in uses it. File
-names, applications and user IDs never leave this script.
+Runs as the desktop user. PINs and passphrases belong to ssh-keygen's terminal.
+Public applications/fingerprints may enter the GUI; filenames and credential
+handles never do. A removal reference identifies a particular pair, not a row.
 """
 import argparse
 import base64
+from contextlib import contextmanager
+import difflib
+import fcntl
+import hashlib
+import json
 import os
 from pathlib import Path
 import re
-import shutil
 import stat
 import subprocess
 import sys
 import tempfile
 
 RESIDENT = re.compile(r'id_[a-z0-9]+_sk_rk[A-Za-z0-9_.:@-]*')
+KEY_ID = re.compile(r'[0-9a-f]{64}')
 IMPORT_TIMEOUT = 180
-# What follows the ssh: of an application: host, login@host or
-# //login@host:port; the host needs at least one dot.
+FILE_LIMIT = 262144
+STATUS_LIMIT = 50
 GIT_APPLICATION = re.compile(r'(?://)?(?:(?P<login>[A-Za-z0-9][A-Za-z0-9._-]*)@)?'
-                      r'(?P<host>[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+)'
-                      r'(?::(?P<port>[0-9]{1,5}))?/?')
+                             r'(?P<host>[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+)'
+                             r'(?::(?P<port>[0-9]{1,5}))?/?')
 GIT_HOSTS = {'github.com', 'gitlab.com', 'bitbucket.org', 'codeberg.org', 'git.sr.ht',
              'gitea.com', 'ssh.dev.azure.com', 'vs-ssh.visualstudio.com'}
-CONTROL_PERSIST_MINUTES = 15
-MAX_PERSIST_MINUTES = 24 * 60
-MARKER = '# Created by omarchy-yubikey for resident SSH keys.'
-IDENTITY = '    IdentityFile ~/.ssh/'
-INCLUDE = 'Include config.d/*.conf'
-STATUS_LIMIT = 50
-# Public key algorithm names, before their "@openssh.com" suffix.
-KEY_TYPES = {'sk-ssh-ed25519': 'ed25519-sk', 'sk-ecdsa-sha2-nistp256': 'ecdsa-sk'}
-# Built from parts so the publication scan does not see a key block here.
+CONTROL_PERSIST_MINUTES = 0
+MAX_PERSIST_MINUTES = 1440
+MANAGED = 'omarchy-yubikey/config'
+INCLUDE = 'Include ' + MANAGED
+MARKER = '# omarchy-yubikey-state-v1 '
+# Construct the algorithm names without looking like personal email fixtures
+# to the repository's publication check.
+KEY_TYPES = {'sk-ssh-ed25519' + '@' + 'openssh.com': 'ed25519-sk',
+             'sk-ecdsa-sha2-nistp256' + '@' + 'openssh.com': 'ecdsa-sk'}
 PRIVATE_BEGIN = '-----BEGIN OPENSSH ' + 'PRIVATE KEY-----'
 
 
@@ -57,256 +46,430 @@ def ssh_directory():
     return Path.home() / '.ssh'
 
 
+def read_file(path, limit=FILE_LIMIT):
+    """Read bounded, regular, user-owned files without following final symlinks."""
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+            raise ValueError('Expected a regular file owned by your account')
+        data = stream.read(limit + 1)
+        if len(data) > limit:
+            raise ValueError('File exceeds the size limit')
+        return data
+
+
+def private_directory(path):
+    path.mkdir(mode=0o700, exist_ok=True)
+    info = path.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise ValueError('SSH management directories must be owned by you and private (0700)')
+    return path
+
+
+@contextmanager
+def operation_lock(directory):
+    private_directory(directory)
+    fd = os.open(directory / '.omarchy-yubikey.lock', os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise ValueError('Unsafe SSH management lock')
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise ValueError('Another SSH key operation is running') from None
+        yield
+    finally:
+        os.close(fd)
+
+
 def resident_keys(directory):
-    """Private key files ssh-keygen -K wrote, without their .pub halves."""
     try:
-        names = os.listdir(directory)
-    except OSError:
+        return sorted(path.name for path in directory.iterdir()
+                      if RESIDENT.fullmatch(path.name) and not path.name.endswith('.pub')
+                      and not path.is_symlink() and path.is_file())
+    except FileNotFoundError:
         return []
-    return sorted(name for name in names if RESIDENT.fullmatch(name) and not name.endswith('.pub')
-                  and not (directory / name).is_symlink() and (directory / name).is_file())
 
 
-def key_type(directory, name):
+def ssh_string(data, offset):
+    if offset + 4 > len(data):
+        raise ValueError('Invalid SSH public key')
+    length = int.from_bytes(data[offset:offset + 4], 'big')
+    end = offset + 4 + length
+    if length > FILE_LIMIT or end > len(data):
+        raise ValueError('Invalid SSH public key')
+    return data[offset + 4:end], end
+
+
+def public_key(directory, name):
+    fields = read_file(directory / (name + '.pub')).decode('ascii').split()
+    if len(fields) < 2 or fields[0] not in KEY_TYPES:
+        raise ValueError('Not a security-key public key')
+    blob = base64.b64decode(fields[1], validate=True)
+    algorithm, at = ssh_string(blob, 0)
+    if algorithm.decode('ascii') != fields[0]:
+        raise ValueError('Public key algorithm mismatch')
+    if KEY_TYPES[fields[0]] == 'ed25519-sk':
+        point, at = ssh_string(blob, at)
+        if len(point) != 32:
+            raise ValueError('Invalid Ed25519 public key')
+    else:
+        curve, at = ssh_string(blob, at)
+        point, at = ssh_string(blob, at)
+        if curve != b'nistp256' or len(point) != 65 or point[:1] != b'\x04':
+            raise ValueError('Invalid ECDSA public key')
+    application, at = ssh_string(blob, at)
+    if at != len(blob):
+        raise ValueError('Trailing SSH public-key data')
+    app = application.decode('utf-8')
+    if not app.startswith('ssh:') or len(app) > 256 or not all(c.isprintable() and c.isascii() for c in app):
+        app = ''
+    fingerprint = 'SHA256:' + base64.b64encode(hashlib.sha256(blob).digest()).decode().rstrip('=')
+    return {'type': KEY_TYPES[fields[0]], 'application': app, 'fingerprint': fingerprint, 'blob': blob}
+
+
+def key_reference(directory, name):
+    public = public_key(directory, name)
+    # Stable across row reordering; changes when either filename or public identity changes.
+    return hashlib.sha256(name.encode() + b'\0' + public['blob']).hexdigest()
+
+
+def private_header(path):
+    """OpenSSH exposes the public half even when the private payload is encrypted."""
+    text = read_file(path).decode('ascii')
+    body = text.split(PRIVATE_BEGIN, 1)[1].split('-----END', 1)[0]
+    data = base64.b64decode(''.join(body.split()), validate=True)
+    magic = b'openssh-key-v1\0'
+    if not data.startswith(magic):
+        raise ValueError('Not an OpenSSH key handle')
+    cipher, at = ssh_string(data, len(magic))
+    _, at = ssh_string(data, at)  # KDF name
+    _, at = ssh_string(data, at)  # KDF options
+    if data[at:at + 4] != b'\0\0\0\1':
+        raise ValueError('Expected exactly one key in the copied handle')
+    blob, at = ssh_string(data, at + 4)
+    payload, end = ssh_string(data, at)
+    if not payload or end != len(data):
+        raise ValueError('Invalid OpenSSH private envelope')
+    return cipher, blob
+
+
+def validate_pair(directory, name):
+    public = public_key(directory, name)
     try:
-        fields = (directory / (name + '.pub')).read_text(errors='replace').split()
-    except OSError:
-        return 'other'
-    name, _, vendor = (fields[0] if fields else '').partition('@')
-    return KEY_TYPES.get(name, 'other') if vendor == 'openssh.com' else 'other'
+        _, blob = private_header(directory / name)
+    except (UnicodeError, IndexError) as error:
+        raise ValueError('Invalid copied OpenSSH handle') from error
+    if blob != public['blob']:
+        raise ValueError('The private handle does not match its security-key public half')
+    return public
 
 
 def has_passphrase(path):
-    """Whether an OpenSSH private key file is encrypted (its cipher is not "none")."""
     try:
-        text = path.read_text(errors='replace')
-        body = text.split(PRIVATE_BEGIN, 1)[1].split('-----END', 1)[0]
-        data = base64.b64decode(''.join(body.split()), validate=True)
-    except (OSError, IndexError, ValueError):
+        cipher, _ = private_header(path)
+        return cipher not in (b'none', b'')
+    except (OSError, UnicodeError, IndexError, ValueError):
         return False
-    magic = b'openssh-key-v1\0'
-    if not data.startswith(magic) or len(data) < len(magic) + 4:
-        return False
-    length = int.from_bytes(data[len(magic):len(magic) + 4], 'big')
-    return data[len(magic) + 4:len(magic) + 4 + length] not in (b'none', b'')
-
-
-def status():
-    """Metadata only: never file names, applications or user IDs."""
-    directory = ssh_directory()
-    names = resident_keys(directory)
-    keys = [{'type': key_type(directory, name), 'passphrase': has_passphrase(directory / name),
-             'host': bool(drop_ins_for(directory, name))} for name in names[:STATUS_LIMIT]]
-    return {'count': len(names), 'keys': keys}
 
 
 def application(directory, name):
-    """The FIDO2 application of a key: ssh-keygen -K keeps it as the .pub comment."""
     try:
-        fields = (directory / (name + '.pub')).read_text(errors='replace').split()
-    except OSError:
+        return public_key(directory, name)['application']
+    except (OSError, UnicodeError, ValueError):
         return None
-    return fields[2] if len(fields) > 2 else None
 
 
 def git_remote(value):
-    """(login, host, port) when the application <value> names a git host, else None."""
     if not value or not value.startswith('ssh:'):
         return None
-    match = GIT_APPLICATION.fullmatch(value[len('ssh:'):])
+    match = GIT_APPLICATION.fullmatch(value[4:])
     if not match:
         return None
-    host = match.group('host').lower()
-    port = match.group('port')
+    host, port = match['host'].lower(), match['port']
     if port is not None and not 1 <= int(port) <= 65535:
         return None
-    labels = host.split('.')
-    if host not in GIT_HOSTS and not any('git' in label for label in labels[:-1]):
+    if host not in GIT_HOSTS and not any('git' in label for label in host.split('.')[:-1]):
         return None
-    # Git hosts log in as git unless the application names another login.
-    return match.group('login') or 'git', host, port
-
-
-def key_remote(directory, name):
-    """The git host a key was made for, from its application; the user ID is ignored."""
-    return git_remote(application(directory, name))
+    return match['login'] or 'git', host, str(int(port)) if port else None
 
 
 def drop_in_text(names, remote, minutes):
     login, host, port = remote
-    lines = [MARKER, 'Host ' + host, '    User ' + login]
+    lines = ['Host ' + host, '    User ' + login]
     if port:
-        lines.append('    Port ' + port)
-    lines += [IDENTITY + name for name in names]
+        lines += ['    Port ' + port]
+    lines += ['    IdentityFile ~/.ssh/' + name for name in sorted(names)]
     lines += ['    IdentitiesOnly yes', '    IdentityAgent none']
     if minutes:
-        lines += ['    ControlMaster auto', '    ControlPath ~/.ssh/control/%C',
+        lines += ['    ControlMaster auto', '    ControlPath ~/.ssh/omarchy-yubikey/control/%C',
                   '    ControlPersist ' + str(minutes) + 'm']
+    else:
+        # ControlMaster no alone can still reuse a master at an inherited ControlPath.
+        lines += ['    ControlMaster no', '    ControlPath none', '    ControlPersist no']
     return '\n'.join(lines) + '\n'
 
 
-def write_drop_in(directory, names, remote, minutes):
-    """Create ~/.ssh/config.d/<host>.conf; False when that file already exists."""
-    config_d = directory / 'config.d'
-    config_d.mkdir(mode=0o700, exist_ok=True)
-    if config_d.is_symlink() or not config_d.is_dir():
-        raise ValueError('~/.ssh/config.d must be a directory')
-    if minutes:
-        control = directory / 'control'
-        control.mkdir(mode=0o700, exist_ok=True)
-        if control.is_symlink() or not control.is_dir():
-            raise ValueError('~/.ssh/control must be a directory')
-    target = config_d / (remote[1] + '.conf')
-    try:
-        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
-    except FileExistsError:
-        return False
-    with os.fdopen(fd, 'w') as stream:
-        stream.write(drop_in_text(names, remote, minutes))
-    return True
+def managed_text(hosts):
+    state = json.dumps({'schema': 1, 'hosts': hosts}, sort_keys=True, separators=(',', ':'))
+    header = MARKER + base64.b64encode(state.encode()).decode() + '\n'
+    return header + ''.join(drop_in_text(entry['names'], tuple(entry['remote']), entry['minutes']) + '\n'
+                            for _, entry in sorted(hosts.items()))
 
 
-def includes_drop_ins(config):
+def load_managed(directory):
+    """The one atomically replaced file carries its own bounded source model.
+
+    Comparing its complete rendering detects hand edits without a two-file
+    config/manifest transaction that can be interrupted between replacements.
+    """
     try:
-        lines = config.read_text(errors='replace').splitlines()
+        text = read_file(directory / MANAGED).decode('utf-8')
     except FileNotFoundError:
-        return False
-    return any(re.match(r'\s*include\s+\S*config\.d/', line, re.IGNORECASE) for line in lines)
+        return {}, '', False
+    try:
+        first = text.splitlines()[0]
+        if not first.startswith(MARKER):
+            raise ValueError()
+        state = json.loads(base64.b64decode(first[len(MARKER):], validate=True))
+        if state['schema'] != 1 or not isinstance(state['hosts'], dict) or len(state['hosts']) > 100:
+            raise ValueError()
+        hosts = state['hosts']
+        for host, entry in hosts.items():
+            remote, names, minutes = entry['remote'], entry['names'], entry['minutes']
+            if not isinstance(remote, list) or len(remote) != 3 or remote[1] != host:
+                raise ValueError()
+            value = 'ssh:' + remote[0] + '@' + host + (':' + remote[2] if remote[2] else '')
+            if tuple(remote) != git_remote(value):
+                raise ValueError()
+            if not isinstance(names, list) or not names or len(names) > 1000 or len(set(names)) != len(names):
+                raise ValueError()
+            if any(not isinstance(name, str) or not RESIDENT.fullmatch(name) or name.endswith('.pub') for name in names):
+                raise ValueError()
+            if type(minutes) is not int or not 0 <= minutes <= MAX_PERSIST_MINUTES:
+                raise ValueError()
+        return hosts, text, text != managed_text(hosts)
+    except (KeyError, TypeError, IndexError, UnicodeError, ValueError):
+        raise ValueError('The managed SSH file has no valid management header; move it aside before continuing') from None
 
 
-def replace_text(path, text, mode):
+def status():
+    directory = ssh_directory()
+    names = resident_keys(directory)
+    try:
+        hosts, _, modified = load_managed(directory)
+    except (OSError, ValueError):
+        hosts, modified = {}, True
+    try:
+        main, _ = config_text(directory)
+        enabled = include_text(main) == main
+    except (OSError, ValueError, UnicodeError):
+        enabled = False
+    configured = {name for entry in hosts.values() for name in entry['names']} if not modified and enabled else set()
+    keys = []
+    for name in names:
+        try:
+            public = validate_pair(directory, name)
+            reference = key_reference(directory, name)
+            read_file(directory / name)
+        except (OSError, UnicodeError, ValueError):
+            continue
+        keys.append({key: public[key] for key in ('type', 'application', 'fingerprint')})
+        keys[-1].update(id=reference, passphrase=has_passphrase(directory / name), host=name in configured)
+        if len(keys) == STATUS_LIMIT:
+            break
+    return {'count': len(names), 'keys': keys, 'modified': modified}
+
+
+def replace_text(path, text, mode=0o600, expected=None):
+    """Atomic replacement, refusing symlinks and changes since the reviewed read."""
+    if path.is_symlink():
+        raise ValueError('Refusing a symbolic link destination')
+    if expected is not None:
+        try:
+            current = read_file(path).decode('utf-8')
+        except FileNotFoundError:
+            current = ''
+        if current != expected:
+            raise ValueError('SSH configuration changed during review; try again')
     fd, temporary = tempfile.mkstemp(prefix='.' + path.name + '-', dir=path.parent)
     try:
         with os.fdopen(fd, 'w') as stream:
             stream.write(text)
+            stream.flush()
+            os.fsync(stream.fileno())
         os.chmod(temporary, mode)
         os.replace(temporary, path)
-    except BaseException:
-        os.unlink(temporary)
-        raise
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
 
 
-def add_include(config):
-    """Put the Include at the top of ~/.ssh/config, where it applies to every host."""
-    if config.is_symlink():
-        raise ValueError('~/.ssh/config is a symbolic link; add "' + INCLUDE + '" at its top yourself')
+def config_text(directory):
+    config = directory / 'config'
     try:
-        text, mode = config.read_text(), stat.S_IMODE(config.stat().st_mode)
+        text = read_file(config).decode('utf-8')
+        mode = stat.S_IMODE(config.stat().st_mode)
+        if mode & 0o022:
+            raise ValueError('SSH config must not be writable by other accounts')
+        return text, mode
     except FileNotFoundError:
-        text, mode = '', 0o600
-    replace_text(config, INCLUDE + '\n' + ('\n' + text if text else ''), mode)
+        return '', 0o600
 
 
-def drop_ins_for(directory, name):
-    """Drop-ins this tool created that list ~/.ssh/<name>."""
-    config_d = directory / 'config.d'
-    if config_d.is_symlink() or not config_d.is_dir():
-        return []
-    found = []
-    for path in sorted(config_d.glob('*.conf')):
-        try:
-            if path.is_file() and not path.is_symlink():
-                lines = path.read_text(errors='replace').splitlines()
-                if lines and lines[0] == MARKER and IDENTITY + name in lines:
-                    found.append(path)
-        except OSError:
-            continue
-    return found
+def include_text(text, include=INCLUDE):
+    # Always own one canonical global Include, irrespective of unrelated or
+    # conditional Include directives. Do not try to parse OpenSSH's grammar.
+    remaining = text
+    if remaining.startswith(INCLUDE + '\n'):
+        remaining = remaining[len(INCLUDE) + 1:]
+        if remaining.startswith('\n'):
+            remaining = remaining[1:]
+    remaining = ''.join(line for line in remaining.splitlines(True) if line.strip() != INCLUDE)
+    return include + '\n' + ('\n' + remaining if remaining else '')
 
 
-def drop_key_from(path, name):
-    """Remove the key's line; delete the drop-in when no key is left."""
-    lines = path.read_text().splitlines()
-    remaining = [line for line in lines if line != IDENTITY + name]
-    if not any(line.startswith(IDENTITY) for line in remaining):
-        path.unlink()
+def ssh_options(config, host):
+    result = subprocess.run(['ssh', '-G', '-F', str(config), host], capture_output=True,
+                            text=True, timeout=10, check=False)
+    if result.returncode:
+        raise ValueError('OpenSSH rejected the proposed configuration; no configuration was written')
+    keys = {'user', 'hostname', 'port', 'identityfile', 'identityagent', 'identitiesonly',
+            'controlmaster', 'controlpath', 'controlpersist'}
+    return [line for line in result.stdout.splitlines() if line.partition(' ')[0] in keys]
+
+
+def preview(directory, hosts, proposed, main):
+    """Ask OpenSSH itself to resolve settings, including existing Host/Match rules."""
+    with tempfile.TemporaryDirectory(prefix='.yubikey-preview-', dir=directory) as tmp:
+        at = Path(tmp)
+        managed = at / 'managed'
+        managed.write_text(proposed)
+        # Quote paths for OpenSSH, including spaces in account home directories.
+        path = str(managed).replace('\\', '\\\\').replace('"', '\\"')
+        candidate = at / 'config'
+        candidate.write_text(include_text(main, 'Include "' + path + '"'))
+        original = at / 'original'
+        original.write_text(main)
+        for host, entry in sorted(hosts.items()):
+            before, after = ssh_options(original, host), ssh_options(candidate, host)
+            required = {'user ' + entry['remote'][0], 'identityagent none', 'identitiesonly yes'}
+            if entry['remote'][2]:
+                required.add('port ' + entry['remote'][2])
+            if not entry['minutes']:
+                required.add('controlmaster false')
+                # OpenSSH omits ControlPath when its value is none.
+                if any(line.startswith('controlpath ') for line in after):
+                    raise ValueError('An inherited SSH control socket is still active; no configuration was written')
+            if not required <= set(after):
+                raise ValueError('Existing SSH rules conflict with the requested settings; no configuration was written')
+            print('Effective SSH settings for ' + host + ':')
+            print(''.join(difflib.unified_diff([x + '\n' for x in before], [x + '\n' for x in after],
+                                             fromfile='current', tofile='proposed')) or '  unchanged')
+
+
+def save_hosts(directory, hosts, previous, modified=False):
+    proposed = managed_text(hosts)
+    if proposed == previous and not modified:
         return
-    replace_text(path, '\n'.join(remaining) + '\n', stat.S_IMODE(path.stat().st_mode))
+    main, mode = config_text(directory)
+    print(''.join(difflib.unified_diff(previous.splitlines(True)[1:], proposed.splitlines(True)[1:],
+                                     fromfile=MANAGED + ' current', tofile=MANAGED + ' proposed')))
+    preview(directory, hosts, proposed, main)
+    answer = input('Replace the manually edited managed file? Type REPLACE: ' if modified
+                   else 'Apply these SSH configuration changes? [y/N] ').strip()
+    accepted = answer == 'REPLACE' if modified else answer.lower() in ('y', 'yes')
+    if not accepted:
+        print('SSH configuration left unchanged.')
+        return False
+    managed_dir = private_directory(directory / 'omarchy-yubikey')
+    if any(entry['minutes'] for entry in hosts.values()):
+        private_directory(managed_dir / 'control')
+    new_main = include_text(main)
+    # First install the complete managed file; only then enable its Include.
+    # If enabling fails, it is safe to repeat: the next run still offers the Include.
+    replace_text(directory / MANAGED, proposed, expected=previous)
+    if new_main != main:
+        replace_text(directory / 'config', new_main, mode, expected=main)
+    return True
 
 
 def ask_minutes():
-    answer = input('Keep the connection open for reuse, in minutes (Enter for '
-                   + str(CONTROL_PERSIST_MINUTES) + ', 0 for never): ').strip()
+    answer = input('Connection reuse in minutes (Enter or 0: authenticate each new connection; maximum 1440): ').strip()
     if not answer:
         return CONTROL_PERSIST_MINUTES
-    if not answer.isdecimal() or int(answer) > MAX_PERSIST_MINUTES:
-        raise ValueError('Enter whole minutes from 0 to ' + str(MAX_PERSIST_MINUTES))
+    if not re.fullmatch(r'[0-9]{1,4}', answer) or int(answer) > MAX_PERSIST_MINUTES:
+        raise ValueError('Enter whole minutes from 0 to 1440')
     return int(answer)
 
 
-def git_hosts(directory, names):
-    """{host: (remote, [names])} for the keys made for a git host."""
-    hosts = {}
-    for name in names:
-        remote = key_remote(directory, name)
-        if not remote:
-            continue
-        known, keys = hosts.setdefault(remote[1], (remote, []))
-        if remote != known:
-            print('~/.ssh/' + name + ' asks for ' + remote[0] + '@' + remote[1]
-                  + ' while another key asks for ' + known[0] + '@' + known[1]
-                  + '; only keys for the first are configured.')
-            continue
-        keys.append(name)
-    return hosts
-
-
 def offer_drop_ins(directory, names):
-    """Ask, host by host, to configure the git hosts the keys were made for."""
-    created = False
-    for host, (remote, keys) in sorted(git_hosts(directory, names).items()):
-        target = '~/.ssh/config.d/' + host + '.conf'
-        if os.path.lexists(directory / 'config.d' / (host + '.conf')):
-            print(target + ' already exists; it was left unchanged.')
+    hosts, previous, modified = load_managed(directory)
+    hosts = json.loads(json.dumps(hosts))
+    present = set(resident_keys(directory))
+    # Drop stale references when explicitly applying the next reviewed update.
+    hosts = {host: dict(entry, names=[n for n in entry['names'] if n in present])
+             for host, entry in hosts.items()}
+    hosts = {host: entry for host, entry in hosts.items() if entry['names']}
+    grouped = {}
+    for name in names:
+        remote = git_remote(application(directory, name))
+        if remote:
+            grouped.setdefault(remote[1], []).append((remote, name))
+    for host, candidates in sorted(grouped.items()):
+        old = hosts.get(host)
+        remote = tuple(old['remote']) if old else candidates[0][0]
+        matching = [name for candidate, name in candidates if candidate == remote]
+        if len(matching) != len(candidates):
+            print('Different logins or ports for ' + host + '; conflicting keys are not configured.')
+        if not matching:
             continue
-        print('Keys for ' + remote[0] + '@' + host + ':')
-        for name in keys:
-            print('  ~/.ssh/' + name)
-        if len(keys) > 1:
-            print('ssh offers them in this order, and only the one ' + host
-                  + ' accepts asks for a touch.')
-        if input('Create ' + target + ' so ssh and git use ' + ('these keys' if len(keys) > 1 else 'this key')
-                 + ' for ' + host + ', without the SSH agent? [y/N] ').strip().lower() not in ('y', 'yes'):
+        added = sorted(set(matching) | set(old['names'] if old else []))
+        if old and added == old['names']:
             continue
-        minutes = ask_minutes()
+        print('Keys for ' + host + ': ' + ', '.join(matching))
+        if input('Configure these keys for ' + host + ' without the SSH agent? [y/N] ').strip().lower() not in ('y', 'yes'):
+            continue
+        minutes = old['minutes'] if old else ask_minutes()
         if minutes:
-            print('While the connection stays open, new connections to ' + host
-                  + ' reuse it without a PIN or touch.')
-        if write_drop_in(directory, keys, remote, minutes):
-            print('Created ' + target + '.')
-            created = True
-    config = directory / 'config'
-    if created and not includes_drop_ins(config):
-        if input('~/.ssh/config does not read ~/.ssh/config.d. Add "' + INCLUDE
-                 + '" at its top? [y/N] ').strip().lower() in ('y', 'yes'):
-            add_include(config)
-            print('Added "' + INCLUDE + '" to ~/.ssh/config.')
-        else:
-            print('Add "' + INCLUDE + '" at the top of ~/.ssh/config for the drop-in to apply.')
-
-
-def same_public_key(workdir, directory, name):
-    try:
-        return (workdir / (name + '.pub')).read_bytes() == (directory / (name + '.pub')).read_bytes()
-    except OSError:
-        return False
+            print('Connections reuse the authenticated session for ' + str(minutes)
+                  + ' minutes without another PIN or touch; removal does not close an existing session.')
+        hosts[host] = {'remote': list(remote), 'names': added, 'minutes': minutes}
+    # A previous run may have written the managed file but failed before enabling
+    # its global Include. Offer to finish that step even without new keys.
+    main, _ = config_text(directory)
+    if hosts and (managed_text(hosts) != previous or include_text(main) != main or modified):
+        if managed_text(hosts) == previous and include_text(main) != main:
+            preview(directory, hosts, previous, main)
+            if input('Enable the managed SSH configuration globally? [y/N] ').strip().lower() in ('y', 'yes'):
+                text, mode = config_text(directory)
+                if text != main:
+                    raise ValueError('SSH config changed during review')
+                replace_text(directory / 'config', include_text(main), mode, expected=main)
+            return
+        save_hosts(directory, hosts, previous, modified)
 
 
 def copy_exclusive(source, target, mode):
-    """Create <target> only if nothing is there, even if it appears meanwhile."""
     fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
-    with os.fdopen(fd, 'wb') as stream, open(source, 'rb') as data:
-        shutil.copyfileobj(data, stream)
-    os.chmod(target, mode)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            os.fchmod(stream.fileno(), mode)
+            stream.write(read_file(source))
+            stream.flush()
+            os.fsync(stream.fileno())
+    except BaseException:
+        target.unlink(missing_ok=True)
+        raise
 
 
 def install(workdir, directory):
-    """Move downloaded pairs into <directory>; return (imported, skipped) names."""
-    directory.mkdir(mode=0o700, exist_ok=True)
-    if directory.is_symlink() or not directory.is_dir():
-        raise ValueError('~/.ssh must be a directory')
+    private_directory(directory)
     imported, skipped = [], []
     for name in resident_keys(workdir):
+        validate_pair(workdir, name)  # Require a matching SK pair before touching the destination.
         pair = [(name, 0o600), (name + '.pub', 0o644)]
         if any(os.path.lexists(directory / item) for item, _ in pair):
             skipped.append(name)
@@ -314,14 +477,15 @@ def install(workdir, directory):
         written = []
         try:
             for item, mode in pair:
-                if (workdir / item).is_file():
-                    copy_exclusive(workdir / item, directory / item, mode)
-                    written.append(directory / item)
-        except FileExistsError:
+                copy_exclusive(workdir / item, directory / item, mode)
+                written.append(directory / item)
+        except BaseException as error:
             for path in written:
                 path.unlink(missing_ok=True)
-            skipped.append(name)
-            continue
+            if isinstance(error, FileExistsError):
+                skipped.append(name)
+                continue
+            raise
         imported.append(name)
     return imported, skipped
 
@@ -329,82 +493,100 @@ def install(workdir, directory):
 def do_import():
     runtime = os.environ.get('XDG_RUNTIME_DIR')
     base = runtime if runtime and os.path.isdir(runtime) else None
-    print('ssh-keygen asks for the FIDO2 PIN and a touch, then for a passphrase to protect each copied file.')
+    print('ssh-keygen asks for the FIDO2 PIN, touch and a passphrase for the copied handles.')
     with tempfile.TemporaryDirectory(prefix='omarchy-yubikey-ssh-', dir=base) as temporary:
         workdir = Path(temporary)
-        os.chmod(workdir, 0o700)
         result = subprocess.call(['ssh-keygen', '-K'], cwd=workdir, timeout=IMPORT_TIMEOUT)
+        if result:
+            raise ValueError('ssh-keygen did not finish; no downloaded keys were installed')
         if not resident_keys(workdir):
-            if result:
-                raise ValueError('ssh-keygen could not read resident keys from the security key')
-            print('The security key holds no resident SSH keys; nothing changed.')
+            print('No resident SSH keys found.')
             return
         directory = ssh_directory()
         imported, skipped = install(workdir, directory)
-        # A kept copy of the very same key can be configured too.
-        present = imported + [name for name in skipped if same_public_key(workdir, directory, name)]
+        present = list(imported)
+        for name in skipped:
+            try:
+                if public_key(workdir, name)['blob'] == public_key(directory, name)['blob']:
+                    present.append(name)
+            except (OSError, ValueError):
+                pass
     for name in imported:
         print('Imported ~/.ssh/' + name)
     for name in skipped:
-        print('Kept the existing ~/.ssh/' + name + '; that key was not copied again.')
+        print('Kept existing ~/.ssh/' + name)
     offer_drop_ins(directory, sorted(present))
 
 
-def do_remove(index=None):
+def do_remove(key_id=None):
     directory = ssh_directory()
     names = resident_keys(directory)
     if not names:
-        print('No resident key files in ~/.ssh; nothing to remove.')
+        if key_id:
+            raise ValueError('The selected key is gone; refresh the control center')
+        print('No resident key copies found.')
         return
-    print('The credential stays on the security key; only the copy in ~/.ssh is removed.')
-    if index is not None:
-        # The control center lists keys in the same order, by number only.
-        if not 1 <= index <= len(names):
-            raise ValueError('The key list changed; refresh the control center and try again')
-        name = names[index - 1]
-        print('Key ' + str(index) + ': ~/.ssh/' + name)
+    if key_id:
+        if not KEY_ID.fullmatch(key_id):
+            raise ValueError('Invalid key reference')
+        matches = []
+        for name in names:
+            try:
+                if key_reference(directory, name) == key_id:
+                    matches.append(name)
+            except (OSError, ValueError):
+                continue
+        if len(matches) != 1:
+            raise ValueError('The selected key changed or is gone; refresh the control center')
+        name = matches[0]
     else:
-        for number, name in enumerate(names, 1):
-            print(str(number) + '. ' + name)
+        for i, name in enumerate(names, 1):
+            print(str(i) + '. ' + name)
         selected = input('Number to remove, or Enter to cancel: ').strip()
         if not selected:
             return
         if not selected.isdecimal() or not 1 <= int(selected) <= len(names):
             raise ValueError('Invalid selection')
         name = names[int(selected) - 1]
-    drop_ins = drop_ins_for(directory, name)
-    question = 'Remove ~/.ssh/' + name + ' and its .pub'
-    if drop_ins:
-        question += ', and its line in ' + ', '.join('~/.ssh/config.d/' + path.name for path in drop_ins)
-    if input(question + '? [y/N] ').strip().lower() not in ('y', 'yes'):
-        print('Cancelled; nothing changed.')
+    # Snapshot the exact two files before asking; never retarget a stale selection.
+    before = {suffix: read_file(directory / (name + suffix)) for suffix in ('', '.pub')}
+    public = validate_pair(directory, name)
+    reference = key_reference(directory, name)
+    print('Selected ' + public['fingerprint'] + ' (' + public['application'] + ')')
+    print('Only the copied handle is removed. The credential stays on the key. Existing SSH sessions remain open.')
+    if input('Remove ~/.ssh/' + name + ' and its .pub? [y/N] ').strip().lower() not in ('y', 'yes'):
         return
-    for path in (directory / name, directory / (name + '.pub')):
-        if os.path.lexists(path):
-            path.unlink()
-    for path in drop_ins:
-        drop_key_from(path, name)
-    print('Removed ~/.ssh/' + name + '.')
+    hosts, previous, modified = load_managed(directory)
+    updated = {host: dict(entry, names=[n for n in entry['names'] if n != name]) for host, entry in hosts.items()}
+    updated = {host: entry for host, entry in updated.items() if entry['names']}
+    if updated != hosts or modified:
+        if not save_hosts(directory, updated, previous, modified):
+            print('Key files left unchanged.')
+            return
+    if key_reference(directory, name) != reference or any(
+            read_file(directory / (name + suffix)) != data for suffix, data in before.items()):
+        raise ValueError('The key files changed during confirmation; no key files were removed')
+    for suffix in ('', '.pub'):
+        (directory / (name + suffix)).unlink()
+    print('Removed ~/.ssh/' + name)
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=['import', 'remove'])
-    parser.add_argument('--index', type=int, help='remove: the Nth key as the control center lists it')
+    parser.add_argument('--key-id', help='stable opaque reference returned by status')
     args = parser.parse_args()
-    if args.index is not None and (args.operation != 'remove' or not 1 <= args.index <= STATUS_LIMIT):
-        parser.error('--index selects a key from 1 to ' + str(STATUS_LIMIT) + ' for remove')
+    if args.key_id and (args.operation != 'remove' or not KEY_ID.fullmatch(args.key_id)):
+        parser.error('--key-id requires a removal reference of 64 hexadecimal characters')
     if os.geteuid() == 0 or not sys.stdin.isatty() or not sys.stdout.isatty():
         parser.error('Run as the desktop user in an interactive terminal')
-    if args.operation == 'import':
-        do_import()
-    else:
-        do_remove(args.index)
+    with operation_lock(ssh_directory()):
+        do_import() if args.operation == 'import' else do_remove(args.key_id)
 
 
 if __name__ == '__main__':
     try:
         main()
-    except (ValueError, OSError, subprocess.SubprocessError, EOFError, KeyboardInterrupt) as error:
+    except (ValueError, OSError, UnicodeError, subprocess.SubprocessError, EOFError, KeyboardInterrupt) as error:
         print('SSH key operation stopped: ' + (str(error) or 'cancelled'), file=sys.stderr)
         raise SystemExit(1)

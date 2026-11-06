@@ -1,17 +1,29 @@
-"""Resident SSH key copies in temporary directories; ssh-keygen is mocked."""
+"""Resident-key operations and real OpenSSH configuration resolution in temp homes."""
+import base64
 import importlib.util
 import os
 from pathlib import Path
 import stat
+import struct
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
 
-AT = '@'  # keeps synthetic addresses out of the publication scan
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('manage_ssh', ROOT / 'scripts/manage-ssh.py')
 ssh = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ssh)
+
+
+def wire(value):
+    return struct.pack('>I', len(value)) + value
+
+
+def public(application='ssh:github.com', byte=1):
+    algorithm = b'sk-ssh-ed25519' + b'@' + b'openssh.com'
+    blob = wire(algorithm) + wire(bytes([byte]) * 32) + wire(application.encode())
+    return algorithm.decode() + ' ' + base64.b64encode(blob).decode() + ' ignored-comment\n'
 
 
 class SshKeyTests(unittest.TestCase):
@@ -20,232 +32,284 @@ class SshKeyTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.base = Path(self.temp.name)
         self.work = self.base / 'work'
-        self.work.mkdir()
+        self.work.mkdir(mode=0o700)
         self.target = self.base / 'ssh'
+        self.target.mkdir(mode=0o700)
         patcher = patch.object(ssh, 'ssh_directory', return_value=self.target)
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def download(self, *names):
-        for name in names:
-            (self.work / name).write_text('synthetic private ' + name)
-            (self.work / (name + '.pub')).write_text('synthetic public ' + name)
+    def resident(self, directory, name, application='ssh:github.com', byte=1):
+        pub = public(application, byte)
+        blob = base64.b64decode(pub.split()[1])
+        envelope = b'openssh-key-v1\0' + wire(b'none') + wire(b'none') + wire(b'') + struct.pack('>I', 1) + wire(blob) + wire(b'synthetic handle')
+        (directory / name).write_text(ssh.PRIVATE_BEGIN + '\n' + base64.b64encode(envelope).decode() + '\n-----END-----\n')
+        (directory / (name + '.pub')).write_text(pub)
 
-    def test_lists_only_resident_private_key_files(self):
-        self.target.mkdir()
-        for name in ('id_ed25519_sk_rk', 'id_ed25519_sk_rk.pub', 'id_ecdsa_sk_rk_example', 'id_ed25519', 'id_ed25519_sk', 'notes'):
-            (self.target / name).write_text('synthetic')
-        (self.target / 'id_ecdsa_sk_rk_link').symlink_to(self.target / 'notes')
-        self.assertEqual(ssh.resident_keys(self.target), ['id_ecdsa_sk_rk_example', 'id_ed25519_sk_rk'])
-        self.assertEqual(ssh.status(), {'count': 2, 'keys': [{'type': 'other', 'passphrase': False, 'host': False}] * 2})
-        self.assertEqual(ssh.resident_keys(self.base / 'missing'), [])
+    def configure(self, *names, minutes=0):
+        hosts = {'github.com': {'remote': ['git', 'github.com', None], 'names': sorted(names), 'minutes': minutes}}
+        ssh.private_directory(self.target / 'omarchy-yubikey')
+        (self.target / ssh.MANAGED).write_text(ssh.managed_text(hosts))
+        # Absolute path for ssh -G tests; production uses the user's ~/.ssh.
+        (self.target / 'config').write_text(ssh.INCLUDE + '\n')
+        return hosts
 
-    def test_install_never_overwrites_and_sets_modes(self):
-        self.download('id_ed25519_sk_rk', 'id_ecdsa_sk_rk_example')
-        self.target.mkdir()
-        (self.target / 'id_ecdsa_sk_rk_example.pub').write_text('existing')
+    def test_install_never_overwrites_either_half_and_sets_modes(self):
+        self.resident(self.work, 'id_ed25519_sk_rk_a')
+        self.resident(self.work, 'id_ed25519_sk_rk_b', byte=2)
+        (self.target / 'id_ed25519_sk_rk_b.pub').write_text('existing')
         imported, skipped = ssh.install(self.work, self.target)
-        self.assertEqual(imported, ['id_ed25519_sk_rk'])
-        self.assertEqual(skipped, ['id_ecdsa_sk_rk_example'])
-        self.assertEqual((self.target / 'id_ecdsa_sk_rk_example.pub').read_text(), 'existing')
-        self.assertFalse((self.target / 'id_ecdsa_sk_rk_example').exists())
-        self.assertEqual(stat.S_IMODE((self.target / 'id_ed25519_sk_rk').stat().st_mode), 0o600)
-        self.assertEqual(stat.S_IMODE((self.target / 'id_ed25519_sk_rk.pub').stat().st_mode), 0o644)
+        self.assertEqual(imported, ['id_ed25519_sk_rk_a'])
+        self.assertEqual(skipped, ['id_ed25519_sk_rk_b'])
+        self.assertEqual((self.target / 'id_ed25519_sk_rk_b.pub').read_text(), 'existing')
+        for suffix, mode in [('', 0o600), ('.pub', 0o644)]:
+            self.assertEqual(stat.S_IMODE((self.target / ('id_ed25519_sk_rk_a' + suffix)).stat().st_mode), mode)
 
-    def test_install_creates_a_private_ssh_directory(self):
-        self.download('id_ed25519_sk_rk')
-        ssh.install(self.work, self.target)
-        self.assertTrue((self.target / 'id_ed25519_sk_rk').is_file())
-        self.assertEqual(stat.S_IMODE(self.target.stat().st_mode) & 0o077, 0)
+    def test_install_requires_complete_public_pair_and_rolls_back_copy_error(self):
+        self.resident(self.work, 'id_ed25519_sk_rk_a')
+        (self.work / 'id_ed25519_sk_rk_a.pub').unlink()
+        with self.assertRaises(OSError):
+            ssh.install(self.work, self.target)
+        self.assertEqual(list(self.target.iterdir()), [])
+        self.resident(self.work, 'id_ed25519_sk_rk_a')
+        original = ssh.copy_exclusive
+        def copy(source, target, mode):
+            if target.suffix == '.pub':
+                raise OSError('synthetic disk full')
+            original(source, target, mode)
+        with patch.object(ssh, 'copy_exclusive', side_effect=copy), self.assertRaises(OSError):
+            ssh.install(self.work, self.target)
+        self.assertEqual(list(self.target.iterdir()), [])
 
-    def test_import_runs_ssh_keygen_in_a_private_directory(self):
+    def test_import_is_private_and_failed_partial_download_is_not_installed(self):
+        name = 'id_ed25519_sk_rk_a'
         def call(command, cwd, timeout):
             self.assertEqual(command, ['ssh-keygen', '-K'])
             self.assertEqual(stat.S_IMODE(os.stat(cwd).st_mode), 0o700)
-            (Path(cwd) / 'id_ed25519_sk_rk').write_text('synthetic private')
-            (Path(cwd) / 'id_ed25519_sk_rk.pub').write_text('synthetic public')
-            return 0
-        with patch.dict(os.environ, {'XDG_RUNTIME_DIR': str(self.base)}), \
-                patch.object(ssh.subprocess, 'call', side_effect=call), patch('builtins.print'):
-            ssh.do_import()
-        self.assertTrue((self.target / 'id_ed25519_sk_rk').is_file())
-        self.assertEqual([p.name for p in self.base.iterdir() if p.name.startswith('omarchy-yubikey-ssh-')], [])
-
-    def test_import_failure_without_keys_raises(self):
-        with patch.object(ssh.subprocess, 'call', return_value=1), patch('builtins.print'):
+            self.resident(Path(cwd), name, 'ssh:')
+            return 1
+        with patch.dict(os.environ, {'XDG_RUNTIME_DIR': str(self.base)}), patch.object(ssh.subprocess, 'call', side_effect=call), patch('builtins.print'):
             with self.assertRaises(ValueError):
                 ssh.do_import()
+        self.assertFalse((self.target / name).exists())
 
-    def test_remove_deletes_the_selected_pair_after_confirmation(self):
-        self.target.mkdir()
-        for name in ('id_ecdsa_sk_rk_example', 'id_ed25519_sk_rk'):
-            (self.target / name).write_text('synthetic')
-            (self.target / (name + '.pub')).write_text('synthetic')
-        with patch('builtins.input', side_effect=['2', 'y']), patch('builtins.print'):
-            ssh.do_remove()
-        self.assertEqual(sorted(p.name for p in self.target.iterdir()), ['id_ecdsa_sk_rk_example', 'id_ecdsa_sk_rk_example.pub'])
-        with patch('builtins.input', side_effect=['1', 'n']), patch('builtins.print'):
-            ssh.do_remove()
-        with patch('builtins.input', side_effect=['3']), patch('builtins.print'):
-            with self.assertRaises(ValueError):
-                ssh.do_remove()
-        self.assertEqual(len(list(self.target.iterdir())), 2)
+    def test_application_is_taken_from_public_blob_not_mutable_comment(self):
+        name = 'id_ed25519_sk_rk_a'
+        self.resident(self.target, name)
+        self.assertEqual(ssh.application(self.target, name), 'ssh:github.com')
+        (self.target / (name + '.pub')).write_text(public().replace('ignored-comment', 'ssh:git.evil.example'))
+        self.assertEqual(ssh.application(self.target, name), 'ssh:github.com')
+        # OpenSSH independently accepts the synthetic public-key wire format.
+        subprocess.run(['ssh-keygen', '-l', '-f', str(self.target / (name + '.pub'))],
+                       check=True, capture_output=True)
 
-    def resident(self, directory, name, application='ssh:'):
-        directory.mkdir(exist_ok=True)
-        (directory / name).write_text('synthetic private')
-        (directory / (name + '.pub')).write_text('sk-ssh-ed25519' + AT + 'openssh.com AAAAsynthetic ' + application + '\n')
+    def test_mismatched_private_file_cannot_be_installed_or_deleted(self):
+        name = 'id_ed25519_sk_rk_a'
+        self.resident(self.work, name)
+        (self.work / (name + '.pub')).write_text(public(byte=2))
+        with self.assertRaises(ValueError):
+            ssh.install(self.work, self.target)
+        self.assertFalse((self.target / name).exists())
+        self.resident(self.target, name)
+        (self.target / name).write_text('unrelated software secret')
+        self.assertEqual(ssh.status()['keys'], [])
+        with patch('builtins.input') as ask, self.assertRaises(ValueError):
+            ssh.do_remove(ssh.key_reference(self.target, name))
+        ask.assert_not_called()
 
-    def test_git_remote_recognizes_git_hosts_only(self):
-        self.assertEqual(ssh.git_remote('ssh:github.com'), ('git', 'github.com', None))
-        self.assertEqual(ssh.git_remote('ssh:GitLab.com'), ('git', 'gitlab.com', None))
-        self.assertEqual(ssh.git_remote('ssh:bitbucket.org'), ('git', 'bitbucket.org', None))
-        self.assertEqual(ssh.git_remote('ssh://forge' + AT + 'git.example.com:2222'), ('forge', 'git.example.com', '2222'))
-        self.assertEqual(ssh.git_remote('ssh:gitea.example.net'), ('git', 'gitea.example.net', None))
-        for value in (None, '', 'ssh:', 'github.com', 'ssh:alice', 'ssh:example.com', 'ssh:host.git',
-                      'ssh:github.com:99999', 'ssh:github.com\nHost *', 'ssh:github.com IdentityAgent x'):
-            self.assertIsNone(ssh.git_remote(value), value)
+    def test_git_remote_is_allowlisted_and_validates_login_port(self):
+        for value, expected in [('ssh:github.com', ('git', 'github.com', None)),
+                                ('ssh://forge' + '@' + 'git.example.com:2222', ('forge', 'git.example.com', '2222'))]:
+            self.assertEqual(ssh.git_remote(value), expected)
+        for value in [None, 'ssh:', 'ssh:example.com', 'ssh:github.com:99999', 'ssh:github.com\nHost *',
+                      'ssh:github.com IdentityAgent x']:
+            self.assertIsNone(ssh.git_remote(value))
 
-    def test_key_remote_reads_the_application_and_ignores_the_user_id(self):
-        hexid = 'ab' * 32
-        keys = {
-            'id_ed25519_sk_rk': ('ssh:', None),
-            'id_ed25519_sk_rk_git.example.org_' + hexid: ('ssh:git.example.org', ('git', 'git.example.org', None)),
-            'id_ed25519_sk_rk_github.com': ('ssh:github.com', ('git', 'github.com', None)),
-            'id_ed25519_sk_rk_github.com_alice': ('ssh:github.com', ('git', 'github.com', None)),
-            'id_ed25519_sk_rk_git' + AT + 'github.com': ('ssh:', None),
-            'id_ed25519_sk_rk_example.com_alice': ('ssh:example.com', None),
-        }
-        for name, (value, _) in keys.items():
-            self.resident(self.target, name, value)
-        for name, (_, remote) in keys.items():
-            self.assertEqual(ssh.key_remote(self.target, name), remote, name)
-        self.assertIsNone(ssh.key_remote(self.target, 'id_ed25519_sk_rk_missing'))
-
-    def test_drop_in_uses_the_keys_without_the_agent(self):
-        self.target.mkdir()
-        names = ['id_ed25519_sk_rk_github.com', 'id_ed25519_sk_rk_github.com_alice']
-        self.assertTrue(ssh.write_drop_in(self.target, names, ('git', 'github.com', None), 15))
-        drop_in = self.target / 'config.d' / 'github.com.conf'
-        self.assertEqual(drop_in.read_text(), (
-            '# Created by omarchy-yubikey for resident SSH keys.\n'
-            'Host github.com\n    User git\n'
-            '    IdentityFile ~/.ssh/id_ed25519_sk_rk_github.com\n'
-            '    IdentityFile ~/.ssh/id_ed25519_sk_rk_github.com_alice\n'
-            '    IdentitiesOnly yes\n    IdentityAgent none\n'
-            '    ControlMaster auto\n    ControlPath ~/.ssh/control/%C\n    ControlPersist 15m\n'))
-        self.assertEqual(stat.S_IMODE(drop_in.stat().st_mode), 0o600)
-        self.assertEqual(stat.S_IMODE((self.target / 'control').stat().st_mode), 0o700)
-        self.assertFalse(ssh.write_drop_in(self.target, ['other'], ('git', 'github.com', None), 0))
-        self.assertIn('ControlPersist', drop_in.read_text())
-        ssh.write_drop_in(self.target, ['id_ed25519_sk_rk_x'], ('forge', 'git.example.com', '2222'), 0)
-        text = (self.target / 'config.d' / 'git.example.com.conf').read_text()
-        self.assertIn('    User forge\n    Port 2222\n', text)
-        self.assertNotIn('Control', text)
-
-    def test_include_goes_on_top_and_keeps_the_config(self):
-        self.target.mkdir()
-        config = self.target / 'config'
-        self.assertFalse(ssh.includes_drop_ins(config))
-        ssh.add_include(config)
-        self.assertEqual(config.read_text(), 'Include config.d/*.conf\n')
-        self.assertEqual(stat.S_IMODE(config.stat().st_mode), 0o600)
-        config.write_text('Host example\n    User alice\n')
-        config.chmod(0o640)
-        ssh.add_include(config)
-        self.assertEqual(config.read_text(), 'Include config.d/*.conf\n\nHost example\n    User alice\n')
-        self.assertEqual(stat.S_IMODE(config.stat().st_mode), 0o640)
-        self.assertTrue(ssh.includes_drop_ins(config))
-        config.write_text('  include ~/.ssh/config.d/*\n')
-        self.assertTrue(ssh.includes_drop_ins(config))
-
-    def test_import_offers_one_drop_in_per_git_host(self):
-        def call(command, cwd, timeout):
-            self.resident(Path(cwd), 'id_ed25519_sk_rk')
-            self.resident(Path(cwd), 'id_ed25519_sk_rk_github.com', 'ssh:github.com')
-            self.resident(Path(cwd), 'id_ed25519_sk_rk_github.com_alice', 'ssh:github.com')
-            self.resident(Path(cwd), 'id_ed25519_sk_rk_git.example.org_' + 'cd' * 32, 'ssh:git.example.org')
-            return 0
-        # git.example.org: yes, 0 minutes; github.com: yes, default; Include: yes.
-        with patch.object(ssh.subprocess, 'call', side_effect=call), patch('builtins.print'), \
-                patch('builtins.input', side_effect=['y', '0', 'y', '', 'y']) as asked:
-            ssh.do_import()
-        self.assertEqual(asked.call_count, 5)
-        github = (self.target / 'config.d' / 'github.com.conf').read_text()
-        self.assertEqual(github.count('IdentityFile'), 2)
-        self.assertIn('ControlPersist 15m', github)
-        self.assertNotIn('Control', (self.target / 'config.d' / 'git.example.org.conf').read_text())
-        self.assertEqual(sorted(p.name for p in (self.target / 'config.d').iterdir()),
-                         ['git.example.org.conf', 'github.com.conf'])
-        self.assertTrue(ssh.includes_drop_ins(self.target / 'config'))
-
-    def test_import_offers_a_drop_in_for_a_kept_identical_copy(self):
-        name = 'id_ed25519_sk_rk_github.com'
-        self.resident(self.target, name, 'ssh:github.com')
-        (self.target / 'config').write_text('Include config.d/*.conf\n')
-        with patch.object(ssh.subprocess, 'call', side_effect=lambda command, cwd, timeout: self.resident(Path(cwd), name, 'ssh:github.com') or 0), \
-                patch('builtins.print'), patch('builtins.input', side_effect=['y', '0']):
-            ssh.do_import()
-        self.assertNotIn('Control', (self.target / 'config.d' / 'github.com.conf').read_text())
-
-    def test_status_describes_keys_without_names(self):
-        import subprocess
-        names = ['id_ecdsa_sk_rk_github.com', 'id_ed25519_sk_rk_github.com_alice']
-        self.resident(self.target, names[0], 'ssh:github.com')
-        (self.target / (names[0] + '.pub')).write_text('sk-ecdsa-sha2-nistp256' + AT + 'openssh.com AAAA ssh:github.com\n')
-        self.resident(self.target, names[1], 'ssh:github.com')
-        (self.target / (names[1] + '.pub')).write_text('sk-ssh-ed25519' + AT + 'openssh.com AAAA ssh:github.com\n')
-        # Real OpenSSH private key files: one encrypted, one not.
-        for name, passphrase in ((names[0], ''), (names[1], 'synthetic')):
-            (self.target / name).unlink()
-            subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', passphrase, '-C', '', '-f', str(self.base / name)], check=True)
-            (self.base / name).replace(self.target / name)
-        ssh.write_drop_in(self.target, [names[1]], ('git', 'github.com', None), 0)
+    def test_status_exposes_public_identity_and_no_filename(self):
+        name = 'id_ed25519_sk_rk_private-user-id'
+        self.resident(self.target, name)
         value = ssh.status()
-        self.assertEqual(value, {'count': 2, 'keys': [{'type': 'ecdsa-sk', 'passphrase': False, 'host': False},
-                                                       {'type': 'ed25519-sk', 'passphrase': True, 'host': True}]})
-        self.assertNotIn('github', repr(value))
-        self.assertNotIn('alice', repr(value))
+        self.assertEqual(value['count'], 1)
+        key = value['keys'][0]
+        self.assertEqual(key['application'], 'ssh:github.com')
+        self.assertEqual(key['type'], 'ed25519-sk')
+        self.assertRegex(key['fingerprint'], r'^SHA256:[A-Za-z0-9+/]{43}$')
+        self.assertRegex(key['id'], r'^[0-9a-f]{64}$')
+        self.assertNotIn('private-user-id', repr(value))
+        self.assertNotIn('synthetic private handle', repr(value))
 
-    def test_remove_by_index_names_the_file_and_still_asks(self):
-        names = ['id_ed25519_sk_rk_a', 'id_ed25519_sk_rk_b']
-        for name in names:
-            self.resident(self.target, name)
-        with patch('builtins.input', side_effect=['n']) as asked, patch('builtins.print') as printed:
-            ssh.do_remove(2)
-        self.assertEqual(asked.call_count, 1)
-        self.assertIn('~/.ssh/id_ed25519_sk_rk_b', ' '.join(str(call) for call in printed.call_args_list))
-        with patch('builtins.input', side_effect=['y']), patch('builtins.print'):
-            ssh.do_remove(2)
-        self.assertEqual(ssh.resident_keys(self.target), ['id_ed25519_sk_rk_a'])
-        with patch('builtins.print'), self.assertRaises(ValueError):
-            ssh.do_remove(2)
-        self.assertEqual(ssh.resident_keys(self.target), ['id_ed25519_sk_rk_a'])
+    def test_real_openssh_passphrase_detection(self):
+        for passphrase in ['', 'synthetic']:
+            path = self.base / ('encrypted' if passphrase else 'plain')
+            subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', passphrase, '-f', str(path)], check=True)
+            self.assertEqual(ssh.has_passphrase(path), bool(passphrase))
 
-    def test_minutes_are_bounded(self):
-        for answer, minutes in (('', 15), ('0', 0), ('30', 30), ('1440', 1440)):
+    def test_symlinks_and_nonregular_files_are_not_read_or_replaced(self):
+        name = 'id_ed25519_sk_rk_a'
+        self.resident(self.target, name)
+        (self.target / (name + '.pub')).unlink()
+        (self.target / (name + '.pub')).symlink_to(self.base / 'elsewhere')
+        self.assertEqual(ssh.status()['keys'], [])
+        config = self.target / 'config'
+        config.symlink_to(self.base / 'elsewhere')
+        with self.assertRaises(OSError):
+            ssh.config_text(self.target)
+        fifo = self.target / 'fifo'
+        os.mkfifo(fifo)
+        with self.assertRaises(ValueError):
+            ssh.read_file(fifo)
+
+    def test_global_include_is_added_despite_conditional_include_and_preserves_text(self):
+        original = 'Host internal.example\n    Include config.d/*.conf\n    User alice\n'
+        result = ssh.include_text(original)
+        self.assertTrue(result.startswith(ssh.INCLUDE + '\n'))
+        self.assertIn(original, result)
+        self.assertEqual(ssh.include_text(result), result)
+        scoped = 'Host internal.example\n    ' + ssh.INCLUDE + '\n'
+        self.assertEqual(ssh.include_text(scoped).count(ssh.INCLUDE), 1)
+
+    def test_zero_reuse_overrides_inherited_multiplexing(self):
+        name = 'id_ed25519_sk_rk_a'
+        hosts = {'github.com': {'remote': ['git', 'github.com', None], 'names': [name], 'minutes': 0}}
+        original = ('Host *\n    User original\n    IdentityAgent /synthetic-agent\n'
+                    '    ControlMaster auto\n    ControlPath /synthetic-socket\n    ControlPersist 900\n')
+        with patch('builtins.print'):
+            ssh.preview(self.target, hosts, ssh.managed_text(hosts), original)
+        text = ssh.drop_in_text([name], ('git', 'github.com', None), 0)
+        config = self.base / 'resolved'
+        config.write_text(text + original)
+        options = ssh.ssh_options(config, 'github.com')
+        self.assertIn('controlmaster false', options)
+        self.assertFalse(any(line.startswith('controlpath ') for line in options))
+        self.assertIn('controlpersist no', options)
+        self.assertIn('identityagent none', options)
+        self.assertIn('user git', options)
+        self.assertIn('user original', ssh.ssh_options(config, 'unrelated.example'))
+
+    def test_import_remove_reimport_restores_host_identity_line(self):
+        a, b = 'id_ed25519_sk_rk_a', 'id_ed25519_sk_rk_b'
+        for i, name in enumerate([a, b], 1):
+            self.resident(self.target, name, byte=i)
+        self.configure(a, b)
+        reference = ssh.key_reference(self.target, a)
+        with patch('builtins.input', side_effect=['y', 'y']), patch('builtins.print'):
+            ssh.do_remove(reference)
+        hosts, _, modified = ssh.load_managed(self.target)
+        self.assertFalse(modified)
+        self.assertEqual(hosts['github.com']['names'], [b])
+        self.resident(self.target, a)
+        with patch('builtins.input', side_effect=['y', 'y']), patch('builtins.print'):
+            ssh.offer_drop_ins(self.target, [a, b])
+        hosts, _, _ = ssh.load_managed(self.target)
+        self.assertEqual(hosts['github.com']['names'], [a, b])
+
+    def test_removal_reference_survives_reordering_and_rejects_replaced_public_key(self):
+        selected = 'id_ed25519_sk_rk_z'
+        self.resident(self.target, selected)
+        reference = ssh.key_reference(self.target, selected)
+        self.resident(self.target, 'id_ed25519_sk_rk_a', byte=2)
+        with patch('builtins.input', return_value='y'), patch('builtins.print'):
+            ssh.do_remove(reference)
+        self.assertTrue((self.target / 'id_ed25519_sk_rk_a').exists())
+        self.resident(self.target, selected, byte=3)
+        with patch('builtins.input') as ask, self.assertRaises(ValueError):
+            ssh.do_remove(reference)
+        ask.assert_not_called()
+        self.assertTrue((self.target / selected).exists())
+
+    def test_key_changed_while_confirmation_is_open_is_not_deleted(self):
+        name = 'id_ed25519_sk_rk_a'
+        self.resident(self.target, name)
+        reference = ssh.key_reference(self.target, name)
+        def answer(_):
+            (self.target / name).write_text('changed')
+            return 'y'
+        with patch('builtins.input', side_effect=answer), patch('builtins.print'), self.assertRaises(ValueError):
+            ssh.do_remove(reference)
+        self.assertEqual((self.target / name).read_text(), 'changed')
+
+    def test_manually_edited_managed_file_requires_typed_replacement(self):
+        name = 'id_ed25519_sk_rk_a'
+        self.resident(self.target, name)
+        hosts = self.configure(name)
+        path = self.target / ssh.MANAGED
+        path.write_text(path.read_text() + '# hand edit\n')
+        _, previous, modified = ssh.load_managed(self.target)
+        self.assertTrue(modified)
+        self.assertTrue(ssh.status()['modified'])
+        with patch('builtins.input', return_value='y'), patch('builtins.print'):
+            self.assertFalse(ssh.save_hosts(self.target, hosts, previous, modified))
+        self.assertIn('# hand edit', path.read_text())
+        with patch('builtins.input', return_value='REPLACE'), patch('builtins.print'):
+            self.assertTrue(ssh.save_hosts(self.target, hosts, previous, modified))
+        self.assertFalse(ssh.load_managed(self.target)[2])
+
+    def test_rejected_ssh_config_never_gets_written(self):
+        name = 'id_ed25519_sk_rk_a'
+        self.resident(self.target, name)
+        (self.target / 'config').write_text('UnknownSyntheticDirective yes\n')
+        hosts = {'github.com': {'remote': ['git', 'github.com', None], 'names': [name], 'minutes': 0}}
+        with patch('builtins.input') as ask, patch('builtins.print'), self.assertRaises(ValueError):
+            ssh.save_hosts(self.target, hosts, '')
+        ask.assert_not_called()
+        self.assertFalse((self.target / ssh.MANAGED).exists())
+        self.assertEqual((self.target / 'config').read_text(), 'UnknownSyntheticDirective yes\n')
+
+    def test_failed_include_write_can_be_finished_by_repeating_import(self):
+        name = 'id_ed25519_sk_rk_a'
+        self.resident(self.target, name)
+        main = 'Host unrelated.example\n    User original\n'
+        (self.target / 'config').write_text(main)
+        original = ssh.replace_text
+        def replace(path, *args, **kwargs):
+            if path == self.target / 'config':
+                raise OSError('synthetic interrupted write')
+            return original(path, *args, **kwargs)
+        with patch.object(ssh, 'replace_text', side_effect=replace), \
+                patch('builtins.input', side_effect=['y', '0', 'y']), patch('builtins.print'), self.assertRaises(OSError):
+            ssh.offer_drop_ins(self.target, [name])
+        self.assertTrue((self.target / ssh.MANAGED).exists())
+        self.assertEqual((self.target / 'config').read_text(), main)
+        self.assertFalse(ssh.status()['keys'][0]['host'])
+        with patch('builtins.input', return_value='y'), patch('builtins.print'):
+            ssh.offer_drop_ins(self.target, [name])
+        self.assertTrue((self.target / 'config').read_text().startswith(ssh.INCLUDE + '\n'))
+        self.assertIn(main, (self.target / 'config').read_text())
+        self.assertTrue(ssh.status()['keys'][0]['host'])
+
+    def test_fresh_configuration_can_enable_reuse_and_preserves_main_mode(self):
+        name = 'id_ed25519_sk_rk_a'
+        self.resident(self.target, name)
+        config = self.target / 'config'
+        config.write_text('Host unrelated.example\n    User original\n')
+        config.chmod(0o640)
+        with patch('builtins.input', side_effect=['y', '15', 'y']), patch('builtins.print'):
+            ssh.offer_drop_ins(self.target, [name])
+        self.assertEqual(stat.S_IMODE(config.stat().st_mode), 0o640)
+        hosts, text, modified = ssh.load_managed(self.target)
+        self.assertEqual(hosts['github.com']['minutes'], 15)
+        self.assertIn('ControlPersist 15m', text)
+        self.assertFalse(modified)
+        before = config.read_bytes(), (self.target / ssh.MANAGED).read_bytes()
+        with patch('builtins.input') as ask:
+            ssh.offer_drop_ins(self.target, [name])
+        ask.assert_not_called()
+        self.assertEqual(before, (config.read_bytes(), (self.target / ssh.MANAGED).read_bytes()))
+
+    def test_minutes_default_to_no_reuse_and_are_bounded(self):
+        for answer, expected in [('', 0), ('0', 0), ('15', 15), ('1440', 1440)]:
             with patch('builtins.input', return_value=answer):
-                self.assertEqual(ssh.ask_minutes(), minutes)
-        for answer in ('-1', '1441', '1.5', 'x'):
+                self.assertEqual(ssh.ask_minutes(), expected)
+        for answer in ['-1', '1441', '0.1', 'x']:
             with patch('builtins.input', return_value=answer), self.assertRaises(ValueError):
                 ssh.ask_minutes()
 
-    def test_remove_takes_the_key_out_of_its_drop_in(self):
-        names = ['id_ed25519_sk_rk_github.com', 'id_ed25519_sk_rk_github.com_alice']
-        for name in names:
-            self.resident(self.target, name, 'ssh:github.com')
-        ssh.write_drop_in(self.target, names, ('git', 'github.com', None), 15)
-        drop_in = self.target / 'config.d' / 'github.com.conf'
-        (self.target / 'config.d' / 'mine.conf').write_text('Host example\n    IdentityFile ~/.ssh/id_ed25519_sk_rk_github.com\n')
-        with patch('builtins.input', side_effect=['2', 'y']), patch('builtins.print'):
-            ssh.do_remove()
-        self.assertEqual(drop_in.read_text().count('IdentityFile'), 1)
-        self.assertNotIn('_alice', drop_in.read_text())
-        self.assertEqual(stat.S_IMODE(drop_in.stat().st_mode), 0o600)
-        with patch('builtins.input', side_effect=['1', 'y']), patch('builtins.print'):
-            ssh.do_remove()
-        self.assertEqual([p.name for p in (self.target / 'config.d').iterdir()], ['mine.conf'])
-        self.assertFalse(any((self.target / name).exists() for name in names))
+    def test_overlapping_operations_are_rejected(self):
+        with ssh.operation_lock(self.target):
+            with self.assertRaises(ValueError):
+                with ssh.operation_lock(self.target):
+                    pass
+
 
 if __name__ == '__main__':
     unittest.main()

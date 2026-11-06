@@ -3,17 +3,21 @@
 ## Unreleased
 
 - Import the OpenPGP key stored on a connected card into the account's GnuPG
-  keyring (card URL, then keyservers), link it to the card, trust it, or remove
-  it again; removal refuses while gpg keeps a secret part on disk. The window
-  receives only status flags.
+  keyring after matching all populated card fingerprints in an isolated staging
+  keyring. Report actual card links per slot, local secrets, revocation and
+  expiry; keep ownertrust separate. Removal refuses local secret material and
+  rechecks after confirmation.
 - Copy the resident SSH keys of the security key into `~/.ssh` (`ssh-keygen -K`
-  in a private directory, never over an existing file) and remove a copy again,
-  from the Security keys page. The window receives only a file count.
-- When a resident key's application names a git host (`application=ssh:github.com`),
-  the SSH import offers a `~/.ssh/config.d/<host>.conf` drop-in that uses the keys
-  for that host without the SSH agent, with an optional `ControlPersist` (default
-  15 minutes), and the `Include` in `~/.ssh/config` that drop-ins need. Removing a
-  copy takes its key out of the drop-in.
+  in a private directory, never over an existing file). Require matching key
+  pairs and remove by stable identity with a post-confirmation file check.
+- Manage opted-in Git hosts in `~/.ssh/omarchy-yubikey/config` with a global
+  Include, effective `ssh -G` previews, manual-edit detection and reviewed
+  updates on import/removal/reimport. Connection reuse defaults to off and
+  explicitly overrides inherited multiplexing settings.
+- Show bounded, selectable public fingerprints and SSH applications, with
+  OpenPGP name/email hidden until requested. Keep card serials, filenames and
+  credential handles outside the window.
+- Resolve the bundled setup translation loader explicitly on Omarchy 4.5.
 
 ## 0.4.0 — 2026-11-04
 

@@ -14,11 +14,13 @@ FIXTURE = {'supported': True, 'connected': 1, 'enrollment': {'count': 2, 'state'
            'polkit': {'state': 'configured', 'pin': True}, 'lock': {'state': 'configured', 'pin': True},
            'plugins': {'lock': {'installed': True, 'enabled': True}, 'polkit': {'installed': True, 'enabled': True}},
            'keyring': {'installed': True, 'state': 'enrolled', 'count': 2, 'unit': True, 'autostart': 'enabled'},
-           'openpgp': {'card': True, 'imported': True, 'linked': True, 'trusted': False,
+           'openpgp': {'card': True, 'imported': True, 'linked': True, 'trusted': False, 'ready': True,
+                       'slots': {role: {'present': True, 'linked': True, 'ready': True, 'location': 'card'}
+                                 for role in ('sign', 'encrypt', 'authenticate')},
                        'key': {'algorithm': 'ed25519', 'sign': True, 'encrypt': True, 'authenticate': True,
-                               'expires': '2030-01-01', 'expired': False, 'uids': 2}},
-           'ssh': {'count': 2, 'keys': [{'type': 'ed25519-sk', 'passphrase': True, 'host': True},
-                                        {'type': 'ecdsa-sk', 'passphrase': False, 'host': False}]},
+                               'expires': '2030-01-01', 'expired': False, 'uids': 2, 'fingerprint': 'A' * 64, 'uid': 'Synthetic User'}},
+           'ssh': {'count': 2, 'keys': [{'id': 'a' * 64, 'type': 'ed25519-sk', 'passphrase': True, 'host': True, 'application': 'ssh:github.com', 'fingerprint': 'SHA256:' + 'A' * 43},
+                                        {'id': 'b' * 64, 'type': 'ecdsa-sk', 'passphrase': False, 'host': False, 'application': 'ssh:', 'fingerprint': 'SHA256:' + 'B' * 43}]},
            'operation': {}, 'diskReady': True}
 
 

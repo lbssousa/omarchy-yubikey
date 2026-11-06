@@ -22,27 +22,33 @@ test('untrusted status cannot enable operations or inject text', () => {
   assert.equal(value.sudo.state,'not-configured');
   assert.deepEqual(value.operation,{action:'',phase:''});
 });
-test('OpenPGP status keeps only its flags and a non-identifying key summary', () => {
-  const result = model.cleanSnapshot({schema:1,ok:true,openpgp:{card:true,imported:'true',linked:true,trusted:false,fingerprint:'private-value',key:{algorithm:'ed25519'}}});
-  assert.deepEqual(result.openpgp, {card:true,imported:false,linked:true,trusted:false,key:null});
-  assert.equal(JSON.stringify(result).includes('private-value'), false);
-  assert.deepEqual(model.cleanSnapshot({schema:1,ok:true}).openpgp, {card:false,imported:false,linked:false,trusted:false,key:null});
-  const key = {algorithm:'ed25519',sign:true,encrypt:'yes',authenticate:true,expires:'2030-01-01',expired:false,uids:7,uid:'private-value'};
-  assert.deepEqual(model.cleanSnapshot({schema:1,ok:true,openpgp:{card:true,imported:true,key:key}}).openpgp.key,
-    {algorithm:'ed25519',expires:'2030-01-01',expired:false,uids:7,sign:true,encrypt:false,authenticate:true});
-  const hostile = model.cleanSnapshot({schema:1,ok:true,openpgp:{card:true,imported:true,key:{algorithm:'private-value',expires:'private-value',uids:-3}}});
-  assert.deepEqual([hostile.openpgp.key.algorithm, hostile.openpgp.key.expires, hostile.openpgp.key.uids], ['other','',0]);
-  assert.deepEqual(model.parameters('openpgp-import','',''), []);
+test('OpenPGP keeps bounded public identity and per-slot state without card serials', () => {
+  const key = {algorithm:'ed25519', fingerprint:'A'.repeat(40), uid:'<b>Public</b>\u202e'+'x'.repeat(300),
+    sign:true, encrypt:'yes', authenticate:false, revoked:true, serial:'private-value'};
+  const value = model.cleanSnapshot({schema:1,ok:true,openpgp:{card:true,imported:true,ready:false,
+    key:key,slots:{sign:{present:true,location:'disk',ready:false,serial:'private-value'}}}}).openpgp;
+  assert.equal(value.key.fingerprint, 'A'.repeat(40));
+  assert.equal(value.key.uid.length,256);
+  assert.equal(value.key.uid.includes('\u202e'),false);
+  assert.equal(value.key.encrypt,false);
+  assert.equal(value.key.revoked,true);
+  assert.equal(value.slots.sign.location,'disk');
+  assert.equal(JSON.stringify(value).includes('private-value'),false);
+  assert.equal(model.cleanSnapshot({schema:1,ok:true,openpgp:{imported:true,key:{fingerprint:'bad'}}}).openpgp.key.fingerprint,'');
+  assert.deepEqual(model.parameters('openpgp-import','',''),[]);
 });
-test('SSH status keeps a count and per-key type and flags, never names', () => {
-  assert.deepEqual(model.cleanSnapshot({schema:1,ok:true,ssh:{count:2,names:['private-value']}}).ssh, {count:2,keys:[]});
-  assert.deepEqual(model.cleanSnapshot({schema:1,ok:true,ssh:{count:-1}}).ssh, {count:0,keys:[]});
-  const keys = [{type:'ed25519-sk',passphrase:true,host:'yes',name:'private-value'}, null, {type:'private-value'}];
-  const ssh = model.cleanSnapshot({schema:1,ok:true,ssh:{count:3,keys:keys}}).ssh;
-  assert.deepEqual(ssh.keys, [{type:'ed25519-sk',passphrase:true,host:false},{type:'other',passphrase:false,host:false},{type:'other',passphrase:false,host:false}]);
-  assert.equal(JSON.stringify(ssh).includes('private-value'), false);
-  assert.equal(model.cleanSnapshot({schema:1,ok:true,ssh:{count:99,keys:new Array(80).fill({})}}).ssh.keys.length, 50);
-  assert.deepEqual(model.parameters('ssh-import','',''), []);
-  assert.deepEqual(model.parameters('ssh-remove','','',2), ['--index','2']);
-  for (const index of [undefined, 0, 51, '1 --x', '02', 'id_ed25519_sk_rk']) assert.equal(model.parameters('ssh-remove','','',index), null);
+test('SSH exposes public metadata but removal requires an exact stable key reference', () => {
+  const id = 'a'.repeat(64), fingerprint = 'SHA256:'+'A'.repeat(43);
+  const source = {schema:1,ok:true,ssh:{count:2,keys:[
+    {id:id,type:'ed25519-sk',application:'ssh:github.com',fingerprint:fingerprint,passphrase:true,host:true,name:'private-value'},
+    {id:'1',name:'private-value'},null]}};
+  const value = model.cleanSnapshot(source).ssh;
+  assert.equal(value.keys.length,1);
+  assert.equal(value.keys[0].application,'ssh:github.com');
+  assert.equal(value.keys[0].fingerprint,fingerprint);
+  assert.equal(JSON.stringify(value).includes('private-value'),false);
+  assert.equal(model.cleanSnapshot({schema:1,ok:true,ssh:{keys:new Array(80).fill({id:id})}}).ssh.keys.length,50);
+  assert.deepEqual(model.parameters('ssh-remove','','',id),['--key-id',id]);
+  for (const id of [undefined,0,1,51,'1 --x','02','A'.repeat(64)]) assert.equal(model.parameters('ssh-remove','','',id),null);
+  assert.deepEqual(model.parameters('ssh-import','',''),[]);
 });

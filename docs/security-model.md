@@ -121,6 +121,16 @@ as the account user, with sudo requested only by the selected installer/tool.
 A private state directory, lock and expiring launch ticket coordinate operations.
 They are not a defense against arbitrary code already running as that user.
 
+The OpenPGP/SSH cards additionally show bounded public fingerprints and SSH
+applications. An OpenPGP public user ID (name/email) is revealed only on request.
+Public text is rendered literally with control characters removed; public
+identity is not a PIN, private key or FIDO credential handle. SSH filenames,
+FIDO user IDs, card serials and URLs are kept out of the GUI. SSH removals use
+stable references and recheck the selected files, rather than trusting a row
+position. See [OpenPGP](openpgp.md) and [SSH](ssh.md) for import, deletion and
+connection-reuse semantics. Do not publish screenshots of public identities
+without reviewing their personal information.
+
 PAM key management changes only the selected account's mapping. Removal requires
 an exact, unambiguous reference, preserves at least one key, recalculates under
 the system configuration lock and uses existing transactional backups. Restore
