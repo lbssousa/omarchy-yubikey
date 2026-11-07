@@ -326,7 +326,8 @@ class SshKeyTests(unittest.TestCase):
                 patch('builtins.input', side_effect=answers), patch('builtins.print') as printed, \
                 patch.object(ssh, 'offer_drop_ins') as offered, \
                 patch.object(ssh.getpass, 'getuser', return_value='alice'), \
-                patch.object(ssh.socket, 'gethostname', return_value='laptop'):
+                patch.object(ssh.socket, 'gethostname', return_value='laptop'), \
+                patch.object(ssh.secrets, 'token_hex', return_value='0123456789abcdef'):
             ssh.do_create()
         return calls, offered, ' '.join(str(c) for c in printed.call_args_list)
 
@@ -343,10 +344,23 @@ class SshKeyTests(unittest.TestCase):
         self.assertIn('SHA256:', output)
         self.assertIn('sk-ssh-ed25519', output)
         offered.assert_called_once_with(self.target, [name])
-        calls, _, _ = self.create(['ecdsa-sk', '', '', 'n', 'n', 'test key', 'y'], byte=8)
+        calls, _, _ = self.create(['ecdsa-sk', '', '-', 'n', 'n', 'test key', 'y'], byte=8)
         self.assertEqual(calls[0][:-1], ['ssh-keygen', '-t', 'ecdsa-sk', '-O', 'resident', '-O', 'application=ssh:',
                                          '-O', 'no-touch-required', '-C', 'test key', '-f'])
         self.assertEqual(Path(calls[0][-1]).name, 'id_ecdsa_sk_rk')
+
+    def test_create_suggests_a_random_user_id(self):
+        # Enter keeps the suggestion, so two keys for one application never collide.
+        calls, _, output = self.create(['', 'github.com', '', '', '', '', 'y'])
+        self.assertIn('user=0123456789abcdef', calls[0])
+        self.assertEqual(Path(calls[0][-1]).name, 'id_ed25519_sk_rk_github.com_0123456789abcdef')
+        self.assertTrue((self.target / 'id_ed25519_sk_rk_github.com_0123456789abcdef').is_file())
+        self.assertNotIn('replaces any other key', output)
+        # "-" opts out and warns that it may replace a key without a user ID.
+        calls, _, output = self.create(['', 'github.com', '-', '', '', '', 'y'], byte=9)
+        self.assertFalse(any(option.startswith('user=') for option in calls[0]))
+        self.assertIn('replaces any other key', output)
+        self.assertEqual(len(ssh.secrets.token_hex(8)), 16)
 
     def test_create_names_files_as_ssh_keygen_download_does(self):
         self.assertEqual(ssh.handle_name('ed25519-sk', '', ''), 'id_ed25519_sk_rk')
@@ -379,7 +393,7 @@ class SshKeyTests(unittest.TestCase):
         name = 'id_ed25519_sk_rk_github.com'
         self.resident(self.target, name, byte=9)
         before = (self.target / (name + '.pub')).read_text()
-        calls, offered, output = self.create(['', 'github.com', '', '', '', '', 'y'])
+        calls, offered, output = self.create(['', 'github.com', '-', '', '', '', 'y'])
         self.assertEqual(len(calls), 1)
         self.assertEqual((self.target / (name + '.pub')).read_text(), before)
         self.assertIn('security key only', output)
