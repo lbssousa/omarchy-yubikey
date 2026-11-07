@@ -71,6 +71,11 @@ class ControlTests(unittest.TestCase):
         for arguments in ({'key_id': reference}, {'device': '/dev/example'}, {'backup': '20261104-120000-abcdef01'}):
             with self.assertRaises(ValueError):
                 control.command_plan('ssh-create', **arguments)
+        self.assertEqual(control.command_plan('ssh-delete', key_id=reference),
+                         [[control.sys.executable, script, 'delete', '--key-id', reference]])
+        for key_id in ('', 'A' * 64, '1 --x'):
+            with self.assertRaises(ValueError):
+                control.command_plan('ssh-delete', key_id=key_id)
         self.assertEqual(control.command_plan('ssh-remove', key_id=reference),
                          [[control.sys.executable, script, 'remove', '--key-id', reference]])
         for key_id in ('', '1', '03', '1 --x', '-1', 'id_ed25519_sk_rk', 'A' * 64):

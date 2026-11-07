@@ -28,7 +28,7 @@ Polkit and helper catalogs still support all 50 Omarchy languages.
 | Page | Status and actions |
 | --- | --- |
 | Overview | Current account's PAM enrollment count, connected FIDO2-device count, sudo policy, desktop plugin and Keyring status; guided setup |
-| Security keys | Add a PIN-protected PAM backup key or remove one registration; import, trust or remove the OpenPGP key of a connected card ([OpenPGP card](openpgp.md)); create a resident SSH key, copy resident SSH keys or remove a copy ([SSH](ssh.md)); guides to separate Keyring/LUKS enrollments and signed transfer |
+| Security keys | Add a PIN-protected PAM backup key or remove one registration; import, trust or remove the OpenPGP key of a connected card ([OpenPGP card](openpgp.md)); create a resident SSH key, copy resident SSH keys, remove a copy or permanently delete a resident key from the security key ([SSH](ssh.md)); guides to separate Keyring/LUKS enrollments and signed transfer |
 | Desktop | Set up or test sudo; configure the included lock/Polkit plugins; switch back to stock plugins while unlocked |
 | Keyring | Install the optional Rust helper; preserve existing enrollments; add a backup key; test decryption; unlock; enable/disable an installed login service |
 | Disk & recovery | Check/enroll an explicitly entered existing LUKS2 device; open the boot guide; list system PAM backup IDs and restore one selected backup |
