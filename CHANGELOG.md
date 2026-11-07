@@ -16,8 +16,9 @@
   credential is found by application and user ID with `fido2-token`.
 
 - Create resident SSH keys from the control center. **Create SSH key** opens a
-  terminal wizard for the algorithm, application, user ID, PIN and touch
-  requirements and comment, shows the `ssh-keygen` command before running it,
+  terminal wizard for the algorithm, application, user ID (a random one by
+  default, so keys for the same application do not replace each other), PIN
+  and touch requirements and comment, shows the `ssh-keygen` command before running it,
   installs the handle like an imported one, prints the public key and offers the
   Git-host configuration.
 

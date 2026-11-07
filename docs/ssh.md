@@ -32,7 +32,7 @@ rejected. Existing directory permissions are not silently relaxed or changed.
 | --- | --- | --- |
 | Algorithm | `ed25519-sk`; `ecdsa-sk` for keys without Ed25519 (YubiKey firmware before 5.2.3) | `-t` |
 | Application | empty (`ssh:`); a name or host such as `github.com` | `-O application=ssh:<value>` |
-| User ID | empty; tells apart several keys for the same application | `-O user=<value>` |
+| User ID | a random 16-character hexadecimal value; type your own, or `-` for none. Without a user ID, `ssh-keygen` sends 32 zero bytes, so every such key for the same application replaces the previous one | `-O user=<value>` |
 | PIN for every use | yes | `-O verify-required` |
 | Touch for every use | yes; no adds `-O no-touch-required`, which `sshd` refuses unless `authorized_keys` allows it | `-O no-touch-required` |
 | Comment | `<user>@<hostname>` | `-C` |
