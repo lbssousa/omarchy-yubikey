@@ -16,6 +16,7 @@ import json
 import os
 from pathlib import Path
 import re
+import secrets
 import shlex
 import socket
 import stat
@@ -645,9 +646,16 @@ def ask_options():
     app = ask('Application (empty for plain "ssh:")')
     if not valid_application(app):
         raise ValueError('Use letters, digits and . _ - @ : in the application, without slashes or ".."')
+    # Without a user ID, ssh-keygen sends 32 zero bytes, so every such key for the
+    # same application would replace the previous one; suggest a random one.
+    suggested = secrets.token_hex(8)
     print('A user ID tells apart several keys for the same application. A new key with the same'
-          ' application and user ID replaces the old one on the security key.')
-    user = ask('User ID (optional)')
+          ' application and user ID replaces the old one on the security key, so a random one is'
+          ' suggested. Type your own (for example "work"), or "-" for none.')
+    user = ask('User ID', suggested)
+    if user == '-':
+        user = ''
+        print('Without a user ID, this key replaces any other key without one for the same application.')
     if not valid_user(user):
         raise ValueError('Use letters, digits and . _ - @ in the user ID, without slashes or ".."')
     verify = ask_yes('Require the FIDO2 PIN for every use?', True)
